@@ -1,0 +1,66 @@
+name: talk_ai
+description: "Talk AI — AI驱动的微信风格社交应用"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # 状态管理
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+
+  # 数据模型
+  freezed_annotation: ^2.4.4
+  json_annotation: ^4.9.0
+
+  # 数据库
+  sqflite: ^2.4.1
+  path: ^1.9.0
+  path_provider: ^2.1.5
+
+  # 网络
+  dio: ^5.8.0+1
+
+  # 路由
+  go_router: ^14.8.1
+
+  # 持久化
+  shared_preferences: ^2.3.5
+
+  # 文件选择
+  file_picker: ^8.1.7
+
+  # 图片
+  image_picker: ^1.1.2
+
+  # 工具
+  uuid: ^4.5.1
+
+  # 加密 (用于PNG角色卡base64解析)
+  crypto: ^3.0.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+  # 代码生成
+  build_runner: ^2.4.15
+  freezed: ^2.5.7
+  riverpod_generator: ^2.6.1
+  json_serializable: ^6.9.4
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/avatars/

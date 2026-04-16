@@ -1,0 +1,146 @@
+# ============================================================
+#  talk_ai — Flutter AI 聊天应用  .gitignore
+# ============================================================
+
+# ──────────────────────────────────────────
+# 【隐私 & 敏感数据】
+# ──────────────────────────────────────────
+# API 密钥 / 配置文件（绝对不要提交）
+*.env
+.env.*
+config/secrets.*
+lib/config/api_keys.dart
+api_keys.dart
+secrets.dart
+
+# 用户聊天数据库（SQLite）
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+
+# 角色卡 / 聊天记录导出
+*.json.bak
+chat_export/
+exports/
+
+# 用户头像 / 上传的本地图片缓存
+assets/avatars/*.png
+assets/avatars/*.jpg
+assets/avatars/*.jpeg
+assets/avatars/*.gif
+assets/avatars/*.webp
+# 保留占位符（如果有的话）
+!assets/avatars/.gitkeep
+
+# ──────────────────────────────────────────
+# 【Flutter / Dart 构建产物】
+# ──────────────────────────────────────────
+# Dart 工具缓存
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Pub 包缓存
+.pub-cache/
+.pub/
+pubspec.lock       # 可选：库项目去掉此行；App 项目通常提交 lock
+
+# 构建输出
+/build/
+**/build/
+/coverage/
+
+# 代码生成文件（freezed / json_serializable / riverpod_generator）
+# ⚠️  如果你希望不在 CI 跑 build_runner，则注释掉下面三行
+# *.freezed.dart
+# *.g.dart
+# *.gr.dart
+
+# Symbolication / 混淆
+app.*.symbols
+app.*.map.json
+
+# ──────────────────────────────────────────
+# 【Android】
+# ──────────────────────────────────────────
+android/.gradle/
+android/captures/
+android/local.properties
+android/app/debug/
+android/app/profile/
+android/app/release/
+android/GeneratedPluginRegistrant.java
+android/.cxx/
+
+# 签名密钥（绝对不要提交！）
+android/key.properties
+**/*.keystore
+**/*.jks
+
+# Gradle wrapper jar（可由 gradlew 自动下载）
+android/gradle/wrapper/gradle-wrapper.jar
+
+# ──────────────────────────────────────────
+# 【Windows】
+# ──────────────────────────────────────────
+windows/flutter/ephemeral/
+windows/x64/
+windows/x86/
+
+# Visual Studio 用户文件
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.[Cc]ache
+!*.[Cc]ache/
+
+# ──────────────────────────────────────────
+# 【IDE / 编辑器】
+# ──────────────────────────────────────────
+# IntelliJ / Android Studio
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# VS Code（按需取消注释）
+# .vscode/
+
+# ──────────────────────────────────────────
+# 【操作系统杂项】
+# ──────────────────────────────────────────
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# ──────────────────────────────────────────
+# 【日志 & 临时文件】
+# ──────────────────────────────────────────
+*.log
+*.swp
+*.tmp
+*.bak
+*.orig
+hs_err_pid*.log
+crash-*.log
+
+# ──────────────────────────────────────────
+# 【其他工具】
+# ──────────────────────────────────────────
+.history/
+.atom/
+.svn/
+migrate_working_dir/
+**/doc/api/

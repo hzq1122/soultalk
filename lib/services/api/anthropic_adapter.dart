@@ -1,0 +1,125 @@
+import 'dart:convert';
+import 'package:dio/dio.dart';
+import '../../models/api_config.dart';
+import '../../models/message.dart';
+import 'llm_service.dart';
+
+/// Anthropic 原生协议 Adapter
+class AnthropicAdapterImpl implements LlmService {
+  static const String _defaultBaseUrl = 'https://api.anthropic.com';
+  static const String _anthropicVersion = '2023-06-01';
+
+  String _normalizeUrl(String url) {
+    final base = url.isNotEmpty ? url : _defaultBaseUrl;
+    return base.endsWith('/') ? base.substring(0, base.length - 1) : base;
+  }
+
+  Dio _buildDio(ApiConfig config) => Dio(BaseOptions(
+        baseUrl: _normalizeUrl(config.baseUrl),
+        connectTimeout: const Duration(seconds: 30),
+        receiveTimeout: const Duration(seconds: 120),
+        headers: {
+          'x-api-key': config.apiKey,
+          'anthropic-version': _anthropicVersion,
+          'Content-Type': 'application/json',
+        },
+      ));
+
+  List<Map<String, String>> _buildMessages(List<Message> messages) {
+    return messages
+        .where((m) => m.role != MessageRole.system)
+        .map((m) => {
+              'role': m.role == MessageRole.user ? 'user' : 'assistant',
+              'content': m.content,
+            })
+        .toList();
+  }
+
+  @override
+  Future<String> sendMessage({
+    required ApiConfig config,
+    required List<Message> messages,
+    String? systemPrompt,
+  }) async {
+    final dio = _buildDio(config);
+    final body = <String, dynamic>{
+      'model': config.model,
+      'max_tokens': config.maxTokens,
+      'messages': _buildMessages(messages),
+    };
+    if (systemPrompt != null && systemPrompt.isNotEmpty) {
+      body['system'] = systemPrompt;
+    }
+
+    final response = await dio.post('/v1/messages', data: body);
+    final data = response.data as Map<String, dynamic>;
+    final content = data['content'] as List;
+    return content.first['text'] as String;
+  }
+
+  @override
+  Stream<String> sendMessageStream({
+    required ApiConfig config,
+    required List<Message> messages,
+    String? systemPrompt,
+  }) async* {
+    final dio = _buildDio(config);
+    final body = <String, dynamic>{
+      'model': config.model,
+      'max_tokens': config.maxTokens,
+      'messages': _buildMessages(messages),
+      'stream': true,
+    };
+    if (systemPrompt != null && systemPrompt.isNotEmpty) {
+      body['system'] = systemPrompt;
+    }
+
+    final response = await dio.post<ResponseBody>(
+      '/v1/messages',
+      data: body,
+      options: Options(responseType: ResponseType.stream),
+    );
+
+    // 行缓冲区：SSE 行可能被网络层截断到多个 chunk
+    final lineBuffer = StringBuffer();
+    await for (final chunk in response.data!.stream) {
+      lineBuffer.write(utf8.decode(chunk));
+
+      final raw = lineBuffer.toString();
+      final lastNl = raw.lastIndexOf('\n');
+      if (lastNl < 0) continue;
+
+      final completeLines = raw.substring(0, lastNl + 1);
+      lineBuffer.clear();
+      lineBuffer.write(raw.substring(lastNl + 1));
+
+      for (final line in completeLines.split('\n')) {
+        final trimmed = line.trim();
+        if (!trimmed.startsWith('data: ')) continue;
+        final jsonStr = trimmed.substring(6).trim();
+        if (jsonStr == '[DONE]') return;
+        try {
+          final json = jsonDecode(jsonStr) as Map<String, dynamic>;
+          final type = json['type'] as String?;
+          if (type == 'content_block_delta') {
+            final delta = json['delta'] as Map<String, dynamic>?;
+            final text = delta?['text'] as String?;
+            if (text != null && text.isNotEmpty) {
+              yield text;
+            }
+          }
+        } catch (_) {}
+      }
+    }
+  }
+
+  List<Map<String, String>> messagesToApiFormat(List<Message> messages) {
+    return messages
+        .where((m) => m.role != MessageRole.system)
+        .map((m) => {
+              'role': m.role == MessageRole.user ? 'user' : 'assistant',
+              'content': m.content,
+            })
+        .toList();
+  }
+}
