@@ -25,6 +25,8 @@ class ContactDao {
         'unread_count': contact.unreadCount,
         'last_message': contact.lastMessage,
         'last_message_at': contact.lastMessageAt?.toIso8601String(),
+        'proactive_enabled': contact.proactiveEnabled ? 1 : 0,
+        'last_proactive_at': contact.lastProactiveAt?.toIso8601String(),
         'created_at': contact.createdAt?.toIso8601String(),
         'updated_at': contact.updatedAt?.toIso8601String(),
       };
@@ -44,6 +46,10 @@ class ContactDao {
         lastMessage: map['last_message'] as String?,
         lastMessageAt: map['last_message_at'] != null
             ? DateTime.tryParse(map['last_message_at'] as String)
+            : null,
+        proactiveEnabled: (map['proactive_enabled'] as int? ?? 1) == 1,
+        lastProactiveAt: map['last_proactive_at'] != null
+            ? DateTime.tryParse(map['last_proactive_at'] as String)
             : null,
         createdAt: map['created_at'] != null
             ? DateTime.tryParse(map['created_at'] as String)

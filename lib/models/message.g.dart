@@ -17,6 +17,7 @@ _$MessageImpl _$$MessageImplFromJson(Map<String, dynamic> json) =>
           MessageType.text,
       isStreaming: json['isStreaming'] as bool? ?? false,
       tokenCount: (json['tokenCount'] as num?)?.toInt() ?? 0,
+      metadata: json['metadata'] as Map<String, dynamic>?,
       createdAt: json['createdAt'] == null
           ? null
           : DateTime.parse(json['createdAt'] as String),
@@ -31,6 +32,7 @@ Map<String, dynamic> _$$MessageImplToJson(_$MessageImpl instance) =>
       'type': _$MessageTypeEnumMap[instance.type]!,
       'isStreaming': instance.isStreaming,
       'tokenCount': instance.tokenCount,
+      'metadata': instance.metadata,
       'createdAt': instance.createdAt?.toIso8601String(),
     };
 
@@ -44,5 +46,6 @@ const _$MessageTypeEnumMap = {
   MessageType.text: 'text',
   MessageType.image: 'image',
   MessageType.transfer: 'transfer',
+  MessageType.delivery: 'delivery',
   MessageType.system: 'system',
 };

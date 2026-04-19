@@ -28,6 +28,7 @@ mixin _$Message {
   MessageType get type => throw _privateConstructorUsedError;
   bool get isStreaming => throw _privateConstructorUsedError;
   int get tokenCount => throw _privateConstructorUsedError;
+  Map<String, dynamic>? get metadata => throw _privateConstructorUsedError;
   DateTime? get createdAt => throw _privateConstructorUsedError;
 
   /// Serializes this Message to a JSON map.
@@ -52,6 +53,7 @@ abstract class $MessageCopyWith<$Res> {
     MessageType type,
     bool isStreaming,
     int tokenCount,
+    Map<String, dynamic>? metadata,
     DateTime? createdAt,
   });
 }
@@ -78,6 +80,7 @@ class _$MessageCopyWithImpl<$Res, $Val extends Message>
     Object? type = null,
     Object? isStreaming = null,
     Object? tokenCount = null,
+    Object? metadata = freezed,
     Object? createdAt = freezed,
   }) {
     return _then(
@@ -110,6 +113,10 @@ class _$MessageCopyWithImpl<$Res, $Val extends Message>
                 ? _value.tokenCount
                 : tokenCount // ignore: cast_nullable_to_non_nullable
                       as int,
+            metadata: freezed == metadata
+                ? _value.metadata
+                : metadata // ignore: cast_nullable_to_non_nullable
+                      as Map<String, dynamic>?,
             createdAt: freezed == createdAt
                 ? _value.createdAt
                 : createdAt // ignore: cast_nullable_to_non_nullable
@@ -136,6 +143,7 @@ abstract class _$$MessageImplCopyWith<$Res> implements $MessageCopyWith<$Res> {
     MessageType type,
     bool isStreaming,
     int tokenCount,
+    Map<String, dynamic>? metadata,
     DateTime? createdAt,
   });
 }
@@ -161,6 +169,7 @@ class __$$MessageImplCopyWithImpl<$Res>
     Object? type = null,
     Object? isStreaming = null,
     Object? tokenCount = null,
+    Object? metadata = freezed,
     Object? createdAt = freezed,
   }) {
     return _then(
@@ -193,6 +202,10 @@ class __$$MessageImplCopyWithImpl<$Res>
             ? _value.tokenCount
             : tokenCount // ignore: cast_nullable_to_non_nullable
                   as int,
+        metadata: freezed == metadata
+            ? _value._metadata
+            : metadata // ignore: cast_nullable_to_non_nullable
+                  as Map<String, dynamic>?,
         createdAt: freezed == createdAt
             ? _value.createdAt
             : createdAt // ignore: cast_nullable_to_non_nullable
@@ -213,8 +226,9 @@ class _$MessageImpl implements _Message {
     this.type = MessageType.text,
     this.isStreaming = false,
     this.tokenCount = 0,
+    final Map<String, dynamic>? metadata,
     this.createdAt,
-  });
+  }) : _metadata = metadata;
 
   factory _$MessageImpl.fromJson(Map<String, dynamic> json) =>
       _$$MessageImplFromJson(json);
@@ -236,12 +250,22 @@ class _$MessageImpl implements _Message {
   @override
   @JsonKey()
   final int tokenCount;
+  final Map<String, dynamic>? _metadata;
+  @override
+  Map<String, dynamic>? get metadata {
+    final value = _metadata;
+    if (value == null) return null;
+    if (_metadata is EqualUnmodifiableMapView) return _metadata;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableMapView(value);
+  }
+
   @override
   final DateTime? createdAt;
 
   @override
   String toString() {
-    return 'Message(id: $id, contactId: $contactId, role: $role, content: $content, type: $type, isStreaming: $isStreaming, tokenCount: $tokenCount, createdAt: $createdAt)';
+    return 'Message(id: $id, contactId: $contactId, role: $role, content: $content, type: $type, isStreaming: $isStreaming, tokenCount: $tokenCount, metadata: $metadata, createdAt: $createdAt)';
   }
 
   @override
@@ -259,6 +283,7 @@ class _$MessageImpl implements _Message {
                 other.isStreaming == isStreaming) &&
             (identical(other.tokenCount, tokenCount) ||
                 other.tokenCount == tokenCount) &&
+            const DeepCollectionEquality().equals(other._metadata, _metadata) &&
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt));
   }
@@ -274,6 +299,7 @@ class _$MessageImpl implements _Message {
     type,
     isStreaming,
     tokenCount,
+    const DeepCollectionEquality().hash(_metadata),
     createdAt,
   );
 
@@ -300,6 +326,7 @@ abstract class _Message implements Message {
     final MessageType type,
     final bool isStreaming,
     final int tokenCount,
+    final Map<String, dynamic>? metadata,
     final DateTime? createdAt,
   }) = _$MessageImpl;
 
@@ -319,6 +346,8 @@ abstract class _Message implements Message {
   bool get isStreaming;
   @override
   int get tokenCount;
+  @override
+  Map<String, dynamic>? get metadata;
   @override
   DateTime? get createdAt;
 

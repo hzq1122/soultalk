@@ -8,8 +8,10 @@ import '../../providers/messages_provider.dart';
 import '../../providers/api_config_provider.dart';
 import '../../theme/wechat_colors.dart';
 import '../../widgets/avatar_widget.dart';
+import '../../services/chat/typing_simulator.dart';
 import 'widgets/message_bubble.dart';
 import 'widgets/input_bar.dart';
+import 'widgets/typing_indicator.dart';
 
 class ChatPage extends ConsumerStatefulWidget {
   final String contactId;
@@ -28,6 +30,7 @@ class ChatPage extends ConsumerStatefulWidget {
 class _ChatPageState extends ConsumerState<ChatPage> {
   final _scrollController = ScrollController();
   bool _isSending = false;
+  bool _isTyping = false;
 
   @override
   void initState() {
@@ -63,11 +66,17 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
   Future<void> _sendMessage(Contact contact, String text) async {
     if (_isSending) return;
-    setState(() => _isSending = true);
+    setState(() {
+      _isSending = true;
+      _isTyping = true;
+    });
 
     final messagesNotifier = ref.read(messagesProvider(widget.contactId).notifier);
 
-    // sendMessage 是 Future<void>，通过回调驱动 UI，这里 fire-and-forget
+    await TypingSimulator.simulateDelay(text);
+    if (!mounted) return;
+    setState(() => _isTyping = false);
+
     ref.read(chatServiceProvider).sendMessage(
       contact: contact,
       userText: text,
@@ -105,6 +114,36 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     );
   }
 
+  Future<void> _sendSpecialMessage(
+      Contact contact, String type, Map<String, dynamic> metadata) async {
+    final messagesNotifier =
+        ref.read(messagesProvider(widget.contactId).notifier);
+    final msgType =
+        type == 'transfer' ? MessageType.transfer : MessageType.delivery;
+    String content;
+    if (type == 'transfer') {
+      content = '¥${metadata['amount']}';
+    } else {
+      content = '${metadata['shop']} - ${metadata['items']}';
+    }
+
+    final userMsg = Message(
+      id: '',
+      contactId: widget.contactId,
+      role: MessageRole.user,
+      content: content,
+      type: msgType,
+      metadata: metadata,
+      createdAt: DateTime.now(),
+    );
+
+    final service = ref.read(chatServiceProvider);
+    final saved = await service.saveMessage(userMsg);
+    messagesNotifier.addMessage(saved);
+    _scrollToBottom(animated: true);
+    ref.read(contactsProvider.notifier).refresh();
+  }
+
   @override
   Widget build(BuildContext context) {
     final contactAsync = ref.watch(contactsProvider).whenData(
@@ -129,12 +168,20 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           icon: const Icon(Icons.arrow_back_ios, size: 20),
           onPressed: () => context.pop(),
         ),
-        title: Row(
+        title: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            AvatarWidget.fromContact(contact, size: 32),
-            const SizedBox(width: 8),
-            Text(contact.name),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AvatarWidget.fromContact(contact, size: 32),
+                const SizedBox(width: 8),
+                Text(contact.name),
+              ],
+            ),
+            if (_isTyping)
+              const Text('对方正在输入...',
+                  style: TextStyle(fontSize: 11, color: WeChatColors.textSecondary)),
           ],
         ),
         actions: [
@@ -153,18 +200,21 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text('加载失败: $e')),
               data: (messages) {
-                if (messages.isEmpty) {
+                if (messages.isEmpty && !_isTyping) {
                   return _buildEmptyChat(contact);
                 }
                 return ListView.builder(
                   controller: _scrollController,
                   padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: messages.length,
+                  itemCount: messages.length + (_isTyping ? 1 : 0),
                   itemBuilder: (context, index) {
-                    return MessageBubble(
-                      message: messages[index],
-                      contact: contact,
-                    );
+                    if (index < messages.length) {
+                      return MessageBubble(
+                        message: messages[index],
+                        contact: contact,
+                      );
+                    }
+                    return const TypingIndicator();
                   },
                 );
               },
@@ -173,6 +223,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           // 输入栏
           InputBar(
             onSend: (text) => _sendMessage(contact, text),
+            onSendSpecial: (type, metadata) =>
+                _sendSpecialMessage(contact, type, metadata),
             enabled: !_isSending,
           ),
         ],

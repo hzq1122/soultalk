@@ -13,6 +13,7 @@ enum MessageType {
   text,
   image,
   transfer,   // 虚拟转账
+  delivery,   // 虚拟外卖
   system,     // 系统消息
 }
 
@@ -26,6 +27,7 @@ class Message with _$Message {
     @Default(MessageType.text) MessageType type,
     @Default(false) bool isStreaming,
     @Default(0) int tokenCount,
+    Map<String, dynamic>? metadata,
     DateTime? createdAt,
   }) = _Message;
 

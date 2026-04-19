@@ -7,6 +7,7 @@ import '../pages/chat/chat_page.dart';
 import '../pages/contacts/contacts_page.dart';
 import '../pages/contacts/contact_detail_page.dart';
 import '../pages/discover/discover_page.dart';
+import '../pages/discover/moments_page.dart';
 import '../pages/profile/profile_page.dart';
 import '../pages/settings/api_settings_page.dart';
 
@@ -66,6 +67,11 @@ final appRouter = GoRouter(
       path: '/settings/api',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const ApiSettingsPage(),
+    ),
+    GoRoute(
+      path: '/discover/moments',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const MomentsPage(),
     ),
   ],
 );

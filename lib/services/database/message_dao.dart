@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import '../../models/message.dart';
@@ -19,6 +20,7 @@ class MessageDao {
         'type': msg.type.name,
         'is_streaming': msg.isStreaming ? 1 : 0,
         'token_count': msg.tokenCount,
+        'metadata': msg.metadata != null ? jsonEncode(msg.metadata) : null,
         'created_at': msg.createdAt?.toIso8601String(),
       };
 
@@ -36,6 +38,9 @@ class MessageDao {
         ),
         isStreaming: (map['is_streaming'] as int) == 1,
         tokenCount: map['token_count'] as int? ?? 0,
+        metadata: map['metadata'] != null
+            ? (jsonDecode(map['metadata'] as String) as Map<String, dynamic>)
+            : null,
         createdAt: map['created_at'] != null
             ? DateTime.tryParse(map['created_at'] as String)
             : null,

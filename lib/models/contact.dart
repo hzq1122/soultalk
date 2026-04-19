@@ -18,6 +18,8 @@ class Contact with _$Contact {
     @Default(0) int unreadCount,
     String? lastMessage,
     DateTime? lastMessageAt,
+    @Default(true) bool proactiveEnabled,
+    DateTime? lastProactiveAt,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) = _Contact;

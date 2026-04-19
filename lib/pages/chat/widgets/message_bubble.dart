@@ -27,6 +27,9 @@ class MessageBubble extends StatelessWidget {
     if (message.type == MessageType.transfer) {
       return _TransferBubble(message: message, isUser: _isUser);
     }
+    if (message.type == MessageType.delivery) {
+      return _DeliveryBubble(message: message, isUser: _isUser);
+    }
     return _TextBubble(message: message, contact: contact, showAvatar: showAvatar);
   }
 }
@@ -163,6 +166,9 @@ class _TransferBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final amount = message.metadata?['amount'] ?? '';
+    final remark = message.metadata?['remark'] ?? '转账';
+    final displayContent = amount.isNotEmpty ? '¥$amount' : message.content;
     return Padding(
       padding: EdgeInsets.only(
         left: isUser ? 60 : 12,
@@ -170,32 +176,141 @@ class _TransferBubble extends StatelessWidget {
         top: 4,
         bottom: 4,
       ),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: WeChatColors.divider),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.account_balance_wallet,
-                color: WeChatColors.primary, size: 32),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(message.content,
-                      style: const TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w500)),
-                  const Text('微信转账',
-                      style: TextStyle(
-                          fontSize: 12, color: WeChatColors.textSecondary)),
-                ],
+      child: Align(
+        alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+        child: Container(
+          width: 240,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            color: const Color(0xFFF89C38),
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  children: [
+                    const Icon(Icons.monetization_on,
+                        color: Colors.white, size: 36),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(displayContent,
+                              style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white)),
+                          if (remark.isNotEmpty)
+                            Text(remark,
+                                style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xAAFFFFFF))),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+              Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF5E3C6),
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(8),
+                    bottomRight: Radius.circular(8),
+                  ),
+                ),
+                child: const Text('微信转账',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF9B7B4F))),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DeliveryBubble extends StatelessWidget {
+  final Message message;
+  final bool isUser;
+  const _DeliveryBubble({required this.message, required this.isUser});
+
+  @override
+  Widget build(BuildContext context) {
+    final shop = message.metadata?['shop'] ?? '外卖店铺';
+    final items = message.metadata?['items'] ?? message.content;
+    final price = message.metadata?['price'] ?? '';
+    return Padding(
+      padding: EdgeInsets.only(
+        left: isUser ? 60 : 12,
+        right: isUser ? 12 : 60,
+        top: 4,
+        bottom: 4,
+      ),
+      child: Align(
+        alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+        child: Container(
+          width: 240,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: WeChatColors.divider),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF00B578),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(7),
+                    topRight: Radius.circular(7),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.fastfood, color: Colors.white, size: 18),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(shop,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600)),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(items, style: const TextStyle(fontSize: 13)),
+                    if (price.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text('¥$price',
+                          style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFFFF6B35))),
+                    ],
+                    const SizedBox(height: 4),
+                    const Text('美团外卖',
+                        style: TextStyle(
+                            fontSize: 11, color: WeChatColors.textHint)),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

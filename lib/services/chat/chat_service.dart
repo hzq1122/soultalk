@@ -53,6 +53,16 @@ class ChatService {
   Future<List<Message>> getMessages(String contactId) =>
       _messageDao.getByContact(contactId);
 
+  Future<Message> saveMessage(Message message) async {
+    final saved = await _messageDao.insert(message);
+    await _contactDao.updateLastMessage(
+      message.contactId,
+      message.content,
+      DateTime.now(),
+    );
+    return saved;
+  }
+
   Future<void> deleteMessages(String contactId) =>
       _messageDao.deleteByContact(contactId);
 

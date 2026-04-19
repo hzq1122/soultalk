@@ -3,11 +3,13 @@ import '../../../theme/wechat_colors.dart';
 
 class InputBar extends StatefulWidget {
   final void Function(String text) onSend;
+  final void Function(String type, Map<String, dynamic> metadata)? onSendSpecial;
   final bool enabled;
 
   const InputBar({
     super.key,
     required this.onSend,
+    this.onSendSpecial,
     this.enabled = true,
   });
 
@@ -42,6 +44,160 @@ class _InputBarState extends State<InputBar> {
     _controller.clear();
     setState(() => _hasText = false);
     widget.onSend(text);
+  }
+
+  void _showPlusMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+          child: Wrap(
+            spacing: 24,
+            runSpacing: 16,
+            children: [
+              _PlusMenuItem(
+                icon: Icons.account_balance_wallet,
+                label: '转账',
+                color: const Color(0xFFFF9500),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _showTransferDialog(context);
+                },
+              ),
+              _PlusMenuItem(
+                icon: Icons.fastfood_outlined,
+                label: '外卖',
+                color: const Color(0xFF34C759),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _showDeliveryDialog(context);
+                },
+              ),
+              _PlusMenuItem(
+                icon: Icons.image_outlined,
+                label: '图片',
+                color: const Color(0xFF007AFF),
+                onTap: () => Navigator.of(ctx).pop(),
+              ),
+              _PlusMenuItem(
+                icon: Icons.location_on_outlined,
+                label: '位置',
+                color: const Color(0xFF5856D6),
+                onTap: () => Navigator.of(ctx).pop(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showTransferDialog(BuildContext context) {
+    final amountCtrl = TextEditingController();
+    final remarkCtrl = TextEditingController(text: '转账');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('微信转账'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: amountCtrl,
+              keyboardType: TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: '金额',
+                prefixText: '¥ ',
+                hintText: '0.00',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: remarkCtrl,
+              decoration: const InputDecoration(labelText: '备注'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('取消')),
+          ElevatedButton(
+            onPressed: () {
+              final amount = amountCtrl.text.trim();
+              if (amount.isEmpty) return;
+              Navigator.of(ctx).pop();
+              widget.onSendSpecial?.call('transfer', {
+                'amount': amount,
+                'remark': remarkCtrl.text.trim(),
+              });
+            },
+            child: const Text('转账'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeliveryDialog(BuildContext context) {
+    final shopCtrl = TextEditingController();
+    final itemsCtrl = TextEditingController();
+    final priceCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('点外卖'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: shopCtrl,
+              decoration: const InputDecoration(
+                labelText: '店铺名称',
+                hintText: '如：瑞幸咖啡',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: itemsCtrl,
+              decoration: const InputDecoration(
+                labelText: '商品',
+                hintText: '如：生椰拿铁 x1',
+              ),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: priceCtrl,
+              keyboardType: TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: '总价',
+                prefixText: '¥ ',
+                hintText: '0.00',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('取消')),
+          ElevatedButton(
+            onPressed: () {
+              if (shopCtrl.text.trim().isEmpty) return;
+              Navigator.of(ctx).pop();
+              widget.onSendSpecial?.call('delivery', {
+                'shop': shopCtrl.text.trim(),
+                'items': itemsCtrl.text.trim(),
+                'price': priceCtrl.text.trim(),
+              });
+            },
+            child: const Text('下单'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -108,7 +264,7 @@ class _InputBarState extends State<InputBar> {
               IconButton(
                 icon: const Icon(Icons.add_circle_outline,
                     color: WeChatColors.textSecondary),
-                onPressed: widget.enabled ? () {} : null,
+                onPressed: widget.enabled ? () => _showPlusMenu(context) : null,
               ),
           ],
         ),
@@ -137,6 +293,49 @@ class _SendButton extends StatelessWidget {
           '发送',
           style: TextStyle(
               color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
+        ),
+      ),
+    );
+  }
+}
+
+class _PlusMenuItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _PlusMenuItem({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        width: 64,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: WeChatColors.divider),
+              ),
+              child: Icon(icon, color: color, size: 28),
+            ),
+            const SizedBox(height: 6),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 11, color: WeChatColors.textSecondary)),
+          ],
         ),
       ),
     );

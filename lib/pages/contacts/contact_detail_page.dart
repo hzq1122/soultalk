@@ -158,11 +158,11 @@ class _ContactDetailView extends ConsumerWidget {
                 leading:
                     const Icon(Icons.api, color: WeChatColors.textSecondary),
                 title: const Text('绑定 API'),
-                subtitle: Text(boundConfig?.name ?? '未绑定',
+                subtitle: Text(boundConfig?.name ?? '未绑定（使用默认）',
                     style: const TextStyle(fontSize: 13)),
                 trailing: const Icon(Icons.chevron_right,
                     color: WeChatColors.textHint),
-                onTap: () => context.push('/settings/api'),
+                onTap: () => _showApiPicker(context, ref, configs),
               ),
             ),
             const SizedBox(height: 8),
@@ -198,6 +198,55 @@ class _ContactDetailView extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _showApiPicker(
+      BuildContext context, WidgetRef ref, List configs) async {
+    final selected = await showModalBottomSheet<String?>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('选择 API 配置',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            ),
+            ListTile(
+              leading: const Icon(Icons.block, color: WeChatColors.textHint),
+              title: const Text('不绑定（使用默认）'),
+              selected: contact.apiConfigId == null,
+              onTap: () => Navigator.of(ctx).pop('__none__'),
+            ),
+            ...configs.map((c) => ListTile(
+                  leading:
+                      const Icon(Icons.api, color: WeChatColors.primary),
+                  title: Text(c.name),
+                  subtitle: Text('${c.model}',
+                      style: const TextStyle(fontSize: 12)),
+                  selected: contact.apiConfigId == c.id,
+                  onTap: () => Navigator.of(ctx).pop(c.id as String),
+                )),
+            if (configs.isEmpty)
+              ListTile(
+                leading:
+                    const Icon(Icons.add, color: WeChatColors.primary),
+                title: const Text('前往添加 API 配置'),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  context.push('/settings/api');
+                },
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (selected == null) return;
+    final newConfigId = selected == '__none__' ? null : selected;
+    final updated = contact.copyWith(apiConfigId: newConfigId);
+    await ref.read(contactsProvider.notifier).updateContact(updated);
   }
 
   Future<void> _editContact(

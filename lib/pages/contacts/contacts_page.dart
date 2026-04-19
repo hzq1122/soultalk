@@ -267,24 +267,75 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
     await _previewAndSave(contactWithAvatar);
   }
 
-  /// 导入后让用户确认 / 编辑，再保存
+  /// 导入后简单确认，保存后直接进入聊天
   Future<void> _previewAndSave(Contact draft) async {
-    final configs = ref.read(apiConfigProvider).value ?? [];
-    final result = await showDialog<Contact>(
+    final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => _EditContactDialog(
-        configs: configs,
-        existing: draft,
-        titleOverride: '确认导入角色卡',
+      builder: (ctx) => AlertDialog(
+        title: const Text('导入角色卡'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AvatarWidget(
+              imagePath: draft.avatar,
+              name: draft.name,
+              size: 64,
+            ),
+            const SizedBox(height: 12),
+            Text(draft.name,
+                style: const TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.w600)),
+            if (draft.description.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                draft.description,
+                style: const TextStyle(
+                    fontSize: 13, color: WeChatColors.textSecondary),
+                textAlign: TextAlign.center,
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            if (draft.tags.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 4,
+                children: draft.tags
+                    .take(5)
+                    .map((t) => Chip(
+                          label: Text(t, style: const TextStyle(fontSize: 10)),
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                          padding: EdgeInsets.zero,
+                        ))
+                    .toList(),
+              ),
+            ],
+            const SizedBox(height: 8),
+            Text(
+              '导入后可在联系人详情中编辑资料和绑定 API',
+              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('取消')),
+          ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('导入并开始聊天')),
+        ],
       ),
     );
-    if (result != null) {
-      await ref.read(contactsProvider.notifier).add(result);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已导入「${result.name}」')),
-      );
-    }
+    if (confirm != true || !mounted) return;
+
+    final saved = await ref.read(contactsProvider.notifier).addAndReturn(draft);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('已导入「${saved.name}」')),
+    );
+    context.push('/chat/${saved.id}', extra: saved);
   }
 }
 

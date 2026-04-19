@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'router.dart';
 import 'theme/wechat_theme.dart';
+import 'services/proactive/proactive_service.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  ProactiveService().init();
   runApp(const ProviderScope(child: TalkAiApp()));
 }
 

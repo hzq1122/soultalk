@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../theme/wechat_colors.dart';
 
 class DiscoverPage extends StatelessWidget {
@@ -15,7 +16,7 @@ class DiscoverPage extends StatelessWidget {
       body: ListView(
         children: const [
           _DiscoverSection(items: [
-            _DiscoverItem(icon: Icons.public, label: '朋友圈', color: Color(0xFF07C160), comingSoon: true),
+            _DiscoverItem(icon: Icons.public, label: '朋友圈', color: Color(0xFF07C160)),
           ]),
           _DiscoverSection(items: [
             _DiscoverItem(icon: Icons.qr_code_scanner, label: '扫一扫', color: Color(0xFF1E90FF)),
@@ -93,7 +94,11 @@ class _DiscoverItem extends StatelessWidget {
               padding: EdgeInsets.zero,
             )
           : const Icon(Icons.chevron_right, color: WeChatColors.textHint),
-      onTap: comingSoon ? null : () {},
+      onTap: comingSoon ? null : () {
+        if (label == '朋友圈') {
+          context.push('/discover/moments');
+        }
+      },
     );
   }
 }

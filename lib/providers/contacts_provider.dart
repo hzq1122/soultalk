@@ -16,6 +16,13 @@ class ContactsNotifier extends AsyncNotifier<List<Contact>> {
     state = AsyncData([created, ...?state.value]);
   }
 
+  Future<Contact> addAndReturn(Contact contact) async {
+    final service = ref.read(chatServiceProvider);
+    final created = await service.createContact(contact);
+    state = AsyncData([created, ...?state.value]);
+    return created;
+  }
+
   Future<void> updateContact(Contact contact) async {
     final service = ref.read(chatServiceProvider);
     await service.updateContact(contact);

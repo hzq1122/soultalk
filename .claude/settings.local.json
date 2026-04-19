@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dart analyze *)",
+      "Bash(flutter build *)",
+      "Bash(flutter clean *)",
+      "Bash(flutter pub *)"
+    ]
+  }
+}

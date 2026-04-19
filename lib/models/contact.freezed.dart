@@ -36,6 +36,8 @@ mixin _$Contact {
   int get unreadCount => throw _privateConstructorUsedError;
   String? get lastMessage => throw _privateConstructorUsedError;
   DateTime? get lastMessageAt => throw _privateConstructorUsedError;
+  bool get proactiveEnabled => throw _privateConstructorUsedError;
+  DateTime? get lastProactiveAt => throw _privateConstructorUsedError;
   DateTime? get createdAt => throw _privateConstructorUsedError;
   DateTime? get updatedAt => throw _privateConstructorUsedError;
 
@@ -66,6 +68,8 @@ abstract class $ContactCopyWith<$Res> {
     int unreadCount,
     String? lastMessage,
     DateTime? lastMessageAt,
+    bool proactiveEnabled,
+    DateTime? lastProactiveAt,
     DateTime? createdAt,
     DateTime? updatedAt,
   });
@@ -98,6 +102,8 @@ class _$ContactCopyWithImpl<$Res, $Val extends Contact>
     Object? unreadCount = null,
     Object? lastMessage = freezed,
     Object? lastMessageAt = freezed,
+    Object? proactiveEnabled = null,
+    Object? lastProactiveAt = freezed,
     Object? createdAt = freezed,
     Object? updatedAt = freezed,
   }) {
@@ -151,6 +157,14 @@ class _$ContactCopyWithImpl<$Res, $Val extends Contact>
                 ? _value.lastMessageAt
                 : lastMessageAt // ignore: cast_nullable_to_non_nullable
                       as DateTime?,
+            proactiveEnabled: null == proactiveEnabled
+                ? _value.proactiveEnabled
+                : proactiveEnabled // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            lastProactiveAt: freezed == lastProactiveAt
+                ? _value.lastProactiveAt
+                : lastProactiveAt // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
             createdAt: freezed == createdAt
                 ? _value.createdAt
                 : createdAt // ignore: cast_nullable_to_non_nullable
@@ -186,6 +200,8 @@ abstract class _$$ContactImplCopyWith<$Res> implements $ContactCopyWith<$Res> {
     int unreadCount,
     String? lastMessage,
     DateTime? lastMessageAt,
+    bool proactiveEnabled,
+    DateTime? lastProactiveAt,
     DateTime? createdAt,
     DateTime? updatedAt,
   });
@@ -217,6 +233,8 @@ class __$$ContactImplCopyWithImpl<$Res>
     Object? unreadCount = null,
     Object? lastMessage = freezed,
     Object? lastMessageAt = freezed,
+    Object? proactiveEnabled = null,
+    Object? lastProactiveAt = freezed,
     Object? createdAt = freezed,
     Object? updatedAt = freezed,
   }) {
@@ -270,6 +288,14 @@ class __$$ContactImplCopyWithImpl<$Res>
             ? _value.lastMessageAt
             : lastMessageAt // ignore: cast_nullable_to_non_nullable
                   as DateTime?,
+        proactiveEnabled: null == proactiveEnabled
+            ? _value.proactiveEnabled
+            : proactiveEnabled // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        lastProactiveAt: freezed == lastProactiveAt
+            ? _value.lastProactiveAt
+            : lastProactiveAt // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
         createdAt: freezed == createdAt
             ? _value.createdAt
             : createdAt // ignore: cast_nullable_to_non_nullable
@@ -299,6 +325,8 @@ class _$ContactImpl implements _Contact {
     this.unreadCount = 0,
     this.lastMessage,
     this.lastMessageAt,
+    this.proactiveEnabled = true,
+    this.lastProactiveAt,
     this.createdAt,
     this.updatedAt,
   }) : _tags = tags;
@@ -346,13 +374,18 @@ class _$ContactImpl implements _Contact {
   @override
   final DateTime? lastMessageAt;
   @override
+  @JsonKey()
+  final bool proactiveEnabled;
+  @override
+  final DateTime? lastProactiveAt;
+  @override
   final DateTime? createdAt;
   @override
   final DateTime? updatedAt;
 
   @override
   String toString() {
-    return 'Contact(id: $id, name: $name, avatar: $avatar, description: $description, apiConfigId: $apiConfigId, systemPrompt: $systemPrompt, characterCardJson: $characterCardJson, tags: $tags, pinned: $pinned, unreadCount: $unreadCount, lastMessage: $lastMessage, lastMessageAt: $lastMessageAt, createdAt: $createdAt, updatedAt: $updatedAt)';
+    return 'Contact(id: $id, name: $name, avatar: $avatar, description: $description, apiConfigId: $apiConfigId, systemPrompt: $systemPrompt, characterCardJson: $characterCardJson, tags: $tags, pinned: $pinned, unreadCount: $unreadCount, lastMessage: $lastMessage, lastMessageAt: $lastMessageAt, proactiveEnabled: $proactiveEnabled, lastProactiveAt: $lastProactiveAt, createdAt: $createdAt, updatedAt: $updatedAt)';
   }
 
   @override
@@ -379,6 +412,10 @@ class _$ContactImpl implements _Contact {
                 other.lastMessage == lastMessage) &&
             (identical(other.lastMessageAt, lastMessageAt) ||
                 other.lastMessageAt == lastMessageAt) &&
+            (identical(other.proactiveEnabled, proactiveEnabled) ||
+                other.proactiveEnabled == proactiveEnabled) &&
+            (identical(other.lastProactiveAt, lastProactiveAt) ||
+                other.lastProactiveAt == lastProactiveAt) &&
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt) &&
             (identical(other.updatedAt, updatedAt) ||
@@ -401,6 +438,8 @@ class _$ContactImpl implements _Contact {
     unreadCount,
     lastMessage,
     lastMessageAt,
+    proactiveEnabled,
+    lastProactiveAt,
     createdAt,
     updatedAt,
   );
@@ -433,6 +472,8 @@ abstract class _Contact implements Contact {
     final int unreadCount,
     final String? lastMessage,
     final DateTime? lastMessageAt,
+    final bool proactiveEnabled,
+    final DateTime? lastProactiveAt,
     final DateTime? createdAt,
     final DateTime? updatedAt,
   }) = _$ContactImpl;
@@ -463,6 +504,10 @@ abstract class _Contact implements Contact {
   String? get lastMessage;
   @override
   DateTime? get lastMessageAt;
+  @override
+  bool get proactiveEnabled;
+  @override
+  DateTime? get lastProactiveAt;
   @override
   DateTime? get createdAt;
   @override
