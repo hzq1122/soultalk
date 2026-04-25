@@ -284,6 +284,14 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               },
             ),
             ListTile(
+              leading: const Icon(Icons.psychology_outlined),
+              title: const Text('记忆表格'),
+              onTap: () {
+                ctx.pop();
+                context.push('/memory/${contact.id}', extra: contact);
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.edit_outlined),
               title: const Text('编辑联系人'),
               onTap: () {

@@ -5,7 +5,23 @@
       "Bash(flutter build *)",
       "Bash(flutter clean *)",
       "Bash(flutter pub *)",
-      "Bash(flutter analyze *)"
+      "Bash(flutter analyze *)",
+      "Bash(curl -s \"https://api.github.com/search/code?q=regex+repo:SillyTavern/SillyTavern+path:public/scripts\")",
+      "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); [print\\(item['path']\\) for item in data.get\\('items',[]\\)]\")",
+      "Bash(curl -s \"https://api.github.com/repos/SillyTavern/SillyTavern/git/trees/release?recursive=1\")",
+      "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); [print\\(item['path']\\) for item in data.get\\('tree',[]\\) if 'regex' in item['path'].lower\\(\\)]\")",
+      "WebFetch(domain:github.com)",
+      "WebSearch",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:cdn.jsdelivr.net)",
+      "Bash(curl -sL \"https://api.github.com/repos/SillyTavern/SillyTavern/contents/public/scripts/extensions/regex\" -H \"Accept: application/vnd.github.v3+json\")",
+      "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); [print\\(f\\\\\"{item['name']} \\({item['type']}, {item.get\\('size','?'\\)} bytes\\)\\\\\"\\) for item in data]\")",
+      "Bash(curl -sL \"https://api.github.com/repos/SillyTavern/SillyTavern/git/blobs/2b6bdc235816542c6348a558665804388f71e73b\" -H \"Accept: application/vnd.github.v3+json\")",
+      "Bash(python3 -c \"import sys,json,base64; data=json.load\\(sys.stdin\\); print\\(base64.b64decode\\(data['content']\\).decode\\('utf-8'\\)\\)\")",
+      "Bash(curl -sL \"https://api.github.com/repos/SillyTavern/SillyTavern/git/blobs/d2e4215bef1959356b94d2dd8e60da415a1bb0f7\" -H \"Accept: application/vnd.github.v3+json\")",
+      "Bash(curl -sL \"https://api.github.com/repos/SillyTavern/SillyTavern/git/blobs/51000bee1d25b05ef57fdc214118443fac2b131b\" -H \"Accept: application/vnd.github.v3+json\")",
+      "Bash(curl *)",
+      "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); print\\(data.get\\('sha',''\\)\\)\")"
     ]
   }
 }

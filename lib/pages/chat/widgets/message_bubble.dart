@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../theme/wechat_colors.dart';
 import '../../../models/message.dart';
+import '../../../models/regex_script.dart';
 import '../../../widgets/avatar_widget.dart';
 import '../../../models/contact.dart';
+import '../../../providers/regex_script_provider.dart';
+import '../../../services/regex/regex_service.dart';
 
-class MessageBubble extends StatelessWidget {
+class MessageBubble extends ConsumerWidget {
   final Message message;
   final Contact contact;
   final bool showAvatar;
@@ -20,7 +24,7 @@ class MessageBubble extends StatelessWidget {
   bool get _isSystem => message.role == MessageRole.system;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (_isSystem || message.type == MessageType.system) {
       return _SystemMessage(content: message.content);
     }
@@ -30,7 +34,25 @@ class MessageBubble extends StatelessWidget {
     if (message.type == MessageType.delivery) {
       return _DeliveryBubble(message: message, isUser: _isUser);
     }
-    return _TextBubble(message: message, contact: contact, showAvatar: showAvatar);
+
+    final scripts = ref.watch(enabledRegexScriptsProvider);
+    final displayContent = _applyRegex(message, scripts);
+
+    return _TextBubble(
+      message: message,
+      contact: contact,
+      showAvatar: showAvatar,
+      displayContent: displayContent,
+    );
+  }
+
+  String _applyRegex(Message msg, List<RegexScript> scripts) {
+    if (scripts.isEmpty) return msg.content;
+    const service = RegexService();
+    final placement = msg.role == MessageRole.user
+        ? RegexPlacement.userInput
+        : RegexPlacement.aiOutput;
+    return service.applyScripts(msg.content, scripts, placement);
   }
 }
 
@@ -38,11 +60,13 @@ class _TextBubble extends StatelessWidget {
   final Message message;
   final Contact contact;
   final bool showAvatar;
+  final String displayContent;
 
   const _TextBubble({
     required this.message,
     required this.contact,
     required this.showAvatar,
+    required this.displayContent,
   });
 
   bool get _isUser => message.role == MessageRole.user;
@@ -96,7 +120,7 @@ class _TextBubble extends StatelessWidget {
                           children: [
                             Flexible(
                               child: Text(
-                                message.content,
+                                displayContent,
                                 style: const TextStyle(
                                     fontSize: 16,
                                     color: WeChatColors.textPrimary),
@@ -111,7 +135,7 @@ class _TextBubble extends StatelessWidget {
                           ],
                         )
                       : SelectableText(
-                          message.content,
+                          displayContent,
                           style: const TextStyle(
                               fontSize: 16, color: WeChatColors.textPrimary),
                         ),

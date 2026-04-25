@@ -18,7 +18,7 @@ class DatabaseService {
     final path = join(dbPath, 'talk_ai.db');
     return openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
       onOpen: _onOpen,
@@ -115,6 +115,37 @@ class DatabaseService {
         shop TEXT
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE regex_scripts (
+        id TEXT PRIMARY KEY,
+        script_name TEXT NOT NULL,
+        find_regex TEXT NOT NULL,
+        replace_string TEXT NOT NULL DEFAULT '',
+        trim_strings TEXT NOT NULL DEFAULT '[]',
+        placement TEXT NOT NULL DEFAULT '[]',
+        disabled INTEGER NOT NULL DEFAULT 0,
+        markdown_only INTEGER NOT NULL DEFAULT 0,
+        prompt_only INTEGER NOT NULL DEFAULT 0,
+        run_on_edit INTEGER NOT NULL DEFAULT 0,
+        substitute_regex INTEGER NOT NULL DEFAULT 0,
+        min_depth INTEGER,
+        max_depth INTEGER
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE memory_entries (
+        id TEXT PRIMARY KEY,
+        contact_id TEXT NOT NULL,
+        category TEXT NOT NULL DEFAULT '基本信息',
+        key TEXT NOT NULL,
+        value TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_memory_entries_contact_id ON memory_entries(contact_id)');
   }
 
   Future<void> _onOpen(Database db) async {
@@ -162,6 +193,37 @@ class DatabaseService {
           shop TEXT
         )
       ''');
+    }
+    if (oldVersion < 4) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS regex_scripts (
+          id TEXT PRIMARY KEY,
+          script_name TEXT NOT NULL,
+          find_regex TEXT NOT NULL,
+          replace_string TEXT NOT NULL DEFAULT '',
+          trim_strings TEXT NOT NULL DEFAULT '[]',
+          placement TEXT NOT NULL DEFAULT '[]',
+          disabled INTEGER NOT NULL DEFAULT 0,
+          markdown_only INTEGER NOT NULL DEFAULT 0,
+          prompt_only INTEGER NOT NULL DEFAULT 0,
+          run_on_edit INTEGER NOT NULL DEFAULT 0,
+          substitute_regex INTEGER NOT NULL DEFAULT 0,
+          min_depth INTEGER,
+          max_depth INTEGER
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS memory_entries (
+          id TEXT PRIMARY KEY,
+          contact_id TEXT NOT NULL,
+          category TEXT NOT NULL DEFAULT '基本信息',
+          key TEXT NOT NULL,
+          value TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
+        )
+      ''');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_memory_entries_contact_id ON memory_entries(contact_id)');
     }
   }
 

@@ -5,6 +5,9 @@ const _kGlobalPromptEnabled = 'global_prompt_enabled';
 const _kGlobalPromptText = 'global_prompt_text';
 const _kMomentsIntervalMinutes = 'moments_interval_minutes';
 const _kWalletBalance = 'wallet_balance';
+const _kMemoryEnabled = 'memory_enabled';
+const _kMemoryInterval = 'memory_interval';
+const _kMemoryUseMainApi = 'memory_use_main_api';
 
 const _defaultGlobalPrompt =
     '你现在是在聊天，并非在现实，请让你的回复更符合聊天时的状态';
@@ -14,12 +17,18 @@ class AppSettings {
   final String globalPromptText;
   final int momentsIntervalMinutes;
   final double walletBalance;
+  final bool memoryEnabled;
+  final int memoryInterval;
+  final bool memoryUseMainApi;
 
   const AppSettings({
     this.globalPromptEnabled = false,
     this.globalPromptText = _defaultGlobalPrompt,
     this.momentsIntervalMinutes = 60,
     this.walletBalance = 999.99,
+    this.memoryEnabled = false,
+    this.memoryInterval = 10,
+    this.memoryUseMainApi = true,
   });
 
   AppSettings copyWith({
@@ -27,6 +36,9 @@ class AppSettings {
     String? globalPromptText,
     int? momentsIntervalMinutes,
     double? walletBalance,
+    bool? memoryEnabled,
+    int? memoryInterval,
+    bool? memoryUseMainApi,
   }) =>
       AppSettings(
         globalPromptEnabled: globalPromptEnabled ?? this.globalPromptEnabled,
@@ -34,6 +46,9 @@ class AppSettings {
         momentsIntervalMinutes:
             momentsIntervalMinutes ?? this.momentsIntervalMinutes,
         walletBalance: walletBalance ?? this.walletBalance,
+        memoryEnabled: memoryEnabled ?? this.memoryEnabled,
+        memoryInterval: memoryInterval ?? this.memoryInterval,
+        memoryUseMainApi: memoryUseMainApi ?? this.memoryUseMainApi,
       );
 }
 
@@ -47,6 +62,9 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
           prefs.getString(_kGlobalPromptText) ?? _defaultGlobalPrompt,
       momentsIntervalMinutes: prefs.getInt(_kMomentsIntervalMinutes) ?? 60,
       walletBalance: prefs.getDouble(_kWalletBalance) ?? 999.99,
+      memoryEnabled: prefs.getBool(_kMemoryEnabled) ?? false,
+      memoryInterval: prefs.getInt(_kMemoryInterval) ?? 10,
+      memoryUseMainApi: prefs.getBool(_kMemoryUseMainApi) ?? true,
     );
   }
 
@@ -80,6 +98,24 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
     if (current >= amount) {
       await setWalletBalance(current - amount);
     }
+  }
+
+  Future<void> setMemoryEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kMemoryEnabled, enabled);
+    state = AsyncData(state.value!.copyWith(memoryEnabled: enabled));
+  }
+
+  Future<void> setMemoryInterval(int interval) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_kMemoryInterval, interval);
+    state = AsyncData(state.value!.copyWith(memoryInterval: interval));
+  }
+
+  Future<void> setMemoryUseMainApi(bool useMain) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kMemoryUseMainApi, useMain);
+    state = AsyncData(state.value!.copyWith(memoryUseMainApi: useMain));
   }
 }
 

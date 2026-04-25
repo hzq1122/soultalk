@@ -139,14 +139,31 @@ class _ContactDetailView extends ConsumerWidget {
             // 发消息按钮
             Container(
               color: Colors.white,
-              child: ListTile(
-                leading: const Icon(Icons.chat_bubble_outline,
-                    color: WeChatColors.primary),
-                title: const Text('发消息'),
-                onTap: () {
-                  context.pop();
-                  context.push('/chat/${contact.id}', extra: contact);
-                },
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.chat_bubble_outline,
+                        color: WeChatColors.primary),
+                    title: const Text('发消息'),
+                    onTap: () {
+                      context.pop();
+                      context.push('/chat/${contact.id}', extra: contact);
+                    },
+                  ),
+                  const Divider(height: 0, indent: 56),
+                  ListTile(
+                    leading: const Icon(Icons.psychology_outlined,
+                        color: WeChatColors.primary),
+                    title: const Text('记忆表格'),
+                    subtitle: const Text('查看 AI 记住的关键信息',
+                        style: TextStyle(fontSize: 12)),
+                    trailing: const Icon(Icons.chevron_right,
+                        color: WeChatColors.textHint),
+                    onTap: () {
+                      context.push('/memory/${contact.id}', extra: contact);
+                    },
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 8),

@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import '../../models/chat_preset.dart';
+import '../../models/regex_script.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/preset_provider.dart';
+import '../../providers/regex_script_provider.dart';
 import '../../theme/wechat_colors.dart';
 
 class GeneralSettingsPage extends ConsumerWidget {
@@ -15,6 +17,7 @@ class GeneralSettingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settingsAsync = ref.watch(settingsProvider);
     final presetsAsync = ref.watch(presetProvider);
+    final regexAsync = ref.watch(regexScriptProvider);
 
     return Scaffold(
       backgroundColor: WeChatColors.background,
@@ -27,6 +30,7 @@ class GeneralSettingsPage extends ConsumerWidget {
         error: (e, _) => Center(child: Text('加载失败: $e')),
         data: (settings) {
           final presets = presetsAsync.value ?? [];
+          final regexScripts = regexAsync.value ?? [];
           return ListView(
             children: [
               const SizedBox(height: 8),
@@ -99,6 +103,110 @@ class GeneralSettingsPage extends ConsumerWidget {
                               .read(presetProvider.notifier)
                               .remove(preset.id),
                         )),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              // 正则脚本
+              _SectionHeader(
+                title: '正则脚本',
+                trailing: IconButton(
+                  icon: const Icon(Icons.file_download_outlined, size: 20),
+                  onPressed: () => _importRegexScripts(context, ref),
+                  tooltip: '导入正则脚本',
+                ),
+              ),
+              Container(
+                color: Colors.white,
+                child: Column(
+                  children: [
+                    if (regexScripts.isEmpty)
+                      const ListTile(
+                        leading: Icon(Icons.info_outline,
+                            color: WeChatColors.textHint),
+                        title: Text('暂无正则脚本'),
+                        subtitle: Text('导入 SillyTavern 正则包 JSON 文件',
+                            style: TextStyle(fontSize: 12)),
+                      ),
+                    ...regexScripts.map((script) => _RegexScriptTile(
+                          script: script,
+                          onToggle: () => ref
+                              .read(regexScriptProvider.notifier)
+                              .toggle(script.id),
+                          onDelete: () => ref
+                              .read(regexScriptProvider.notifier)
+                              .remove(script.id),
+                        )),
+                    if (regexScripts.isNotEmpty)
+                      ListTile(
+                        leading: const Icon(Icons.delete_sweep,
+                            color: Colors.red, size: 20),
+                        title: const Text('清空所有正则脚本',
+                            style: TextStyle(color: Colors.red, fontSize: 14)),
+                        onTap: () async {
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('清空正则脚本'),
+                              content: const Text('确定删除所有正则脚本？'),
+                              actions: [
+                                TextButton(
+                                    onPressed: () => Navigator.of(ctx).pop(false),
+                                    child: const Text('取消')),
+                                TextButton(
+                                    onPressed: () => Navigator.of(ctx).pop(true),
+                                    child: const Text('清空',
+                                        style: TextStyle(color: Colors.red))),
+                              ],
+                            ),
+                          );
+                          if (confirm == true) {
+                            ref.read(regexScriptProvider.notifier).removeAll();
+                          }
+                        },
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              // 记忆表格设置
+              _SectionHeader(title: '记忆表格'),
+              Container(
+                color: Colors.white,
+                child: Column(
+                  children: [
+                    SwitchListTile(
+                      title: const Text('启用记忆表格'),
+                      subtitle: const Text('AI 自动从对话中提取关键信息'),
+                      value: settings.memoryEnabled,
+                      activeColor: WeChatColors.primary,
+                      onChanged: (v) => ref
+                          .read(settingsProvider.notifier)
+                          .setMemoryEnabled(v),
+                    ),
+                    if (settings.memoryEnabled) ...[
+                      const Divider(height: 0, indent: 16),
+                      ListTile(
+                        title: const Text('更新频率'),
+                        subtitle: Text(
+                            '每 ${settings.memoryInterval} 句对话更新一次',
+                            style: const TextStyle(fontSize: 13)),
+                        trailing: const Icon(Icons.chevron_right,
+                            color: WeChatColors.textHint),
+                        onTap: () => _editMemoryInterval(
+                            context, ref, settings.memoryInterval),
+                      ),
+                      const Divider(height: 0, indent: 16),
+                      SwitchListTile(
+                        title: const Text('使用主 API 填表'),
+                        subtitle: const Text('关闭后需配置副 API 以节省消耗'),
+                        value: settings.memoryUseMainApi,
+                        activeColor: WeChatColors.primary,
+                        onChanged: (v) => ref
+                            .read(settingsProvider.notifier)
+                            .setMemoryUseMainApi(v),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -230,6 +338,78 @@ class GeneralSettingsPage extends ConsumerWidget {
         );
       }
     }
+  }
+
+  Future<void> _importRegexScripts(BuildContext context, WidgetRef ref) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['json'],
+      dialogTitle: '选择正则脚本 JSON 文件',
+    );
+    if (result == null || result.files.isEmpty) return;
+    final path = result.files.first.path;
+    if (path == null) return;
+
+    try {
+      final content = await File(path).readAsString();
+      final scripts = RegexScript.fromSillyTavernJson(content);
+      if (scripts.isEmpty) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('未找到有效的正则脚本')),
+          );
+        }
+        return;
+      }
+      await ref.read(regexScriptProvider.notifier).importScripts(scripts);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('已导入 ${scripts.length} 个正则脚本')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('导入失败: $e')),
+        );
+      }
+    }
+  }
+
+  void _editMemoryInterval(
+      BuildContext context, WidgetRef ref, int current) {
+    final intervals = [5, 10, 15, 20, 30, 50];
+    final labels = ['5 句', '10 句', '15 句', '20 句', '30 句', '50 句'];
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('选择记忆更新频率',
+                  style:
+                      TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            ),
+            ...List.generate(intervals.length, (i) => ListTile(
+                  title: Text(labels[i]),
+                  selected: intervals[i] == current,
+                  trailing: intervals[i] == current
+                      ? const Icon(Icons.check, color: WeChatColors.primary)
+                      : null,
+                  onTap: () {
+                    ref
+                        .read(settingsProvider.notifier)
+                        .setMemoryInterval(intervals[i]);
+                    Navigator.of(ctx).pop();
+                  },
+                )),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showPresetDetail(
@@ -384,6 +564,64 @@ class _PresetTile extends StatelessWidget {
             },
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _RegexScriptTile extends StatelessWidget {
+  final RegexScript script;
+  final VoidCallback onToggle;
+  final VoidCallback onDelete;
+
+  const _RegexScriptTile({
+    required this.script,
+    required this.onToggle,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final placements = script.placement
+        .map((p) => RegexPlacement.label(p))
+        .join(', ');
+    return ListTile(
+      title: Text(script.scriptName,
+          style: TextStyle(
+              color: script.disabled
+                  ? WeChatColors.textHint
+                  : WeChatColors.textPrimary)),
+      subtitle: Text(
+        placements.isNotEmpty ? '作用: $placements' : '无作用范围',
+        style: const TextStyle(fontSize: 12),
+      ),
+      leading: Switch(
+        value: !script.disabled,
+        activeColor: WeChatColors.primary,
+        onChanged: (_) => onToggle(),
+      ),
+      trailing: IconButton(
+        icon: const Icon(Icons.delete_outline,
+            color: WeChatColors.textHint, size: 20),
+        onPressed: () async {
+          final confirm = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('删除正则脚本'),
+              content: Text('确定删除「${script.scriptName}」？'),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(false),
+                    child: const Text('取消')),
+                TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(true),
+                    child: const Text('删除',
+                        style: TextStyle(color: Colors.red))),
+              ],
+            ),
+          );
+          if (confirm == true) onDelete();
+        },
       ),
     );
   }

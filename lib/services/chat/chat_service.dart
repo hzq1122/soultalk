@@ -5,10 +5,12 @@ import '../database/contact_dao.dart';
 import '../database/message_dao.dart';
 import '../database/api_config_dao.dart';
 import '../database/preset_dao.dart';
+import '../database/memory_entry_dao.dart';
 import '../api/llm_service.dart';
 import '../api/openai_adapter.dart';
 import '../api/anthropic_adapter.dart';
 import '../api/context_manager.dart';
+import '../memory/memory_service.dart';
 import '../../models/contact.dart';
 import '../../models/message.dart';
 import '../../models/api_config.dart';
@@ -18,6 +20,8 @@ class ChatService {
   late final MessageDao _messageDao;
   late final ApiConfigDao _apiConfigDao;
   late final PresetDao _presetDao;
+  late final MemoryEntryDao _memoryDao;
+  late final MemoryService _memoryService;
   final _uuid = const Uuid();
   final _contextManager = const ContextManager(
     strategy: ContextStrategy.slidingWindow,
@@ -30,6 +34,8 @@ class ChatService {
     _messageDao = MessageDao(db);
     _apiConfigDao = ApiConfigDao(db);
     _presetDao = PresetDao(db);
+    _memoryDao = MemoryEntryDao(db);
+    _memoryService = MemoryService(_memoryDao, _messageDao);
   }
 
   // ─── 联系人 ───────────────────────────────────────────────────────────────
@@ -167,6 +173,9 @@ class ChatService {
         buffer.toString(),
         DateTime.now(),
       );
+
+      // 记忆提取：检查是否需要触发
+      _tryExtractMemory(contact, config);
     } catch (e) {
       await _messageDao.updateContent(aiMsgId, '[错误] ${e.toString()}',
           isStreaming: false);
@@ -201,6 +210,51 @@ class ChatService {
       parts.add(contact.systemPrompt);
     }
 
+    // 记忆表格
+    final memoryEnabled = prefs.getBool('memory_enabled') ?? false;
+    if (memoryEnabled) {
+      final memoryPrompt = await _memoryService.getMemoryPrompt(contact.id);
+      if (memoryPrompt.isNotEmpty) {
+        parts.add(memoryPrompt);
+      }
+    }
+
     return parts.isEmpty ? null : parts.join('\n\n');
+  }
+
+  Future<void> _tryExtractMemory(Contact contact, ApiConfig config) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final memoryEnabled = prefs.getBool('memory_enabled') ?? false;
+      if (!memoryEnabled) return;
+
+      final interval = prefs.getInt('memory_interval') ?? 10;
+      final messages = await _messageDao.getRecentByContact(contact.id, interval * 2);
+      final userMsgCount = messages.where((m) => m.role == MessageRole.user).length;
+      if (userMsgCount < interval) return;
+
+      // 检查距离上次提取是否已有足够新消息
+      final lastExtractKey = 'memory_last_extract_count_${contact.id}';
+      final lastCount = prefs.getInt(lastExtractKey) ?? 0;
+      final totalMessages = await _messageDao.getByContact(contact.id);
+      final currentCount = totalMessages.length;
+      if (currentCount - lastCount < interval) return;
+
+      await prefs.setInt(lastExtractKey, currentCount);
+
+      final useMainApi = prefs.getBool('memory_use_main_api') ?? true;
+      ApiConfig memoryConfig = config;
+      if (!useMainApi) {
+        final configs = await _apiConfigDao.getAll();
+        if (configs.length >= 2) {
+          memoryConfig = configs[1];
+        }
+      }
+
+      _memoryService.extractMemories(
+        contactId: contact.id,
+        apiConfig: memoryConfig,
+      );
+    } catch (_) {}
   }
 }
