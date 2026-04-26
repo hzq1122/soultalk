@@ -8,6 +8,7 @@ const _kWalletBalance = 'wallet_balance';
 const _kMemoryEnabled = 'memory_enabled';
 const _kMemoryInterval = 'memory_interval';
 const _kMemoryUseMainApi = 'memory_use_main_api';
+const _kCheckUpdateOnStartup = 'check_update_on_startup';
 
 const _defaultGlobalPrompt =
     '你现在是在聊天，并非在现实，请让你的回复更符合聊天时的状态';
@@ -20,6 +21,7 @@ class AppSettings {
   final bool memoryEnabled;
   final int memoryInterval;
   final bool memoryUseMainApi;
+  final bool checkUpdateOnStartup;
 
   const AppSettings({
     this.globalPromptEnabled = false,
@@ -29,6 +31,7 @@ class AppSettings {
     this.memoryEnabled = false,
     this.memoryInterval = 10,
     this.memoryUseMainApi = true,
+    this.checkUpdateOnStartup = false,
   });
 
   AppSettings copyWith({
@@ -39,6 +42,7 @@ class AppSettings {
     bool? memoryEnabled,
     int? memoryInterval,
     bool? memoryUseMainApi,
+    bool? checkUpdateOnStartup,
   }) =>
       AppSettings(
         globalPromptEnabled: globalPromptEnabled ?? this.globalPromptEnabled,
@@ -49,6 +53,7 @@ class AppSettings {
         memoryEnabled: memoryEnabled ?? this.memoryEnabled,
         memoryInterval: memoryInterval ?? this.memoryInterval,
         memoryUseMainApi: memoryUseMainApi ?? this.memoryUseMainApi,
+        checkUpdateOnStartup: checkUpdateOnStartup ?? this.checkUpdateOnStartup,
       );
 }
 
@@ -65,6 +70,7 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
       memoryEnabled: prefs.getBool(_kMemoryEnabled) ?? false,
       memoryInterval: prefs.getInt(_kMemoryInterval) ?? 10,
       memoryUseMainApi: prefs.getBool(_kMemoryUseMainApi) ?? true,
+      checkUpdateOnStartup: prefs.getBool(_kCheckUpdateOnStartup) ?? false,
     );
   }
 
@@ -110,6 +116,12 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_kMemoryInterval, interval);
     state = AsyncData(state.value!.copyWith(memoryInterval: interval));
+  }
+
+  Future<void> setCheckUpdateOnStartup(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kCheckUpdateOnStartup, enabled);
+    state = AsyncData(state.value!.copyWith(checkUpdateOnStartup: enabled));
   }
 
   Future<void> setMemoryUseMainApi(bool useMain) async {

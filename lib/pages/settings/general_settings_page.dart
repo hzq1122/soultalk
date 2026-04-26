@@ -227,6 +227,21 @@ class GeneralSettingsPage extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 8),
+              // 更新
+              _SectionHeader(title: '更新'),
+              Container(
+                color: Colors.white,
+                child: SwitchListTile(
+                  title: const Text('启动时检查更新'),
+                  subtitle: const Text('打开应用时自动检查 GitHub Release'),
+                  value: settings.checkUpdateOnStartup,
+                  activeColor: WeChatColors.primary,
+                  onChanged: (v) => ref
+                      .read(settingsProvider.notifier)
+                      .setCheckUpdateOnStartup(v),
+                ),
+              ),
+              const SizedBox(height: 8),
               // 钱包
               _SectionHeader(title: '钱包'),
               Container(

@@ -13,6 +13,8 @@ import '../pages/settings/api_settings_page.dart';
 import '../pages/settings/general_settings_page.dart';
 import '../pages/delivery/delivery_page.dart';
 import '../pages/memory/memory_page.dart';
+import '../pages/settings/update_page.dart';
+import '../pages/settings/backup_page.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -84,6 +86,16 @@ final appRouter = GoRouter(
       path: '/delivery',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const DeliveryPage(),
+    ),
+    GoRoute(
+      path: '/settings/update',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const UpdatePage(),
+    ),
+    GoRoute(
+      path: '/settings/backup',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const BackupPage(),
     ),
     GoRoute(
       path: '/memory/:contactId',
