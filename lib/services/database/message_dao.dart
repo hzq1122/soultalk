@@ -100,6 +100,18 @@ class MessageDao {
     );
   }
 
+  Future<void> updateType(String id, String type) async {
+    final db = await _database;
+    await db.update('messages', {'type': type},
+        where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> updateTypeAndContent(String id, String type, String content) async {
+    final db = await _database;
+    await db.update('messages', {'type': type, 'content': content},
+        where: 'id = ?', whereArgs: [id]);
+  }
+
   Future<void> delete(String id) async {
     final db = await _database;
     await db.delete('messages', where: 'id = ?', whereArgs: [id]);

@@ -1,11 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:archive/archive_io.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import '../database/database_service.dart';
+import 'backup_encryption.dart';
 
 enum BackupSection {
   apiConfigs,
@@ -47,6 +48,8 @@ class BackupService {
 
   Future<String> exportToZip({
     required Set<BackupSection> sections,
+    required String targetDir,
+    String? password,
   }) async {
     final db = await _dbService.database;
     final archive = Archive();
@@ -132,21 +135,41 @@ class BackupService {
     archive.addFile(ArchiveFile(
         'manifest.json', manifestData.length, manifestData.codeUnits));
 
-    final dir = await getApplicationDocumentsDirectory();
     final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final zipPath = '${dir.path}/talk_ai_backup_$timestamp.zip';
+    final zipBytes = ZipEncoder().encode(archive)!;
 
-    final encoder = ZipEncoder();
-    await File(zipPath).writeAsBytes(encoder.encode(archive)!);
+    if (password != null && password.isNotEmpty) {
+      final encrypted = BackupEncryption.encrypt(
+          Uint8List.fromList(zipBytes), password);
+      final zipPath = '$targetDir/talk_ai_backup_$timestamp.enc.zip';
+      await File(zipPath).writeAsBytes(encrypted);
+      return zipPath;
+    }
+
+    final zipPath = '$targetDir/talk_ai_backup_$timestamp.zip';
+    await File(zipPath).writeAsBytes(zipBytes);
     return zipPath;
   }
 
   Future<bool> importFromZip({
     required String zipPath,
     required Set<BackupSection> sections,
+    String? password,
   }) async {
     try {
-      final bytes = await File(zipPath).readAsBytes();
+      var bytes = await File(zipPath).readAsBytes();
+      final isEnc = zipPath.endsWith('.enc.zip');
+
+      if (isEnc) {
+        if (password == null || password.isEmpty) return false;
+        try {
+          bytes = BackupEncryption.decrypt(
+              Uint8List.fromList(bytes), password);
+        } catch (_) {
+          return false; // wrong password
+        }
+      }
+
       final decoder = ZipDecoder();
       final archive = decoder.decodeBytes(bytes);
 
@@ -251,9 +274,21 @@ class BackupService {
     }
   }
 
-  Future<List<BackupSection>> listSections(String zipPath) async {
+  Future<List<BackupSection>> listSections(String zipPath,
+      {String? password}) async {
     try {
-      final bytes = await File(zipPath).readAsBytes();
+      var bytes = await File(zipPath).readAsBytes();
+
+      if (zipPath.endsWith('.enc.zip')) {
+        if (password == null || password.isEmpty) return [];
+        try {
+          bytes = BackupEncryption.decrypt(
+              Uint8List.fromList(bytes), password);
+        } catch (_) {
+          return [];
+        }
+      }
+
       final decoder = ZipDecoder();
       final archive = decoder.decodeBytes(bytes);
 

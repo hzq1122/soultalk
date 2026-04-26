@@ -46,7 +46,9 @@ class MemoryService {
           createdAt: DateTime.now(),
         ),
       ],
-      systemPrompt: '你是一个记忆提取助手。你的任务是从对话中提取关键信息并整理成结构化的记忆表格。只输出JSON数组，不要输出其他内容。',
+      systemPrompt: '你是一个记忆提取助手。你的任务是从对话中提取关键信息并整理成JSON格式。'
+          '仅使用以下标准类别：基本信息、偏好习惯、重要事件、人际关系、健康信息、工作学习、其他。'
+          '只输出JSON数组，不要任何其他内容。',
     );
 
     final newEntries = MemoryEntry.fromLlmResponse(contactId, response);
@@ -66,20 +68,36 @@ class MemoryService {
 
   String _buildExtractionPrompt(String conversation, String existingMemory) {
     final buffer = StringBuffer();
-    buffer.writeln('请从以下对话中提取关键信息，更新记忆表格。');
-    buffer.writeln('提取用户的个人信息、偏好、重要事件等。');
+    buffer.writeln('分析以下对话，提取关于"用户"的关键信息。');
+    buffer.writeln();
+    buffer.writeln('【信息类别】请使用以下标准类别之一：');
+    buffer.writeln('  "基本信息" — 姓名、年龄、性别、职业、所在地等');
+    buffer.writeln('  "偏好习惯" — 喜好、厌恶、习惯、饮食偏好等');
+    buffer.writeln('  "重要事件" — 经历、计划、里程碑等');
+    buffer.writeln('  "人际关系" — 与其他人物的关系动态');
+    buffer.writeln('  "健康信息" — 身体状况、过敏、病史等');
+    buffer.writeln('  "工作学习" — 工作、学校、技能等');
+    buffer.writeln('  "其他" — 以上类别不适用的信息');
+    buffer.writeln();
+    buffer.writeln('【输出格式】严格输出以下JSON数组，每条记录3个固定字段：');
+    buffer.writeln('[{"category":"基本信息","key":"姓名","value":"小明"},');
+    buffer.writeln(' {"category":"偏好习惯","key":"喜欢的食物","value":"奶茶"},');
+    buffer.writeln(' {"category":"重要事件","key":"下周计划","value":"去北京出差"}]');
+    buffer.writeln();
+    buffer.writeln('规则：');
+    buffer.writeln('- key 描述属性名（如"年龄"），value 描述属性值（如"25岁"）');
+    buffer.writeln('- 一条记录只包含一个事实，不要合并多项信息');
+    buffer.writeln('- 只输出新增或已变化的信息，未变化的不输出');
+    buffer.writeln('- 如果无新信息，输出空数组 []');
+    buffer.writeln('- 只输出JSON，不要任何解释文字、markdown标记或代码围栏');
     buffer.writeln();
     if (existingMemory.isNotEmpty) {
-      buffer.writeln('现有记忆：');
+      buffer.writeln('【已知信息（避免重复）】');
       buffer.writeln(existingMemory);
       buffer.writeln();
     }
-    buffer.writeln('最近对话：');
+    buffer.writeln('【待分析对话】');
     buffer.writeln(conversation);
-    buffer.writeln();
-    buffer.writeln('请以JSON数组格式输出，每项包含 category、key、value 字段：');
-    buffer.writeln('[{"category": "分类名", "key": "属性名", "value": "属性值"}]');
-    buffer.writeln('只输出需要新增或更新的条目，不要重复已有的未变化的记忆。');
     return buffer.toString();
   }
 

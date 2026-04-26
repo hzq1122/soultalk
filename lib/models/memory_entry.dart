@@ -66,7 +66,9 @@ class MemoryEntry {
   static String tableToPrompt(List<MemoryEntry> entries) {
     if (entries.isEmpty) return '';
     final buffer = StringBuffer();
-    buffer.writeln('[Character Memory Table]');
+
+    // 渲染为自然记忆，不给用户看到表格痕迹
+    buffer.writeln('你对当前对话伙伴已知的信息：');
 
     final categories = <String, List<MemoryEntry>>{};
     for (final entry in entries) {
@@ -74,10 +76,11 @@ class MemoryEntry {
     }
 
     for (final cat in categories.entries) {
-      buffer.writeln('## ${cat.key}');
-      for (final e in cat.value) {
-        buffer.writeln('- ${e.key}: ${e.value}');
-      }
+      final items = cat.value.map((e) {
+        if (e.key == '备注' || e.key == 'note') return e.value;
+        return '${e.key}：${e.value}';
+      }).join('；');
+      buffer.writeln('- ${cat.key}：$items');
     }
     return buffer.toString().trim();
   }
@@ -86,31 +89,47 @@ class MemoryEntry {
       String contactId, String response) {
     final entries = <MemoryEntry>[];
     try {
-      var jsonStr = response;
-      final jsonMatch = RegExp(r'\[[\s\S]*\]').firstMatch(response);
-      if (jsonMatch != null) {
-        jsonStr = jsonMatch.group(0)!;
+      // Strip markdown code fences if present
+      var jsonStr = response.trim();
+      final fenceMatch = RegExp(r'```(?:json)?\s*([\s\S]*?)```').firstMatch(jsonStr);
+      if (fenceMatch != null) {
+        jsonStr = fenceMatch.group(1)!.trim();
+      }
+      // Extract the outermost JSON array
+      final firstBracket = jsonStr.indexOf('[');
+      final lastBracket = jsonStr.lastIndexOf(']');
+      if (firstBracket != -1 && lastBracket > firstBracket) {
+        jsonStr = jsonStr.substring(firstBracket, lastBracket + 1);
       }
       final list = jsonDecode(jsonStr) as List;
       for (final item in list) {
         if (item is Map<String, dynamic>) {
-          entries.add(MemoryEntry(
-            id: '',
-            contactId: contactId,
-            category: item['category'] as String? ?? '基本信息',
-            key: item['key'] as String? ?? '',
-            value: item['value'] as String? ?? '',
-            updatedAt: DateTime.now(),
-          ));
+          final category = (item['category'] as String?) ?? '其他';
+          final key = (item['key'] as String?) ?? '';
+          final value = (item['value'] as String?) ?? '';
+          if (key.isNotEmpty && value.isNotEmpty) {
+            entries.add(MemoryEntry(
+              id: '',
+              contactId: contactId,
+              category: category,
+              key: key,
+              value: value,
+              updatedAt: DateTime.now(),
+            ));
+          }
         }
       }
     } catch (_) {
+      // Fallback: parse markdown-style output
       final lines = response.split('\n');
-      String currentCategory = '基本信息';
+      String currentCategory = '其他';
       for (final line in lines) {
         final trimmed = line.trim();
-        if (trimmed.startsWith('##')) {
-          currentCategory = trimmed.replaceFirst(RegExp(r'^#+\s*'), '').trim();
+        if (trimmed.startsWith('##') || trimmed.startsWith('**') && trimmed.endsWith('**')) {
+          currentCategory = trimmed
+              .replaceFirst(RegExp(r'^#+\s*'), '')
+              .replaceAll('*', '')
+              .trim();
         } else if (trimmed.startsWith('-') && trimmed.contains(':')) {
           final colonIdx = trimmed.indexOf(':');
           final key = trimmed.substring(1, colonIdx).trim();

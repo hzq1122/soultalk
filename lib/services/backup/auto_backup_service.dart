@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import 'backup_service.dart';
@@ -64,8 +66,10 @@ class AutoBackupService {
         return;
       }
 
+      final tempDir = (await getTemporaryDirectory()).path;
       final path = await _backupService.exportToZip(
         sections: BackupSection.values.toSet(),
+        targetDir: tempDir,
       );
 
       CloudStorage? storage;

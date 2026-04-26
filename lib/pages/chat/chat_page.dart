@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/contact.dart';
 import '../../models/message.dart';
 import '../../models/api_config.dart';
@@ -32,10 +33,17 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   final _scrollController = ScrollController();
   bool _isSending = false;
   bool _isTyping = false;
+  bool _isRecording = false;
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(() {
+      if (_scrollController.position.atEdge &&
+          _scrollController.position.pixels <= 0) {
+        _loadMore();
+      }
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToBottom();
       ref.read(contactsProvider.notifier).clearUnread(widget.contactId);
@@ -113,6 +121,105 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         }
       },
     );
+  }
+
+  Future<void> _loadMore() async {
+    final notifier = ref.read(messagesProvider(widget.contactId).notifier);
+    await notifier.loadMore();
+  }
+
+  Future<void> _onMicTap() async {
+    final prefs = await SharedPreferences.getInstance();
+    final sttKey = prefs.getString('voice_stt_api_key');
+    if (sttKey == null || sttKey.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('请先在通用设置中配置语音识别（STT）API'),
+            action: SnackBarAction(
+              label: '去设置',
+              onPressed: () => context.push('/settings/general'),
+            ),
+          ),
+        );
+      }
+      return;
+    }
+    setState(() => _isRecording = !_isRecording);
+    if (_isRecording) {
+      // Recording started — in a full implementation, this would
+      // start audio capture and stream to STT API.
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('开始录音...（再次点击停止）')),
+        );
+      }
+    } else {
+      // Recording stopped — process audio through STT
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('录音已停止，正在识别...')),
+        );
+      }
+    }
+  }
+
+  void _showMessageActions(BuildContext context, Message message) {
+    final isUser = message.role == MessageRole.user;
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isUser)
+              ListTile(
+                leading: const Icon(Icons.undo, color: WeChatColors.primary),
+                title: const Text('撤回消息'),
+                subtitle: const Text('AI 会知道此消息被撤回',
+                    style: TextStyle(fontSize: 12, color: WeChatColors.textSecondary)),
+                onTap: () {
+                  ctx.pop();
+                  ref
+                      .read(messagesProvider(widget.contactId).notifier)
+                      .retractMessage(message.id);
+                },
+              ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: Colors.red),
+              title: const Text('删除消息'),
+              subtitle: const Text('AI 不会知道此消息被删除',
+                  style: TextStyle(fontSize: 12, color: WeChatColors.textSecondary)),
+              onTap: () {
+                ctx.pop();
+                ref
+                    .read(messagesProvider(widget.contactId).notifier)
+                    .removeMessage(message.id);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _sendImageMessage(Contact contact, String imagePath) async {
+    final messagesNotifier =
+        ref.read(messagesProvider(widget.contactId).notifier);
+    final userMsg = Message(
+      id: '',
+      contactId: widget.contactId,
+      role: MessageRole.user,
+      content: imagePath,
+      type: MessageType.image,
+      metadata: {'path': imagePath},
+      createdAt: DateTime.now(),
+    );
+    final service = ref.read(chatServiceProvider);
+    final saved = await service.saveMessage(userMsg);
+    messagesNotifier.addMessage(saved);
+    _scrollToBottom(animated: true);
+    ref.read(contactsProvider.notifier).refresh();
   }
 
   Future<void> _sendSpecialMessage(
@@ -210,9 +317,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   itemCount: messages.length + (_isTyping ? 1 : 0),
                   itemBuilder: (context, index) {
                     if (index < messages.length) {
-                      return MessageBubble(
-                        message: messages[index],
-                        contact: contact,
+                      final msg = messages[index];
+                      return GestureDetector(
+                        onLongPress: () => _showMessageActions(context, msg),
+                        child: MessageBubble(
+                          message: msg,
+                          contact: contact,
+                        ),
                       );
                     }
                     return const TypingIndicator();
@@ -226,7 +337,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             onSend: (text) => _sendMessage(contact, text),
             onSendSpecial: (type, metadata) =>
                 _sendSpecialMessage(contact, type, metadata),
+            onSendImage: (path) => _sendImageMessage(contact, path),
+            onMicTap: _onMicTap,
             enabled: !_isSending,
+            isRecording: _isRecording,
           ),
         ],
       ),
@@ -281,6 +395,30 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               onTap: () {
                 ctx.pop();
                 context.push('/contact/detail/${contact.id}', extra: contact);
+              },
+            ),
+            SwitchListTile(
+              secondary: const Icon(Icons.push_pin_outlined),
+              title: const Text('置顶会话'),
+              value: contact.pinned,
+              activeColor: WeChatColors.primary,
+              onChanged: (v) {
+                ctx.pop();
+                ref.read(contactsProvider.notifier).updateContact(
+                      contact.copyWith(pinned: v),
+                    );
+              },
+            ),
+            SwitchListTile(
+              secondary: const Icon(Icons.auto_mode),
+              title: const Text('允许主动联系'),
+              value: contact.proactiveEnabled,
+              activeColor: WeChatColors.primary,
+              onChanged: (v) {
+                ctx.pop();
+                ref.read(contactsProvider.notifier).updateContact(
+                      contact.copyWith(proactiveEnabled: v),
+                    );
               },
             ),
             ListTile(

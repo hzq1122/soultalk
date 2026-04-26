@@ -12,6 +12,7 @@ const _kCheckUpdateOnStartup = 'check_update_on_startup';
 const _kAutoBackupEnabled = 'auto_backup_enabled';
 const _kAutoBackupInterval = 'auto_backup_interval';
 const _kAutoBackupCloudType = 'auto_backup_cloud_type';
+const _kSelfProfile = 'self_profile';
 
 const _defaultGlobalPrompt =
     '你现在是在聊天，并非在现实，请让你的回复更符合聊天时的状态';
@@ -28,6 +29,8 @@ class AppSettings {
   final bool autoBackupEnabled;
   final int autoBackupInterval;
   final String autoBackupCloudType;
+  final String selfProfile;
+  final bool darkMode;
 
   const AppSettings({
     this.globalPromptEnabled = false,
@@ -41,6 +44,8 @@ class AppSettings {
     this.autoBackupEnabled = false,
     this.autoBackupInterval = 60,
     this.autoBackupCloudType = '',
+    this.selfProfile = '',
+    this.darkMode = false,
   });
 
   AppSettings copyWith({
@@ -55,6 +60,8 @@ class AppSettings {
     bool? autoBackupEnabled,
     int? autoBackupInterval,
     String? autoBackupCloudType,
+    String? selfProfile,
+    bool? darkMode,
   }) =>
       AppSettings(
         globalPromptEnabled: globalPromptEnabled ?? this.globalPromptEnabled,
@@ -70,6 +77,8 @@ class AppSettings {
         autoBackupInterval: autoBackupInterval ?? this.autoBackupInterval,
         autoBackupCloudType:
             autoBackupCloudType ?? this.autoBackupCloudType,
+        selfProfile: selfProfile ?? this.selfProfile,
+        darkMode: darkMode ?? this.darkMode,
       );
 }
 
@@ -91,6 +100,8 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
       autoBackupInterval: prefs.getInt(_kAutoBackupInterval) ?? 60,
       autoBackupCloudType:
           prefs.getString(_kAutoBackupCloudType) ?? '',
+      selfProfile: prefs.getString(_kSelfProfile) ?? '',
+      darkMode: prefs.getBool('dark_mode') ?? false,
     );
   }
 
@@ -162,6 +173,18 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
     await prefs.setString(_kAutoBackupCloudType, type);
     state =
         AsyncData(state.value!.copyWith(autoBackupCloudType: type));
+  }
+
+  Future<void> setSelfProfile(String text) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kSelfProfile, text);
+    state = AsyncData(state.value!.copyWith(selfProfile: text));
+  }
+
+  Future<void> setDarkMode(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('dark_mode', enabled);
+    state = AsyncData(state.value!.copyWith(darkMode: enabled));
   }
 
   Future<void> setMemoryUseMainApi(bool useMain) async {

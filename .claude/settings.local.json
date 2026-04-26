@@ -21,7 +21,15 @@
       "Bash(curl -sL \"https://api.github.com/repos/SillyTavern/SillyTavern/git/blobs/d2e4215bef1959356b94d2dd8e60da415a1bb0f7\" -H \"Accept: application/vnd.github.v3+json\")",
       "Bash(curl -sL \"https://api.github.com/repos/SillyTavern/SillyTavern/git/blobs/51000bee1d25b05ef57fdc214118443fac2b131b\" -H \"Accept: application/vnd.github.v3+json\")",
       "Bash(curl *)",
-      "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); print\\(data.get\\('sha',''\\)\\)\")"
+      "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); print\\(data.get\\('sha',''\\)\\)\")",
+      "Bash(grep -E \"\\(BUILD|Error|FAIL|SUCCESS|$\\)\")",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(grep -rIn --include=\"*.dart\" --include=\"*.json\" --include=\"*.yaml\" --include=\"*.properties\" -E \"\\(password|secret|token|api.?key|accessKey|secretKey\\)\\\\s*[=:]\\\\s*['\\\\x22][^'\\\\x22]{4,}\" lib/ android/)",
+      "Bash(grep -iE \"\\(key.properties|\\\\.keystore|\\\\.jks|secret|password|token|\\\\.env|\\\\.db$|\\\\.sqlite\\)\")",
+      "Bash(grep -iE \"\\(api.?key|sk-[a-zA-Z0-9]{20,}|Bearer [a-zA-Z0-9_-]{20,}\\)\")",
+      "Bash(grep -iE \"\\(chat_export|exports/|\\\\.db$|\\\\.sqlite\\)\")",
+      "Bash(grep -iE \"\\\\.zip$\")"
     ]
   }
 }

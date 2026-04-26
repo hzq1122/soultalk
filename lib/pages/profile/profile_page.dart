@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/api_config_provider.dart';
 import '../../providers/contacts_provider.dart';
 import '../../providers/settings_provider.dart';
+import '../../pages/onboarding/onboarding_page.dart';
 import '../../theme/wechat_colors.dart';
 
 class ProfilePage extends ConsumerWidget {
@@ -23,118 +25,148 @@ class ProfilePage extends ConsumerWidget {
       ),
       body: ListView(
         children: [
-          // 用户信息
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    color: WeChatColors.primary,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child:
-                      const Icon(Icons.person, color: Colors.white, size: 36),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Talk AI 用户',
-                          style: TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 4),
-                      Text('已配置 ${apiConfigs.length} 个 API',
-                          style: const TextStyle(
-                              color: WeChatColors.textSecondary,
-                              fontSize: 13)),
-                    ],
-                  ),
-                ),
-                const Icon(Icons.chevron_right, color: WeChatColors.textHint),
-              ],
-            ),
-          ),
+          // 用户信息卡片
+          _buildUserCard(apiConfigs, contactsAsync, ref),
           const SizedBox(height: 8),
-          // 功能列表
+          // 核心功能
+          _buildSectionHeader('核心功能'),
           Container(
             color: Colors.white,
             child: Column(
               children: [
-                ListTile(
-                  leading:
-                      const Icon(Icons.api, color: WeChatColors.primary),
-                  title: const Text('API 配置'),
-                  subtitle: Text(
-                    apiConfigs.isEmpty
-                        ? '点击添加 API 配置'
-                        : apiConfigs.map((c) => c.name).join('、'),
-                    style: const TextStyle(fontSize: 12),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  trailing: apiConfigs.isEmpty
-                      ? const Icon(Icons.warning_amber, color: Colors.orange)
-                      : const Icon(Icons.chevron_right,
-                          color: WeChatColors.textHint),
+                _buildTile(
+                  icon: Icons.api,
+                  color: Colors.green,
+                  title: 'API 配置',
+                  subtitle: apiConfigs.isEmpty
+                      ? '未配置（点击添加）'
+                      : '${apiConfigs.length} 个配置',
+                  warning: apiConfigs.isEmpty,
                   onTap: () => context.push('/settings/api'),
                 ),
-                const Divider(height: 0, indent: 56),
-                ListTile(
-                  leading: const Icon(Icons.tune,
-                      color: WeChatColors.primary),
-                  title: const Text('通用设置'),
-                  subtitle: settingsAsync.when(
-                    data: (s) => Text(
-                      s.globalPromptEnabled ? '通用提示词已启用' : '通用提示词未启用',
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    loading: () => const SizedBox(),
-                    error: (_, _) => const SizedBox(),
+                const _Divider(),
+                _buildTile(
+                  icon: Icons.people,
+                  color: const Color(0xFF576B95),
+                  title: '角色管理',
+                  subtitle: contactsAsync.when(
+                    data: (contacts) =>
+                        '${contacts.length} 个 AI 角色',
+                    loading: () => '加载中...',
+                    error: (_, __) => '加载失败',
                   ),
-                  trailing: const Icon(Icons.chevron_right,
-                      color: WeChatColors.textHint),
+                  onTap: () => context.push('/contacts'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          // 设置
+          _buildSectionHeader('设置'),
+          Container(
+            color: Colors.white,
+            child: Column(
+              children: [
+                _buildTile(
+                  icon: Icons.tune,
+                  color: WeChatColors.primary,
+                  title: '通用设置',
+                  subtitle: settingsAsync.when(
+                    data: (s) => s.globalPromptEnabled
+                        ? '通用提示词已启用'
+                        : '通用提示词未启用',
+                    loading: () => '',
+                    error: (_, __) => '',
+                  ),
                   onTap: () => context.push('/settings/general'),
                 ),
-                const Divider(height: 0, indent: 56),
-                ListTile(
-                  leading: const Icon(Icons.backup_outlined,
-                      color: WeChatColors.primary),
-                  title: const Text('备份与恢复'),
-                  trailing: const Icon(Icons.chevron_right,
-                      color: WeChatColors.textHint),
+                const _Divider(),
+                _buildTile(
+                  icon: Icons.backup_outlined,
+                  color: Colors.blue,
+                  title: '备份与恢复',
+                  subtitle: '导出 / 导入数据',
                   onTap: () => context.push('/settings/backup'),
                 ),
-                const Divider(height: 0, indent: 56),
-                ListTile(
-                  leading: const Icon(Icons.system_update,
-                      color: WeChatColors.primary),
-                  title: const Text('检查更新'),
-                  trailing: const Icon(Icons.chevron_right,
-                      color: WeChatColors.textHint),
+                const _Divider(),
+                _buildTile(
+                  icon: Icons.system_update,
+                  color: Colors.orange,
+                  title: '检查更新',
+                  subtitle: 'GitHub Release',
                   onTap: () => context.push('/settings/update'),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 8),
-          // AI 状态诊断面板
+          // AI 状态诊断
           _AiStatusPanel(contactsAsync: contactsAsync),
           const SizedBox(height: 8),
+          // 其他
+          _buildSectionHeader('其他'),
           Container(
             color: Colors.white,
             child: Column(
               children: [
-                ListTile(
-                  leading: const Icon(Icons.info_outline,
-                      color: WeChatColors.textSecondary),
-                  title: const Text('关于 Talk AI'),
-                  trailing: const Icon(Icons.chevron_right,
-                      color: WeChatColors.textHint),
+                _buildTile(
+                  icon: Icons.school_outlined,
+                  color: Colors.teal,
+                  title: '新手引导',
+                  subtitle: '重新查看引导教程',
+                  onTap: () => _restartOnboarding(context),
+                ),
+                const _Divider(),
+                _buildTile(
+                  icon: Icons.info_outline,
+                  color: WeChatColors.textSecondary,
+                  title: '关于 Talk AI',
+                  subtitle: 'v1.0.0',
                   onTap: () => _showAbout(context),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUserCard(List apiConfigs, AsyncValue contactsAsync, WidgetRef ref) {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+      child: Row(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [WeChatColors.primary, WeChatColors.primaryLight],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(Icons.person, color: Colors.white, size: 36),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Talk AI',
+                    style: TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 4),
+                Text(
+                  apiConfigs.isEmpty
+                      ? '请先配置 API'
+                      : '已连接 ${apiConfigs.length} 个 API',
+                  style: const TextStyle(
+                      color: WeChatColors.textSecondary, fontSize: 13),
                 ),
               ],
             ),
@@ -144,19 +176,114 @@ class ProfilePage extends ConsumerWidget {
     );
   }
 
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Text(title,
+          style: const TextStyle(
+              fontSize: 13,
+              color: WeChatColors.textSecondary,
+              fontWeight: FontWeight.w500)),
+    );
+  }
+
+  Widget _buildTile({
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String subtitle,
+    VoidCallback? onTap,
+    bool warning = false,
+  }) {
+    return ListTile(
+      leading: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, color: color, size: 20),
+      ),
+      title: Text(title, style: const TextStyle(fontSize: 15)),
+      subtitle: subtitle.isNotEmpty
+          ? Text(subtitle,
+              style: TextStyle(
+                  fontSize: 12,
+                  color: warning ? Colors.orange : WeChatColors.textSecondary))
+          : null,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (warning)
+            const Padding(
+              padding: EdgeInsets.only(right: 4),
+              child:
+                  Icon(Icons.warning_amber, color: Colors.orange, size: 18),
+            ),
+          const Icon(Icons.chevron_right, color: WeChatColors.textHint),
+        ],
+      ),
+      onTap: onTap,
+    );
+  }
+
+  Future<void> _restartOnboarding(BuildContext context) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('重新开始引导'),
+        content: const Text('将重新打开新手引导页面，不会影响已有数据。'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('开始',
+                  style: TextStyle(color: WeChatColors.primary))),
+        ],
+      ),
+    );
+    if (confirm == true && context.mounted) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('onboarding_done');
+      context.go('/onboarding');
+    }
+  }
+
   void _showAbout(BuildContext context) {
     showAboutDialog(
       context: context,
       applicationName: 'Talk AI',
       applicationVersion: '1.0.0',
-      applicationLegalese: 'AI 驱动的微信风格社交应用\n支持 OpenAI、Anthropic 等多种 LLM',
+      applicationIcon: Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          color: WeChatColors.primary,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Icon(Icons.chat_bubble_rounded,
+            color: Colors.white, size: 28),
+      ),
+      applicationLegalese:
+          'AI 驱动的微信风格社交应用\n支持 OpenAI、Anthropic 等多种 LLM',
     );
+  }
+}
+
+class _Divider extends StatelessWidget {
+  const _Divider();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Divider(height: 0, indent: 56, endIndent: 16);
   }
 }
 
 class _AiStatusPanel extends StatelessWidget {
   final AsyncValue contactsAsync;
-
   const _AiStatusPanel({required this.contactsAsync});
 
   @override
@@ -183,7 +310,8 @@ class _AiStatusPanel extends StatelessWidget {
           contactsAsync.when(
             loading: () => const Padding(
               padding: EdgeInsets.all(16),
-              child: Center(child: CircularProgressIndicator()),
+              child:
+                  Center(child: CircularProgressIndicator(strokeWidth: 2)),
             ),
             error: (e, _) => Padding(
               padding: const EdgeInsets.all(16),
@@ -195,49 +323,39 @@ class _AiStatusPanel extends StatelessWidget {
               ),
             ),
             data: (contacts) {
-              final contactList =
-                  (contacts as List).cast<dynamic>();
+              final contactList = (contacts as List).cast<dynamic>();
               if (contactList.isEmpty) {
                 return const Padding(
                   padding: EdgeInsets.all(16),
                   child: _StatusRow(
                     icon: Icons.info_outline,
                     color: WeChatColors.textHint,
-                    label: '暂无联系人',
-                    detail: '添加联系人后可查看状态',
+                    label: '暂无 AI 角色',
+                    detail: '点击上方"角色管理"创建',
                   ),
                 );
               }
 
-              final totalContacts = contactList.length;
+              final total = contactList.length;
               final proactiveEnabled =
                   contactList.where((c) => c.proactiveEnabled == true).length;
               final withPrompt = contactList
                   .where((c) =>
-                      (c.systemPrompt as String).isNotEmpty ||
-                      c.characterCardJson != null)
+                      (c.systemPrompt as String).isNotEmpty)
                   .length;
               final withApi = contactList
                   .where((c) => c.apiConfigId != null)
                   .length;
-              final withUnread = contactList
-                  .where((c) => (c.unreadCount as int) > 0)
-                  .length;
-
               final readyCount = contactList.where((c) =>
                   c.proactiveEnabled == true &&
-                  ((c.systemPrompt as String).isNotEmpty ||
-                      c.characterCardJson != null)).length;
-
-              final progress = totalContacts > 0
-                  ? readyCount / totalContacts
-                  : 0.0;
+                  (c.systemPrompt as String).isNotEmpty).length;
+              final progress =
+                  total > 0 ? readyCount / total : 0.0;
 
               return Padding(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
                 child: Column(
                   children: [
-                    // 整体进度条
                     Row(
                       children: [
                         const Text('自动行为就绪',
@@ -249,16 +367,14 @@ class _AiStatusPanel extends StatelessWidget {
                             child: LinearProgressIndicator(
                               value: progress,
                               backgroundColor: const Color(0xFFE0E0E0),
-                              valueColor:
-                                  const AlwaysStoppedAnimation(
-                                      WeChatColors.primary),
+                              valueColor: const AlwaysStoppedAnimation(
+                                  WeChatColors.primary),
                               minHeight: 8,
                             ),
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                            '$readyCount/$totalContacts',
+                        Text('$readyCount/$total',
                             style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500)),
@@ -271,7 +387,7 @@ class _AiStatusPanel extends StatelessWidget {
                           ? WeChatColors.primary
                           : WeChatColors.textHint,
                       label: '主动消息',
-                      detail: '$proactiveEnabled/$totalContacts 已启用',
+                      detail: '$proactiveEnabled/$total 已启用',
                     ),
                     const SizedBox(height: 6),
                     _StatusRow(
@@ -281,8 +397,8 @@ class _AiStatusPanel extends StatelessWidget {
                           : Colors.orange,
                       label: '角色设定',
                       detail: withPrompt > 0
-                          ? '$withPrompt/$totalContacts 已配置'
-                          : '未配置（AI 无法主动发消息）',
+                          ? '$withPrompt/$total 已配置'
+                          : '未配置（无法主动发消息）',
                     ),
                     const SizedBox(height: 6),
                     _StatusRow(
@@ -291,17 +407,8 @@ class _AiStatusPanel extends StatelessWidget {
                           ? WeChatColors.primary
                           : Colors.orange,
                       label: 'API 绑定',
-                      detail: '$withApi/$totalContacts 已绑定',
+                      detail: '$withApi/$total 已绑定',
                     ),
-                    if (withUnread > 0) ...[
-                      const SizedBox(height: 6),
-                      _StatusRow(
-                        icon: Icons.mark_chat_unread,
-                        color: Colors.red,
-                        label: '未读消息',
-                        detail: '$withUnread 个联系人有未读消息',
-                      ),
-                    ],
                   ],
                 ),
               );
@@ -333,7 +440,8 @@ class _StatusRow extends StatelessWidget {
         Icon(icon, size: 16, color: color),
         const SizedBox(width: 8),
         Text(label,
-            style: const TextStyle(fontSize: 13, color: WeChatColors.textPrimary)),
+            style: const TextStyle(
+                fontSize: 13, color: WeChatColors.textPrimary)),
         const Spacer(),
         Text(detail,
             style: const TextStyle(

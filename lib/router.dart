@@ -15,6 +15,7 @@ import '../pages/delivery/delivery_page.dart';
 import '../pages/memory/memory_page.dart';
 import '../pages/settings/update_page.dart';
 import '../pages/settings/backup_page.dart';
+import '../pages/onboarding/onboarding_page.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -22,6 +23,13 @@ final _shellNavigatorKey = GlobalKey<NavigatorState>();
 final appRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: '/chats',
+  redirect: (context, state) async {
+    final done = await isOnboardingDone();
+    final onOnboarding = state.matchedLocation == '/onboarding';
+    if (!done && !onOnboarding) return '/onboarding';
+    if (done && onOnboarding) return '/chats';
+    return null;
+  },
   routes: [
     ShellRoute(
       navigatorKey: _shellNavigatorKey,
@@ -96,6 +104,11 @@ final appRouter = GoRouter(
       path: '/settings/backup',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const BackupPage(),
+    ),
+    GoRoute(
+      path: '/onboarding',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const OnboardingPage(),
     ),
     GoRoute(
       path: '/memory/:contactId',

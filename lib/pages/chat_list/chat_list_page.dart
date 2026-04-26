@@ -152,7 +152,13 @@ class _ConversationTile extends ConsumerWidget {
           color: contact.pinned ? const Color(0xFFF0F0F0) : Colors.white,
           child: Row(
             children: [
-              const SizedBox(width: 12),
+              if (contact.pinned)
+                const Padding(
+                  padding: EdgeInsets.only(left: 4),
+                  child: Icon(Icons.push_pin, size: 14, color: WeChatColors.textHint),
+                )
+              else
+                const SizedBox(width: 10),
               // 头像 + 未读角标
               Stack(
                 children: [

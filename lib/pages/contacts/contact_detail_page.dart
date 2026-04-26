@@ -136,6 +136,23 @@ class _ContactDetailView extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
 
+            // 自动行为开关
+            Container(
+              color: Colors.white,
+              child: SwitchListTile(
+                secondary: const Icon(Icons.auto_mode, color: WeChatColors.primary),
+                title: const Text('允许主动联系'),
+                subtitle: const Text('AI 会主动发送消息和互动',
+                    style: TextStyle(fontSize: 12)),
+                value: contact.proactiveEnabled,
+                activeColor: WeChatColors.primary,
+                onChanged: (v) => ref
+                    .read(contactsProvider.notifier)
+                    .updateContact(contact.copyWith(proactiveEnabled: v)),
+              ),
+            ),
+            const SizedBox(height: 8),
+
             // 发消息按钮
             Container(
               color: Colors.white,

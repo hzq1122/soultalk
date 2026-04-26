@@ -73,8 +73,14 @@ class ChatService {
     return saved;
   }
 
+  Future<void> deleteMessage(String messageId) =>
+      _messageDao.delete(messageId);
+
   Future<void> deleteMessages(String contactId) =>
       _messageDao.deleteByContact(contactId);
+
+  Future<void> retractMessage(String messageId, String newContent) =>
+      _messageDao.updateTypeAndContent(messageId, MessageType.system.name, newContent);
 
   // ─── API 配置 ─────────────────────────────────────────────────────────────
 
@@ -203,6 +209,12 @@ class ChatService {
     for (final preset in presets) {
       final text = preset.buildPromptText();
       if (text.isNotEmpty) parts.add(text);
+    }
+
+    // 用户自我设定（让 AI 了解用户）
+    final selfProfile = prefs.getString('self_profile') ?? '';
+    if (selfProfile.isNotEmpty) {
+      parts.add('关于对话对象（用户）的信息：$selfProfile');
     }
 
     // 角色 system prompt

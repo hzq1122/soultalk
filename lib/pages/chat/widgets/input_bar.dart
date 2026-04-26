@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../models/cart_item.dart';
 import '../../../providers/cart_provider.dart';
 import '../../../theme/wechat_colors.dart';
@@ -7,13 +8,19 @@ import '../../../theme/wechat_colors.dart';
 class InputBar extends ConsumerStatefulWidget {
   final void Function(String text) onSend;
   final void Function(String type, Map<String, dynamic> metadata)? onSendSpecial;
+  final void Function(String path) onSendImage;
+  final VoidCallback? onMicTap;
   final bool enabled;
+  final bool isRecording;
 
   const InputBar({
     super.key,
     required this.onSend,
     this.onSendSpecial,
+    required this.onSendImage,
+    this.onMicTap,
     this.enabled = true,
+    this.isRecording = false,
   });
 
   @override
@@ -47,6 +54,18 @@ class _InputBarState extends ConsumerState<InputBar> {
     _controller.clear();
     setState(() => _hasText = false);
     widget.onSend(text);
+  }
+
+  Future<void> _pickAndSendImage() async {
+    final picker = ImagePicker();
+    final file = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1920,
+      maxHeight: 1920,
+    );
+    if (file != null) {
+      widget.onSendImage(file.path);
+    }
   }
 
   void _showPlusMenu(BuildContext context) {
@@ -90,7 +109,10 @@ class _InputBarState extends ConsumerState<InputBar> {
                 icon: Icons.image_outlined,
                 label: '图片',
                 color: const Color(0xFF007AFF),
-                onTap: () => Navigator.of(ctx).pop(),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _pickAndSendImage();
+                },
               ),
               _PlusMenuItem(
                 icon: Icons.location_on_outlined,
@@ -311,10 +333,15 @@ class _InputBarState extends ConsumerState<InputBar> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            // 语音按钮（占位）
+            // 语音按钮
             IconButton(
-              icon: const Icon(Icons.mic_none, color: WeChatColors.textSecondary),
-              onPressed: widget.enabled ? () {} : null,
+              icon: Icon(
+                widget.isRecording ? Icons.mic : Icons.mic_none,
+                color: widget.isRecording
+                    ? WeChatColors.primary
+                    : WeChatColors.textSecondary,
+              ),
+              onPressed: widget.enabled ? widget.onMicTap ?? () {} : null,
             ),
             // 文本输入框
             Expanded(

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../theme/wechat_colors.dart';
@@ -33,6 +34,9 @@ class MessageBubble extends ConsumerWidget {
     }
     if (message.type == MessageType.delivery) {
       return _DeliveryBubble(message: message, isUser: _isUser);
+    }
+    if (message.type == MessageType.image) {
+      return _ImageBubble(message: message, isUser: _isUser);
     }
 
     final scripts = ref.watch(enabledRegexScriptsProvider);
@@ -253,6 +257,55 @@ class _TransferBubble extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ImageBubble extends StatelessWidget {
+  final Message message;
+  final bool isUser;
+  const _ImageBubble({required this.message, required this.isUser});
+
+  @override
+  Widget build(BuildContext context) {
+    final path = message.metadata?['path'] ?? message.content;
+    final file = File(path);
+    final exists = file.existsSync();
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: isUser ? 60 : 12,
+        right: isUser ? 12 : 60,
+        top: 4,
+        bottom: 4,
+      ),
+      child: Align(
+        alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: exists
+              ? Image.file(
+                  file,
+                  width: 200,
+                  height: 200,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    width: 200,
+                    height: 200,
+                    color: WeChatColors.textHint.withAlpha(50),
+                    child: const Icon(Icons.broken_image,
+                        color: WeChatColors.textHint, size: 48),
+                  ),
+                )
+              : Container(
+                  width: 200,
+                  height: 200,
+                  color: WeChatColors.textHint.withAlpha(50),
+                  child: const Icon(Icons.image,
+                      color: WeChatColors.textHint, size: 48),
+                ),
         ),
       ),
     );

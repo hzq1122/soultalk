@@ -36,6 +36,25 @@ class GeneralSettingsPage extends ConsumerWidget {
           return ListView(
             children: [
               const SizedBox(height: 8),
+              // 显示
+              _SectionHeader(title: '显示'),
+              Container(
+                color: Colors.white,
+                child: Column(
+                  children: [
+                    SwitchListTile(
+                      title: const Text('深色模式'),
+                      subtitle: const Text('切换深色/浅色主题'),
+                      value: settings.darkMode,
+                      activeColor: WeChatColors.primary,
+                      onChanged: (v) => ref
+                          .read(settingsProvider.notifier)
+                          .setDarkMode(v),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
               // 全局提示词
               _SectionHeader(title: '通用提示词'),
               Container(
@@ -70,6 +89,29 @@ class GeneralSettingsPage extends ConsumerWidget {
                       ),
                     ],
                   ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              // 用户自我设定
+              _SectionHeader(title: '用户自我设定'),
+              Container(
+                color: Colors.white,
+                child: ListTile(
+                  title: const Text('编辑自我设定'),
+                  subtitle: Text(
+                    settings.selfProfile.isEmpty
+                        ? '告诉 AI 关于你的信息（年龄、爱好、偏好等）'
+                        : settings.selfProfile,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 12,
+                        color: WeChatColors.textSecondary),
+                  ),
+                  trailing: const Icon(Icons.chevron_right,
+                      color: WeChatColors.textHint),
+                  onTap: () =>
+                      _editSelfProfile(context, ref, settings.selfProfile),
                 ),
               ),
               const SizedBox(height: 8),
@@ -213,6 +255,34 @@ class GeneralSettingsPage extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 8),
+              // 语音服务
+              _SectionHeader(title: '语音服务'),
+              Container(
+                color: Colors.white,
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.mic, color: WeChatColors.primary),
+                      title: const Text('语音识别（STT）'),
+                      subtitle: const Text('语音转文字', style: TextStyle(fontSize: 12)),
+                      trailing: const Icon(Icons.chevron_right,
+                          color: WeChatColors.textHint),
+                      onTap: () => _showVoiceConfigSheet(context, ref, 'stt'),
+                    ),
+                    const Divider(height: 0, indent: 56),
+                    ListTile(
+                      leading: const Icon(Icons.volume_up,
+                          color: WeChatColors.primary),
+                      title: const Text('语音合成（TTS）'),
+                      subtitle: const Text('文字转语音', style: TextStyle(fontSize: 12)),
+                      trailing: const Icon(Icons.chevron_right,
+                          color: WeChatColors.textHint),
+                      onTap: () => _showVoiceConfigSheet(context, ref, 'tts'),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
               // 朋友圈更新间隔
               _SectionHeader(title: '朋友圈'),
               Container(
@@ -307,6 +377,52 @@ class GeneralSettingsPage extends ConsumerWidget {
             ],
           );
         },
+      ),
+    );
+  }
+
+  void _editSelfProfile(
+      BuildContext context, WidgetRef ref, String current) {
+    final ctrl = TextEditingController(text: current);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('编辑自我设定'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              '告诉 AI 关于你的一切，让它更了解你：'
+              '年龄、职业、爱好、性格、喜欢的食物、最近在忙什么...',
+              style: TextStyle(fontSize: 12, color: WeChatColors.textSecondary),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: ctrl,
+              maxLines: 8,
+              decoration: const InputDecoration(
+                hintText: '示例：\n我今年25岁，程序员，喜欢喝奶茶和打游戏。'
+                    '最近在学Flutter开发，养了一只叫小橘的猫。'
+                    '不喜欢吃香菜，对海鲜过敏...',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('取消')),
+          ElevatedButton(
+            onPressed: () {
+              ref
+                  .read(settingsProvider.notifier)
+                  .setSelfProfile(ctrl.text.trim());
+              Navigator.of(ctx).pop();
+            },
+            child: const Text('保存'),
+          ),
+        ],
       ),
     );
   }
@@ -530,6 +646,15 @@ class GeneralSettingsPage extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Future<void> _showVoiceConfigSheet(
+      BuildContext context, WidgetRef ref, String type) async {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => _VoiceConfigSheet(type: type),
     );
   }
 
@@ -1002,6 +1127,172 @@ class _CloudConfigSheetState extends State<_CloudConfigSheet> {
         _testResult = '连接失败: $e';
       });
     }
+  }
+}
+
+class _VoiceConfigSheet extends StatefulWidget {
+  final String type;
+  const _VoiceConfigSheet({required this.type});
+
+  @override
+  State<_VoiceConfigSheet> createState() => _VoiceConfigSheetState();
+}
+
+class _VoiceConfigSheetState extends State<_VoiceConfigSheet> {
+  late final _providerCtrl = TextEditingController();
+  late final _apiKeyCtrl = TextEditingController();
+  late final _baseUrlCtrl = TextEditingController();
+  late final _modelCtrl = TextEditingController();
+  late final _voiceCtrl = TextEditingController();
+  String _provider = 'openai';
+  bool _showKey = false;
+
+  bool get _isStt => widget.type == 'stt';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadConfig().then((_) => setState(() {}));
+  }
+
+  Future<void> _loadConfig() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (_isStt) {
+      _provider = prefs.getString('voice_stt_provider') ?? 'openai';
+      _apiKeyCtrl.text = prefs.getString('voice_stt_api_key') ?? '';
+      _baseUrlCtrl.text =
+          prefs.getString('voice_stt_base_url') ?? 'https://api.openai.com/v1';
+      _modelCtrl.text = prefs.getString('voice_stt_model') ?? 'whisper-1';
+    } else {
+      _provider = prefs.getString('voice_tts_provider') ?? 'openai';
+      _apiKeyCtrl.text = prefs.getString('voice_tts_api_key') ?? '';
+      _baseUrlCtrl.text =
+          prefs.getString('voice_tts_base_url') ?? 'https://api.openai.com/v1';
+      _modelCtrl.text = prefs.getString('voice_tts_model') ?? 'tts-1';
+      _voiceCtrl.text = prefs.getString('voice_tts_voice') ?? 'alloy';
+    }
+  }
+
+  Future<void> _save() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (_isStt) {
+      await prefs.setString('voice_stt_provider', _provider);
+      await prefs.setString('voice_stt_api_key', _apiKeyCtrl.text.trim());
+      await prefs.setString('voice_stt_base_url', _baseUrlCtrl.text.trim());
+      await prefs.setString('voice_stt_model', _modelCtrl.text.trim());
+    } else {
+      await prefs.setString('voice_tts_provider', _provider);
+      await prefs.setString('voice_tts_api_key', _apiKeyCtrl.text.trim());
+      await prefs.setString('voice_tts_base_url', _baseUrlCtrl.text.trim());
+      await prefs.setString('voice_tts_model', _modelCtrl.text.trim());
+      await prefs.setString('voice_tts_voice', _voiceCtrl.text.trim());
+    }
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  @override
+  void dispose() {
+    _providerCtrl.dispose();
+    _apiKeyCtrl.dispose();
+    _baseUrlCtrl.dispose();
+    _modelCtrl.dispose();
+    _voiceCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      maxChildSize: 0.9,
+      minChildSize: 0.4,
+      expand: false,
+      builder: (_, scrollCtrl) => SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Text(_isStt ? '语音识别（STT）' : '语音合成（TTS）',
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w600)),
+                  const Spacer(),
+                  TextButton(
+                      onPressed: _save,
+                      child: const Text('保存',
+                          style: TextStyle(
+                              color: WeChatColors.primary,
+                              fontWeight: FontWeight.w600))),
+                ],
+              ),
+            ),
+            const Divider(height: 0),
+            Expanded(
+              child: ListView(
+                controller: scrollCtrl,
+                padding: const EdgeInsets.all(16),
+                children: [
+                  DropdownButtonFormField<String>(
+                    initialValue: _provider,
+                    decoration: const InputDecoration(labelText: '提供商'),
+                    items: const [
+                      DropdownMenuItem(value: 'openai', child: Text('OPENAI')),
+                      DropdownMenuItem(value: 'custom', child: Text('CUSTOM')),
+                    ],
+                    onChanged: (v) {
+                      if (v != null) setState(() => _provider = v);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _baseUrlCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Base URL',
+                      hintText: 'https://api.openai.com/v1',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _apiKeyCtrl,
+                    obscureText: !_showKey,
+                    decoration: InputDecoration(
+                      labelText: 'API Key',
+                      hintText: 'sk-...',
+                      suffixIcon: IconButton(
+                        icon: Icon(_showKey
+                            ? Icons.visibility_off
+                            : Icons.visibility),
+                        onPressed: () =>
+                            setState(() => _showKey = !_showKey),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _modelCtrl,
+                    decoration: InputDecoration(
+                      labelText: '模型',
+                      hintText: _isStt ? 'whisper-1' : 'tts-1',
+                    ),
+                  ),
+                  if (!_isStt) ...[
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _voiceCtrl,
+                      decoration: const InputDecoration(
+                        labelText: '音色',
+                        hintText: 'alloy / echo / fable / onyx / nova / shimmer',
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

@@ -44,8 +44,9 @@ dependencies:
   # 工具
   uuid: ^4.5.1
 
-  # 加密 (用于PNG角色卡base64解析)
+  # 加密 (用于PNG角色卡base64解析 + 备份加密)
   crypto: ^3.0.5
+  encrypt: ^5.0.3
 
   # 压缩 / 解压
   archive: ^4.0.2
