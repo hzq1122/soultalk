@@ -1,4 +1,4 @@
-name: Build and Release APK
+name: Build and Release
 
 on:
   push:
@@ -14,7 +14,9 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
-  build:
+  # ── Android APK ──────────────────────────────────────────────────
+  build-android:
+    name: Android APK
     runs-on: ubuntu-latest
 
     steps:
@@ -59,18 +61,72 @@ jobs:
           flutter pub get
           flutter build apk --release
 
-      - name: Upload APK artifact (main push)
-        if: github.ref == 'refs/heads/main'
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v5
         with:
-          name: soultalk-release
+          name: android-apk
           path: build/app/outputs/flutter-apk/*.apk
 
-      - name: Create Release and Upload APK (tag push)
-        if: startsWith(github.ref, 'refs/tags/v')
+  # ── Windows x64 ──────────────────────────────────────────────────
+  build-windows:
+    name: Windows x64
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.41.x'
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Build Windows
+        run: |
+          flutter pub get
+          flutter build windows --release
+
+      - name: Package Windows build
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}" -replace '^v',''
+          if ($version -eq 'main') { $version = 'dev' }
+          $zipName = "soultalk-windows-x64-v$version.zip"
+          Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath $zipName
+          echo "zip_name=$zipName" >> $env:GITHUB_ENV
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: windows-x64
+          path: soultalk-windows-x64-*.zip
+
+  # ── Release (tag push only) ──────────────────────────────────────
+  release:
+    name: Create GitHub Release
+    needs: [build-android, build-windows]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v5
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Create Release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: build/app/outputs/flutter-apk/*.apk
+          artifacts: |
+            artifacts/android-apk/*.apk
+            artifacts/windows-x64/*.zip
           tag: ${{ github.ref_name }}
           token: ${{ secrets.GITHUB_TOKEN }}
           allowUpdates: true
