@@ -117,7 +117,7 @@ class _BackupPageState extends ConsumerState<BackupPage>
             title: const Text('加密备份'),
             subtitle: const Text('使用密码加密，防止隐私泄露'),
             value: _exportEncrypt,
-            activeColor: WeChatColors.primary,
+            activeThumbColor: WeChatColors.primary,
             onChanged: (v) => setState(() => _exportEncrypt = v),
           ),
         ),
@@ -481,27 +481,6 @@ class _BackupPageState extends ConsumerState<BackupPage>
     });
   }
 
-  // After user enters password for encrypted import, call this
-  Future<void> _tryDecryptAndList() async {
-    if (_importPath == null || _importPassCtrl.text.isEmpty) return;
-    final sections = await BackupService().listSections(
-      _importPath!,
-      password: _importPassCtrl.text.trim(),
-    );
-    setState(() {
-      if (sections.isEmpty) {
-        _importSectionsAvailable = null;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('密码错误或文件损坏')),
-        );
-      } else {
-        _importSectionsAvailable = sections;
-        _importSections.clear();
-        _importSections.addAll(sections);
-      }
-    });
-  }
-
   Future<void> _shareFile(String path) async {
     await Share.shareXFiles([XFile(path)], text: 'Talk AI 备份');
   }
@@ -554,14 +533,6 @@ class _BackupPageState extends ConsumerState<BackupPage>
         targetDir: tempDir,
         password: password,
       );
-
-      if (path == null) {
-        setState(() {
-          _cloudLoading = false;
-          _cloudStatus = '导出失败';
-        });
-        return;
-      }
 
       _cloudStatus = '正在上传...';
       final fileName = path.split('/').last;

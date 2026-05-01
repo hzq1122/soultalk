@@ -4,35 +4,30 @@ import '../../models/api_config.dart';
 import '../../models/message.dart';
 import 'llm_service.dart';
 
-/// Anthropic 原生协议 Adapter
 class AnthropicAdapterImpl implements LlmService {
   static const String _defaultBaseUrl = 'https://api.anthropic.com';
   static const String _anthropicVersion = '2023-06-01';
+
+  static final _dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 120),
+    ),
+  );
 
   String _normalizeUrl(String url) {
     final base = url.isNotEmpty ? url : _defaultBaseUrl;
     return base.endsWith('/') ? base.substring(0, base.length - 1) : base;
   }
 
-  Dio _buildDio(ApiConfig config) => Dio(BaseOptions(
-        baseUrl: _normalizeUrl(config.baseUrl),
-        connectTimeout: const Duration(seconds: 30),
-        receiveTimeout: const Duration(seconds: 120),
-        headers: {
-          'x-api-key': config.apiKey,
-          'anthropic-version': _anthropicVersion,
-          'Content-Type': 'application/json',
-        },
-      ));
+  Map<String, String> _headers(ApiConfig config) => {
+    'x-api-key': config.apiKey,
+    'anthropic-version': _anthropicVersion,
+    'Content-Type': 'application/json',
+  };
 
   List<Map<String, String>> _buildMessages(List<Message> messages) {
-    return messages
-        .where((m) => m.role != MessageRole.system)
-        .map((m) => {
-              'role': m.role == MessageRole.user ? 'user' : 'assistant',
-              'content': m.content,
-            })
-        .toList();
+    return LlmService.toApiMessages(messages);
   }
 
   @override
@@ -41,7 +36,7 @@ class AnthropicAdapterImpl implements LlmService {
     required List<Message> messages,
     String? systemPrompt,
   }) async {
-    final dio = _buildDio(config);
+    final baseUrl = _normalizeUrl(config.baseUrl);
     final body = <String, dynamic>{
       'model': config.model,
       'max_tokens': config.maxTokens,
@@ -51,10 +46,18 @@ class AnthropicAdapterImpl implements LlmService {
       body['system'] = systemPrompt;
     }
 
-    final response = await dio.post('/v1/messages', data: body);
+    final response = await _dio.post(
+      '$baseUrl/v1/messages',
+      data: body,
+      options: Options(headers: _headers(config)),
+    );
     final data = response.data as Map<String, dynamic>;
-    final content = data['content'] as List;
-    return content.first['text'] as String;
+    final content = data['content'] as List?;
+    if (content == null || content.isEmpty) {
+      throw Exception('API 返回了空的 content');
+    }
+    final firstBlock = content.first as Map<String, dynamic>?;
+    return (firstBlock?['text'] as String?) ?? '';
   }
 
   @override
@@ -63,7 +66,14 @@ class AnthropicAdapterImpl implements LlmService {
     required List<Message> messages,
     String? systemPrompt,
   }) async* {
-    final dio = _buildDio(config);
+    final baseUrl = _normalizeUrl(config.baseUrl);
+    final streamDio = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 30),
+        receiveTimeout: const Duration(seconds: 120),
+      ),
+    );
+
     final body = <String, dynamic>{
       'model': config.model,
       'max_tokens': config.maxTokens,
@@ -74,16 +84,22 @@ class AnthropicAdapterImpl implements LlmService {
       body['system'] = systemPrompt;
     }
 
-    final response = await dio.post<ResponseBody>(
-      '/v1/messages',
+    final response = await streamDio.post<ResponseBody>(
+      '$baseUrl/v1/messages',
       data: body,
-      options: Options(responseType: ResponseType.stream),
+      options: Options(
+        headers: _headers(config),
+        responseType: ResponseType.stream,
+      ),
     );
 
-    // 行缓冲区：SSE 行可能被网络层截断到多个 chunk
+    if (response.data == null) {
+      throw Exception('API 流式响应为空');
+    }
+
     final lineBuffer = StringBuffer();
     await for (final chunk in response.data!.stream) {
-      lineBuffer.write(utf8.decode(chunk));
+      lineBuffer.write(utf8.decode(chunk, allowMalformed: true));
 
       final raw = lineBuffer.toString();
       final lastNl = raw.lastIndexOf('\n');
@@ -111,15 +127,5 @@ class AnthropicAdapterImpl implements LlmService {
         } catch (_) {}
       }
     }
-  }
-
-  List<Map<String, String>> messagesToApiFormat(List<Message> messages) {
-    return messages
-        .where((m) => m.role != MessageRole.system)
-        .map((m) => {
-              'role': m.role == MessageRole.user ? 'user' : 'assistant',
-              'content': m.content,
-            })
-        .toList();
   }
 }

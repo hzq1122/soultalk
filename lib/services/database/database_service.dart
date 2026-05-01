@@ -15,10 +15,10 @@ class DatabaseService {
 
   Future<Database> _initDatabase() async {
     final dbPath = await getDatabasesPath();
-    final path = join(dbPath, 'talk_ai.db');
+    final path = join(dbPath, 'soultalk.db');
     return openDatabase(
       path,
-      version: 5,
+ version: 6,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
       onOpen: _onOpen,
@@ -162,6 +162,8 @@ class DatabaseService {
   }
 
   Future<void> _onOpen(Database db) async {
+    await db.execute('PRAGMA journal_mode=WAL');
+    await db.execute('PRAGMA busy_timeout=5000');
     // 重置应用崩溃/强退后遗留的 is_streaming=1 消息
     await db.update('messages', {'is_streaming': 0},
         where: 'is_streaming = 1');
@@ -251,6 +253,42 @@ class DatabaseService {
         )
       ''');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_wallet_tx_created_at ON wallet_transactions(created_at)');
+    }
+    if (oldVersion < 6) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS memory_states (
+          id TEXT PRIMARY KEY,
+          contact_id TEXT NOT NULL,
+          slot_name TEXT NOT NULL,
+          slot_value TEXT NOT NULL DEFAULT '',
+          slot_type TEXT NOT NULL DEFAULT 'text',
+          status TEXT NOT NULL DEFAULT 'active',
+          confidence REAL NOT NULL DEFAULT 0.5,
+          updated_at TEXT NOT NULL,
+          FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
+        )
+      ''');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_memory_states_contact ON memory_states(contact_id)');
+      await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_memory_states_slot ON memory_states(contact_id, slot_name)');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS memory_cards (
+          id TEXT PRIMARY KEY,
+          contact_id TEXT NOT NULL,
+          content TEXT NOT NULL,
+          card_type TEXT NOT NULL DEFAULT 'fact',
+          importance REAL NOT NULL DEFAULT 0.5,
+          confidence REAL NOT NULL DEFAULT 0.5,
+          scope TEXT NOT NULL DEFAULT 'local',
+          tags TEXT NOT NULL DEFAULT '',
+          status TEXT NOT NULL DEFAULT 'active',
+          created_at TEXT NOT NULL,
+          reviewed_at TEXT,
+          FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
+        )
+      ''');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_memory_cards_contact ON memory_cards(contact_id)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_memory_cards_status ON memory_cards(status)');
     }
   }
 

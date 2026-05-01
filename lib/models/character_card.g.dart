@@ -23,6 +23,13 @@ _$CharacterCardImpl _$$CharacterCardImplFromJson(Map<String, dynamic> json) =>
       avatarBase64: json['avatarBase64'] as String?,
       spec: json['spec'] as String?,
       specVersion: json['specVersion'] as String? ?? '2.0',
+      characterVersion: json['characterVersion'] as String? ?? '',
+      alternateGreetings:
+          (json['alternateGreetings'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          const [],
+      extensions: json['extensions'] as Map<String, dynamic>? ?? const {},
     );
 
 Map<String, dynamic> _$$CharacterCardImplToJson(_$CharacterCardImpl instance) =>
@@ -40,4 +47,7 @@ Map<String, dynamic> _$$CharacterCardImplToJson(_$CharacterCardImpl instance) =>
       'avatarBase64': instance.avatarBase64,
       'spec': instance.spec,
       'specVersion': instance.specVersion,
+      'characterVersion': instance.characterVersion,
+      'alternateGreetings': instance.alternateGreetings,
+      'extensions': instance.extensions,
     };

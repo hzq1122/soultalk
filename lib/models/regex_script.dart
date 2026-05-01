@@ -80,8 +80,8 @@ class RegexScript {
       promptOnly: promptOnly ?? this.promptOnly,
       runOnEdit: runOnEdit ?? this.runOnEdit,
       substituteRegex: substituteRegex ?? this.substituteRegex,
-      minDepth: minDepth,
-      maxDepth: maxDepth,
+      minDepth: minDepth ?? this.minDepth,
+      maxDepth: maxDepth ?? this.maxDepth,
     );
   }
 
@@ -91,11 +91,11 @@ class RegexScript {
       scriptName: json['scriptName'] as String? ?? '',
       findRegex: json['findRegex'] as String? ?? '',
       replaceString: json['replaceString'] as String? ?? '',
-      trimStrings: (json['trimStrings'] as List?)
-              ?.map((e) => e.toString())
-              .toList() ??
+      trimStrings:
+          (json['trimStrings'] as List?)?.map((e) => e.toString()).toList() ??
           [],
-      placement: (json['placement'] as List?)
+      placement:
+          (json['placement'] as List?)
               ?.map((e) => (e as num).toInt())
               .toList() ??
           [],
@@ -152,14 +152,15 @@ class RegexScript {
       findRegex: map['find_regex'] as String,
       replaceString: map['replace_string'] as String,
       trimStrings: (jsonDecode(map['trim_strings'] as String? ?? '[]') as List)
-          .cast<String>(),
+          .map((e) => e.toString())
+          .toList(),
       placement: (jsonDecode(map['placement'] as String? ?? '[]') as List)
           .map((e) => (e as num).toInt())
           .toList(),
-      disabled: (map['disabled'] as int) == 1,
-      markdownOnly: (map['markdown_only'] as int) == 1,
-      promptOnly: (map['prompt_only'] as int) == 1,
-      runOnEdit: (map['run_on_edit'] as int) == 1,
+      disabled: (map['disabled'] as int?) == 1,
+      markdownOnly: (map['markdown_only'] as int?) == 1,
+      promptOnly: (map['prompt_only'] as int?) == 1,
+      runOnEdit: (map['run_on_edit'] as int?) == 1,
       substituteRegex: map['substitute_regex'] as int? ?? 0,
       minDepth: map['min_depth'] as int?,
       maxDepth: map['max_depth'] as int?,

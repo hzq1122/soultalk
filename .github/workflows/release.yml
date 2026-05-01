@@ -36,6 +36,9 @@ jobs:
           flutterfy minor --build=$GITHUB_RUN_NUMBER
 
       - name: Set up signing key
+        if: env.KEYSTORE_BASE64 != ''
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.keystore
           cat > android/key.properties << EOF
@@ -54,7 +57,7 @@ jobs:
         if: github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
-          name: app-release
+          name: soultalk-release
           path: build/app/outputs/flutter-apk/*.apk
 
       - name: Create Release and Upload APK (tag push)
@@ -65,3 +68,4 @@ jobs:
           tag: ${{ github.ref_name }}
           token: ${{ secrets.GITHUB_TOKEN }}
           allowUpdates: true
+          generateReleaseNotes: true

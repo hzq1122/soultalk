@@ -401,7 +401,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               secondary: const Icon(Icons.push_pin_outlined),
               title: const Text('置顶会话'),
               value: contact.pinned,
-              activeColor: WeChatColors.primary,
+              activeThumbColor: WeChatColors.primary,
               onChanged: (v) {
                 ctx.pop();
                 ref.read(contactsProvider.notifier).updateContact(
@@ -413,7 +413,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               secondary: const Icon(Icons.auto_mode),
               title: const Text('允许主动联系'),
               value: contact.proactiveEnabled,
-              activeColor: WeChatColors.primary,
+              activeThumbColor: WeChatColors.primary,
               onChanged: (v) {
                 ctx.pop();
                 ref.read(contactsProvider.notifier).updateContact(

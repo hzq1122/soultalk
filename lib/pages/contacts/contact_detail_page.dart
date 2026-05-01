@@ -145,7 +145,7 @@ class _ContactDetailView extends ConsumerWidget {
                 subtitle: const Text('AI 会主动发送消息和互动',
                     style: TextStyle(fontSize: 12)),
                 value: contact.proactiveEnabled,
-                activeColor: WeChatColors.primary,
+                activeThumbColor: WeChatColors.primary,
                 onChanged: (v) => ref
                     .read(contactsProvider.notifier)
                     .updateContact(contact.copyWith(proactiveEnabled: v)),

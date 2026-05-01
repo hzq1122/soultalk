@@ -29,7 +29,14 @@
       "Bash(grep -iE \"\\(key.properties|\\\\.keystore|\\\\.jks|secret|password|token|\\\\.env|\\\\.db$|\\\\.sqlite\\)\")",
       "Bash(grep -iE \"\\(api.?key|sk-[a-zA-Z0-9]{20,}|Bearer [a-zA-Z0-9_-]{20,}\\)\")",
       "Bash(grep -iE \"\\(chat_export|exports/|\\\\.db$|\\\\.sqlite\\)\")",
-      "Bash(grep -iE \"\\\\.zip$\")"
+      "Bash(grep -iE \"\\\\.zip$\")",
+      "Bash(gh auth *)",
+      "Bash(where gh *)",
+      "Bash(dir *)",
+      "Bash(winget install *)",
+      "Bash(C:/Program Files/GitHub CLI/gh.exe auth *)",
+      "Bash(C:/Program Files/GitHub CLI/gh.exe repo *)",
+      "Bash(git remote *)"
     ]
   }
 }

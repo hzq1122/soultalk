@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/api_config_provider.dart';
 import '../../providers/contacts_provider.dart';
 import '../../providers/settings_provider.dart';
-import '../../pages/onboarding/onboarding_page.dart';
 import '../../theme/wechat_colors.dart';
 
 class ProfilePage extends ConsumerWidget {

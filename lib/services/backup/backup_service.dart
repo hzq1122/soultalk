@@ -127,7 +127,7 @@ class BackupService {
 
     final manifest = {
       'version': '1.0',
-      'app': 'talk_ai',
+      'app': 'soultalk',
       'exported_at': DateTime.now().toIso8601String(),
       'sections': sections.map((s) => s.folderName).toList(),
     };
@@ -136,17 +136,17 @@ class BackupService {
         'manifest.json', manifestData.length, manifestData.codeUnits));
 
     final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final zipBytes = ZipEncoder().encode(archive)!;
+    final zipBytes = ZipEncoder().encode(archive);
 
     if (password != null && password.isNotEmpty) {
       final encrypted = BackupEncryption.encrypt(
           Uint8List.fromList(zipBytes), password);
-      final zipPath = '$targetDir/talk_ai_backup_$timestamp.enc.zip';
+      final zipPath = '$targetDir/soultalk_backup_$timestamp.enc.zip';
       await File(zipPath).writeAsBytes(encrypted);
       return zipPath;
     }
 
-    final zipPath = '$targetDir/talk_ai_backup_$timestamp.zip';
+    final zipPath = '$targetDir/soultalk_backup_$timestamp.zip';
     await File(zipPath).writeAsBytes(zipBytes);
     return zipPath;
   }

@@ -14,8 +14,9 @@ const _kAutoBackupInterval = 'auto_backup_interval';
 const _kAutoBackupCloudType = 'auto_backup_cloud_type';
 const _kSelfProfile = 'self_profile';
 
-const _defaultGlobalPrompt =
-    '你现在是在聊天，并非在现实，请让你的回复更符合聊天时的状态';
+const _kDarkMode = 'dark_mode';
+
+const _defaultGlobalPrompt = '你现在是在聊天，并非在现实，请让你的回复更符合聊天时的状态';
 
 class AppSettings {
   final bool globalPromptEnabled;
@@ -62,24 +63,22 @@ class AppSettings {
     String? autoBackupCloudType,
     String? selfProfile,
     bool? darkMode,
-  }) =>
-      AppSettings(
-        globalPromptEnabled: globalPromptEnabled ?? this.globalPromptEnabled,
-        globalPromptText: globalPromptText ?? this.globalPromptText,
-        momentsIntervalMinutes:
-            momentsIntervalMinutes ?? this.momentsIntervalMinutes,
-        walletBalance: walletBalance ?? this.walletBalance,
-        memoryEnabled: memoryEnabled ?? this.memoryEnabled,
-        memoryInterval: memoryInterval ?? this.memoryInterval,
-        memoryUseMainApi: memoryUseMainApi ?? this.memoryUseMainApi,
-        checkUpdateOnStartup: checkUpdateOnStartup ?? this.checkUpdateOnStartup,
-        autoBackupEnabled: autoBackupEnabled ?? this.autoBackupEnabled,
-        autoBackupInterval: autoBackupInterval ?? this.autoBackupInterval,
-        autoBackupCloudType:
-            autoBackupCloudType ?? this.autoBackupCloudType,
-        selfProfile: selfProfile ?? this.selfProfile,
-        darkMode: darkMode ?? this.darkMode,
-      );
+  }) => AppSettings(
+    globalPromptEnabled: globalPromptEnabled ?? this.globalPromptEnabled,
+    globalPromptText: globalPromptText ?? this.globalPromptText,
+    momentsIntervalMinutes:
+        momentsIntervalMinutes ?? this.momentsIntervalMinutes,
+    walletBalance: walletBalance ?? this.walletBalance,
+    memoryEnabled: memoryEnabled ?? this.memoryEnabled,
+    memoryInterval: memoryInterval ?? this.memoryInterval,
+    memoryUseMainApi: memoryUseMainApi ?? this.memoryUseMainApi,
+    checkUpdateOnStartup: checkUpdateOnStartup ?? this.checkUpdateOnStartup,
+    autoBackupEnabled: autoBackupEnabled ?? this.autoBackupEnabled,
+    autoBackupInterval: autoBackupInterval ?? this.autoBackupInterval,
+    autoBackupCloudType: autoBackupCloudType ?? this.autoBackupCloudType,
+    selfProfile: selfProfile ?? this.selfProfile,
+    darkMode: darkMode ?? this.darkMode,
+  );
 }
 
 class SettingsNotifier extends AsyncNotifier<AppSettings> {
@@ -98,36 +97,46 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
       checkUpdateOnStartup: prefs.getBool(_kCheckUpdateOnStartup) ?? false,
       autoBackupEnabled: prefs.getBool(_kAutoBackupEnabled) ?? false,
       autoBackupInterval: prefs.getInt(_kAutoBackupInterval) ?? 60,
-      autoBackupCloudType:
-          prefs.getString(_kAutoBackupCloudType) ?? '',
+      autoBackupCloudType: prefs.getString(_kAutoBackupCloudType) ?? '',
       selfProfile: prefs.getString(_kSelfProfile) ?? '',
-      darkMode: prefs.getBool('dark_mode') ?? false,
+      darkMode: prefs.getBool(_kDarkMode) ?? false,
     );
   }
 
   Future<void> setGlobalPromptEnabled(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kGlobalPromptEnabled, enabled);
-    state = AsyncData(state.value!.copyWith(globalPromptEnabled: enabled));
+    state = AsyncData(
+      (state.value ?? const AppSettings()).copyWith(
+        globalPromptEnabled: enabled,
+      ),
+    );
   }
 
   Future<void> setGlobalPromptText(String text) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kGlobalPromptText, text);
-    state = AsyncData(state.value!.copyWith(globalPromptText: text));
+    state = AsyncData(
+      (state.value ?? const AppSettings()).copyWith(globalPromptText: text),
+    );
   }
 
   Future<void> setMomentsInterval(int minutes) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_kMomentsIntervalMinutes, minutes);
-    state =
-        AsyncData(state.value!.copyWith(momentsIntervalMinutes: minutes));
+    state = AsyncData(
+      (state.value ?? const AppSettings()).copyWith(
+        momentsIntervalMinutes: minutes,
+      ),
+    );
   }
 
   Future<void> setWalletBalance(double balance) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble(_kWalletBalance, balance);
-    state = AsyncData(state.value!.copyWith(walletBalance: balance));
+    state = AsyncData(
+      (state.value ?? const AppSettings()).copyWith(walletBalance: balance),
+    );
   }
 
   Future<void> deductBalance(double amount) async {
@@ -140,62 +149,83 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
   Future<void> setMemoryEnabled(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kMemoryEnabled, enabled);
-    state = AsyncData(state.value!.copyWith(memoryEnabled: enabled));
+    state = AsyncData(
+      (state.value ?? const AppSettings()).copyWith(memoryEnabled: enabled),
+    );
   }
 
   Future<void> setMemoryInterval(int interval) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_kMemoryInterval, interval);
-    state = AsyncData(state.value!.copyWith(memoryInterval: interval));
+    state = AsyncData(
+      (state.value ?? const AppSettings()).copyWith(memoryInterval: interval),
+    );
   }
 
   Future<void> setCheckUpdateOnStartup(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kCheckUpdateOnStartup, enabled);
-    state = AsyncData(state.value!.copyWith(checkUpdateOnStartup: enabled));
+    state = AsyncData(
+      (state.value ?? const AppSettings()).copyWith(
+        checkUpdateOnStartup: enabled,
+      ),
+    );
   }
 
   Future<void> setAutoBackupEnabled(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kAutoBackupEnabled, enabled);
-    state = AsyncData(state.value!.copyWith(autoBackupEnabled: enabled));
+    state = AsyncData(
+      (state.value ?? const AppSettings()).copyWith(autoBackupEnabled: enabled),
+    );
   }
 
   Future<void> setAutoBackupInterval(int minutes) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_kAutoBackupInterval, minutes);
-    state =
-        AsyncData(state.value!.copyWith(autoBackupInterval: minutes));
+    state = AsyncData(
+      (state.value ?? const AppSettings()).copyWith(
+        autoBackupInterval: minutes,
+      ),
+    );
   }
 
   Future<void> setAutoBackupCloudType(String type) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kAutoBackupCloudType, type);
-    state =
-        AsyncData(state.value!.copyWith(autoBackupCloudType: type));
+    state = AsyncData(
+      (state.value ?? const AppSettings()).copyWith(autoBackupCloudType: type),
+    );
   }
 
   Future<void> setSelfProfile(String text) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kSelfProfile, text);
-    state = AsyncData(state.value!.copyWith(selfProfile: text));
+    state = AsyncData(
+      (state.value ?? const AppSettings()).copyWith(selfProfile: text),
+    );
   }
 
   Future<void> setDarkMode(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('dark_mode', enabled);
-    state = AsyncData(state.value!.copyWith(darkMode: enabled));
+    await prefs.setBool(_kDarkMode, enabled);
+    state = AsyncData(
+      (state.value ?? const AppSettings()).copyWith(darkMode: enabled),
+    );
   }
 
   Future<void> setMemoryUseMainApi(bool useMain) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kMemoryUseMainApi, useMain);
-    state = AsyncData(state.value!.copyWith(memoryUseMainApi: useMain));
+    state = AsyncData(
+      (state.value ?? const AppSettings()).copyWith(memoryUseMainApi: useMain),
+    );
   }
 }
 
-final settingsProvider =
-    AsyncNotifierProvider<SettingsNotifier, AppSettings>(SettingsNotifier.new);
+final settingsProvider = AsyncNotifierProvider<SettingsNotifier, AppSettings>(
+  SettingsNotifier.new,
+);
 
 // Convenience providers
 final globalPromptEnabledProvider = Provider<bool>((ref) {

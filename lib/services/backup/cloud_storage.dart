@@ -236,7 +236,7 @@ class S3Storage implements CloudStorage {
   @override
   Future<bool> testConnection() async {
     try {
-      final resp = await _dio.head('${config.bucket}',
+      final resp = await _dio.head(config.bucket,
           options: Options(headers: _signedHeaders('HEAD', '')));
       return resp.statusCode != null && resp.statusCode! < 400;
     } catch (_) {
@@ -274,7 +274,7 @@ class S3Storage implements CloudStorage {
   @override
   Future<List<String>> listBackups() async {
     try {
-      final resp = await _dio.get('${config.bucket}',
+      final resp = await _dio.get(config.bucket,
           options: Options(headers: _signedHeaders('GET', '')));
       final body = resp.data.toString();
       final regex = RegExp(r'<Key>([^<]+)</Key>');

@@ -35,6 +35,10 @@ class CharacterPngService {
   // 内部实现
   // -------------------------------------------------------------------------
 
+  static String? extractCharaJson(Uint8List bytes) {
+    return _extractCharaJson(bytes);
+  }
+
   static String? _extractCharaJson(Uint8List bytes) {
     // 校验 PNG 文件头
     if (bytes.length < 8) return null;

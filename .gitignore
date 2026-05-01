@@ -1,5 +1,5 @@
 # ============================================================
-#  talk_ai — Flutter AI 聊天应用  .gitignore
+#  soultalk — Flutter AI 聊天应用  .gitignore
 # ============================================================
 
 # ──────────────────────────────────────────
@@ -45,7 +45,7 @@ assets/avatars/*.webp
 # Pub 包缓存
 .pub-cache/
 .pub/
-pubspec.lock       # 可选：库项目去掉此行；App 项目通常提交 lock
+pubspec.lock
 
 # 构建输出
 /build/
@@ -108,6 +108,12 @@ windows/x86/
 
 # VS Code（按需取消注释）
 # .vscode/
+
+# Trae IDE
+.trae/
+
+# Claude Code local settings
+.claude/settings.local.json
 
 # ──────────────────────────────────────────
 # 【操作系统杂项】

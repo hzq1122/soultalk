@@ -1,8 +1,8 @@
-name: talk_ai
+name: soultalk
 description: "Talk AI — AI驱动的微信风格社交应用"
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.0.0
 
 environment:
   sdk: ^3.11.4

@@ -5,15 +5,21 @@ import '../database/contact_dao.dart';
 import '../database/message_dao.dart';
 import '../database/api_config_dao.dart';
 import '../database/preset_dao.dart';
+import '../database/memory_card_dao.dart';
 import '../database/memory_entry_dao.dart';
+import '../database/memory_state_dao.dart';
+import '../database/regex_script_dao.dart';
 import '../api/llm_service.dart';
 import '../api/openai_adapter.dart';
 import '../api/anthropic_adapter.dart';
 import '../api/context_manager.dart';
+import '../api/prompt_assembly_service.dart';
 import '../memory/memory_service.dart';
+import '../regex/regex_service.dart';
 import '../../models/contact.dart';
 import '../../models/message.dart';
 import '../../models/api_config.dart';
+import '../../models/regex_script.dart';
 
 class ChatService {
   late final ContactDao _contactDao;
@@ -21,12 +27,17 @@ class ChatService {
   late final ApiConfigDao _apiConfigDao;
   late final PresetDao _presetDao;
   late final MemoryEntryDao _memoryDao;
+  late final MemoryStateDao _stateDao;
+  late final MemoryCardDao _cardDao;
   late final MemoryService _memoryService;
+  late final RegexScriptDao _regexScriptDao;
   final _uuid = const Uuid();
   final _contextManager = const ContextManager(
     strategy: ContextStrategy.slidingWindow,
     maxMessages: 20,
   );
+  final _regexService = const RegexService();
+  final _promptAssemblyService = PromptAssemblyService();
 
   ChatService() {
     final db = DatabaseService();
@@ -35,20 +46,19 @@ class ChatService {
     _apiConfigDao = ApiConfigDao(db);
     _presetDao = PresetDao(db);
     _memoryDao = MemoryEntryDao(db);
-    _memoryService = MemoryService(_memoryDao, _messageDao);
+    _stateDao = MemoryStateDao(db);
+    _cardDao = MemoryCardDao(db);
+    _memoryService = MemoryService(_memoryDao, _stateDao, _cardDao);
+    _regexScriptDao = RegexScriptDao(db);
   }
-
-  // ─── 联系人 ───────────────────────────────────────────────────────────────
 
   Future<List<Contact>> getContacts() => _contactDao.getAll();
 
   Future<Contact?> getContact(String id) => _contactDao.getById(id);
 
-  Future<Contact> createContact(Contact contact) =>
-      _contactDao.insert(contact);
+  Future<Contact> createContact(Contact contact) => _contactDao.insert(contact);
 
-  Future<void> updateContact(Contact contact) =>
-      _contactDao.update(contact);
+  Future<void> updateContact(Contact contact) => _contactDao.update(contact);
 
   Future<void> deleteContact(String id) async {
     await _messageDao.deleteByContact(id);
@@ -57,8 +67,6 @@ class ChatService {
 
   Future<List<Contact>> searchContacts(String query) =>
       _contactDao.search(query);
-
-  // ─── 消息 ─────────────────────────────────────────────────────────────────
 
   Future<List<Message>> getMessages(String contactId) =>
       _messageDao.getByContact(contactId);
@@ -73,16 +81,17 @@ class ChatService {
     return saved;
   }
 
-  Future<void> deleteMessage(String messageId) =>
-      _messageDao.delete(messageId);
+  Future<void> deleteMessage(String messageId) => _messageDao.delete(messageId);
 
   Future<void> deleteMessages(String contactId) =>
       _messageDao.deleteByContact(contactId);
 
   Future<void> retractMessage(String messageId, String newContent) =>
-      _messageDao.updateTypeAndContent(messageId, MessageType.system.name, newContent);
-
-  // ─── API 配置 ─────────────────────────────────────────────────────────────
+      _messageDao.updateTypeAndContent(
+        messageId,
+        MessageType.system.name,
+        newContent,
+      );
 
   Future<List<ApiConfig>> getApiConfigs() => _apiConfigDao.getAll();
 
@@ -94,9 +103,6 @@ class ChatService {
 
   Future<void> deleteApiConfig(String id) => _apiConfigDao.delete(id);
 
-  // ─── AI 对话 ─────────────────────────────────────────────────────────────
-
-  /// 发送用户消息并获取 AI 流式回复（通过回调返回数据，Fire-and-forget 安全）
   Future<void> sendMessage({
     required Contact contact,
     required String userText,
@@ -104,7 +110,6 @@ class ChatService {
     required void Function(String content, bool isDone) onAiChunk,
     void Function(String error)? onError,
   }) async {
-    // 1. 查找 API 配置
     ApiConfig? config;
     if (contact.apiConfigId != null) {
       config = await _apiConfigDao.getById(contact.apiConfigId!);
@@ -118,44 +123,72 @@ class ChatService {
       config = configs.first;
     }
 
-    // 2. 插入用户消息
-    final userMsg = await _messageDao.insert(Message(
-      id: '',
-      contactId: contact.id,
-      role: MessageRole.user,
-      content: userText,
-      createdAt: DateTime.now(),
-    ));
+    final regexScripts = await _regexScriptDao.getEnabled();
 
-    // 3. 创建 AI 消息占位
+    String processedUserText = _regexService.applyScripts(
+      userText,
+      regexScripts,
+      RegexPlacement.userInput,
+    );
+
+    final userMsg = await _messageDao.insert(
+      Message(
+        id: '',
+        contactId: contact.id,
+        role: MessageRole.user,
+        content: processedUserText,
+        createdAt: DateTime.now(),
+      ),
+    );
+
     final aiMsgId = _uuid.v4();
-    final aiMsgPlaceholder = await _messageDao.insert(Message(
-      id: aiMsgId,
-      contactId: contact.id,
-      role: MessageRole.assistant,
-      content: '',
-      isStreaming: true,
-      createdAt: DateTime.now().add(const Duration(milliseconds: 1)),
-    ));
+    final aiMsgPlaceholder = await _messageDao.insert(
+      Message(
+        id: aiMsgId,
+        contactId: contact.id,
+        role: MessageRole.assistant,
+        content: '',
+        isStreaming: true,
+        createdAt: DateTime.now().add(const Duration(milliseconds: 1)),
+      ),
+    );
 
     onMessagesCreated(userMsg, aiMsgPlaceholder);
 
-    // 4. 获取历史消息并裁剪上下文
     final history = await _messageDao.getRecentByContact(contact.id, 40);
     final contextMessages = _contextManager.trim(
       history.where((m) => !m.isStreaming).toList(),
       config,
     );
 
-    // 5. 构建 system prompt（包含全局提示词 + 预设 + 角色提示词）
-    final systemPrompt = await _buildFullSystemPrompt(contact);
+    final assembled = await _promptAssemblyService.assemble(
+      contact: contact,
+      history: history.where((m) => !m.isStreaming).toList(),
+    );
+    String? systemPrompt = assembled.systemPrompt;
 
-    // 6. 选择 Adapter
+    // ── Memory pipeline: before request ──────────────────────────────
+    final memoryResult = await _memoryService.beforeRequest(
+      contactId: contact.id,
+      userText: processedUserText,
+      messages: contextMessages
+          .map((m) => {'role': m.role == MessageRole.user ? 'user' : 'assistant', 'content': m.content})
+          .toList(),
+    );
+    if (memoryResult.stateText != null || memoryResult.cardText != null) {
+      final memoryContext = [
+        if (memoryResult.stateText != null) memoryResult.stateText!,
+        if (memoryResult.cardText != null) memoryResult.cardText!,
+      ].join('\n\n');
+      systemPrompt = systemPrompt != null
+          ? '$systemPrompt\n\n$memoryContext'
+          : memoryContext;
+    }
+
     final LlmService service = config.provider == LlmProvider.anthropic
         ? AnthropicAdapterImpl()
         : OpenAiAdapterImpl();
 
-    // 7. 流式接收回复
     final buffer = StringBuffer();
     try {
       await for (final chunk in service.sendMessageStream(
@@ -164,75 +197,53 @@ class ChatService {
         systemPrompt: systemPrompt,
       )) {
         buffer.write(chunk);
-        await _messageDao.updateContent(aiMsgId, buffer.toString(),
-            isStreaming: true);
+        await _messageDao.updateContent(
+          aiMsgId,
+          buffer.toString(),
+          isStreaming: true,
+        );
         onAiChunk(buffer.toString(), false);
       }
 
-      // 8. 完成：更新 DB 并通知 UI
-      await _messageDao.updateContent(aiMsgId, buffer.toString(),
-          isStreaming: false);
-      onAiChunk(buffer.toString(), true);
+      String finalAiContent = buffer.toString();
+      finalAiContent = _regexService.applyScripts(
+        finalAiContent,
+        regexScripts,
+        RegexPlacement.aiOutput,
+      );
+
+      await _messageDao.updateContent(
+        aiMsgId,
+        finalAiContent,
+        isStreaming: false,
+      );
+      onAiChunk(finalAiContent, true);
 
       await _contactDao.updateLastMessage(
         contact.id,
-        buffer.toString(),
+        finalAiContent,
         DateTime.now(),
       );
 
-      // 记忆提取：检查是否需要触发
+      // ── Memory pipeline: after response ─────────────────────────────
+      _memoryService.afterResponse(
+        contactId: contact.id,
+        aiResponse: finalAiContent,
+      );
+
       _tryExtractMemory(contact, config);
     } catch (e) {
-      await _messageDao.updateContent(aiMsgId, '[错误] ${e.toString()}',
-          isStreaming: false);
+      await _messageDao.updateContent(
+        aiMsgId,
+        '[错误] ${e.toString()}',
+        isStreaming: false,
+      );
       onError?.call(e.toString());
     }
   }
 
   Future<void> clearUnread(String contactId) =>
       _contactDao.clearUnread(contactId);
-
-  Future<String?> _buildFullSystemPrompt(Contact contact) async {
-    final parts = <String>[];
-
-    // 全局提示词
-    final prefs = await SharedPreferences.getInstance();
-    final globalEnabled = prefs.getBool('global_prompt_enabled') ?? false;
-    if (globalEnabled) {
-      final globalText = prefs.getString('global_prompt_text') ??
-          '你现在是在聊天，并非在现实，请让你的回复更符合聊天时的状态';
-      if (globalText.isNotEmpty) parts.add(globalText);
-    }
-
-    // 对话补全预设
-    final presets = await _presetDao.getAll();
-    for (final preset in presets) {
-      final text = preset.buildPromptText();
-      if (text.isNotEmpty) parts.add(text);
-    }
-
-    // 用户自我设定（让 AI 了解用户）
-    final selfProfile = prefs.getString('self_profile') ?? '';
-    if (selfProfile.isNotEmpty) {
-      parts.add('关于对话对象（用户）的信息：$selfProfile');
-    }
-
-    // 角色 system prompt
-    if (contact.systemPrompt.isNotEmpty) {
-      parts.add(contact.systemPrompt);
-    }
-
-    // 记忆表格
-    final memoryEnabled = prefs.getBool('memory_enabled') ?? false;
-    if (memoryEnabled) {
-      final memoryPrompt = await _memoryService.getMemoryPrompt(contact.id);
-      if (memoryPrompt.isNotEmpty) {
-        parts.add(memoryPrompt);
-      }
-    }
-
-    return parts.isEmpty ? null : parts.join('\n\n');
-  }
 
   Future<void> _tryExtractMemory(Contact contact, ApiConfig config) async {
     try {
@@ -241,15 +252,18 @@ class ChatService {
       if (!memoryEnabled) return;
 
       final interval = prefs.getInt('memory_interval') ?? 10;
-      final messages = await _messageDao.getRecentByContact(contact.id, interval * 2);
-      final userMsgCount = messages.where((m) => m.role == MessageRole.user).length;
+      final messages = await _messageDao.getRecentByContact(
+        contact.id,
+        interval * 2,
+      );
+      final userMsgCount = messages
+          .where((m) => m.role == MessageRole.user)
+          .length;
       if (userMsgCount < interval) return;
 
-      // 检查距离上次提取是否已有足够新消息
       final lastExtractKey = 'memory_last_extract_count_${contact.id}';
       final lastCount = prefs.getInt(lastExtractKey) ?? 0;
-      final totalMessages = await _messageDao.getByContact(contact.id);
-      final currentCount = totalMessages.length;
+      final currentCount = await _messageDao.countByContact(contact.id);
       if (currentCount - lastCount < interval) return;
 
       await prefs.setInt(lastExtractKey, currentCount);
@@ -263,7 +277,7 @@ class ChatService {
         }
       }
 
-      _memoryService.extractMemories(
+      await _memoryService.extractMemories(
         contactId: contact.id,
         apiConfig: memoryConfig,
       );

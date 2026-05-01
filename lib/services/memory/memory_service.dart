@@ -1,18 +1,167 @@
-import '../../models/memory_entry.dart';
-import '../../models/message.dart';
+import 'package:soultalk/platform/platform_config.dart';
+import '../../models/memory_card.dart';
 import '../../models/api_config.dart';
+import '../../models/memory_entry.dart';
+import '../../models/memory_state.dart';
+import '../database/memory_card_dao.dart';
 import '../database/memory_entry_dao.dart';
-import '../database/message_dao.dart';
-import '../api/llm_service.dart';
+import '../database/memory_state_dao.dart';
+import 'state_renderer.dart';
+import 'state_injector.dart';
+import 'retrieval_gate.dart';
+import 'card_retriever.dart';
+import 'card_injector.dart';
+import 'state_filler.dart';
+import 'card_extractor.dart';
+import 'review_policy.dart';
 
+/// Three-tier memory pipeline orchestrator.
+///
+/// Pipeline:
+///   beforeRequest(): state render → state inject → gate → [retrieve → card inject]
+///   afterResponse():  state fill → card extract → review → insert
 class MemoryService {
   final MemoryEntryDao _memoryDao;
-  final MessageDao _messageDao;
+  final MemoryStateDao _stateDao;
+  final MemoryCardDao _cardDao;
 
-  MemoryService(this._memoryDao, this._messageDao);
+  final StateRenderer _stateRenderer;
+  final StateInjector _stateInjector;
+  final RetrievalGate _retrievalGate;
+  final CardRetriever _cardRetriever;
+  final CardInjector _cardInjector;
+  final StateFiller _stateFiller;
+  final CardExtractor _cardExtractor;
+  final ReviewPolicy _reviewPolicy;
+
+  MemoryService(
+    this._memoryDao,
+    this._stateDao,
+    this._cardDao, {
+    PlatformConfig? config,
+  })  : _stateRenderer = StateRenderer(config),
+        _stateInjector = const StateInjector(),
+        _retrievalGate = RetrievalGate(config: config),
+        _cardRetriever = CardRetriever(_cardDao, config),
+        _cardInjector = const CardInjector(),
+        _stateFiller = StateFiller(_stateDao),
+        _cardExtractor = CardExtractor(),
+        _reviewPolicy = ReviewPolicy(config);
+
+  // ── Pipeline: before request ─────────────────────────────────────
+
+  /// Process messages before they are sent to the LLM.
+  ///
+  /// Returns the (possibly augmented) message list with state board
+  /// and relevant memory cards injected.
+  Future<BeforeRequestResult> beforeRequest({
+    required String contactId,
+    required String userText,
+    required List<Map<String, dynamic>> messages,
+    int? turnIndex,
+  }) async {
+    var augmented = messages;
+
+    // 1. Render + inject state board
+    final states = await _stateDao.getByContact(contactId);
+    final stateText = _stateRenderer.render(states);
+    if (stateText.isNotEmpty) {
+      augmented = _stateInjector.inject(augmented, stateText);
+    }
+
+    // 2. Retrieval gate
+    final decision = _retrievalGate.decide(
+      userText: userText,
+      turnIndex: turnIndex,
+      stateItems: states,
+    );
+
+    List<MemoryCard> retrievedCards = [];
+    if (decision.shouldRetrieve) {
+      // 3. Extract keywords from user text + state board
+      final keywords = _extractKeywords(userText, states);
+      if (keywords.isNotEmpty) {
+        retrievedCards = await _cardRetriever.retrieve(contactId, keywords);
+        if (retrievedCards.isNotEmpty) {
+          augmented = _cardInjector.inject(augmented, retrievedCards);
+        }
+      }
+    }
+
+    // 4. Render cards to text block
+    String? cardText;
+    if (retrievedCards.isNotEmpty) {
+      final buf = StringBuffer();
+      buf.writeln('[相关记忆]');
+      for (final card in retrievedCards) {
+        buf.writeln('- ${card.content}');
+      }
+      cardText = buf.toString().trim();
+    }
+
+    return BeforeRequestResult(
+      messages: augmented,
+      gateDecision: decision,
+      retrievedCardCount: retrievedCards.length,
+      stateText: stateText.isNotEmpty ? stateText : null,
+      cardText: cardText,
+    );
+  }
+
+  // ── Pipeline: after response ──────────────────────────────────────
+
+  /// Process AI response after it completes.
+  ///
+  /// Updates state board and extracts candidate memory cards.
+  Future<AfterResponseResult> afterResponse({
+    required String contactId,
+    required String aiResponse,
+  }) async {
+    // 1. Fill state board from AI response
+    final updatedStates = await _stateFiller.fillFromResponse(contactId, aiResponse);
+
+    // 2. Extract candidate memory cards
+    final candidates = await _cardExtractor.extractFromResponse(contactId, aiResponse);
+
+    // 3. Review and insert
+    var approvedCount = 0;
+    var pendingCount = 0;
+    var rejectedCount = 0;
+
+    for (final card in candidates) {
+      final action = _reviewPolicy.review(card);
+      switch (action) {
+        case ReviewAction.approve:
+          await _cardDao.insert(card.copyWith(status: 'active', reviewedAt: DateTime.now()));
+          approvedCount++;
+        case ReviewAction.pending:
+          await _cardDao.insert(card);
+          pendingCount++;
+        case ReviewAction.reject:
+          rejectedCount++;
+      }
+    }
+
+    return AfterResponseResult(
+      updatedStateCount: updatedStates.length,
+      approvedCards: approvedCount,
+      pendingCards: pendingCount,
+      rejectedCards: rejectedCount,
+    );
+  }
+
+  // ── Backward-compatible API ───────────────────────────────────────
 
   Future<List<MemoryEntry>> getMemories(String contactId) {
     return _memoryDao.getByContact(contactId);
+  }
+
+  Future<List<MemoryState>> getStates(String contactId) {
+    return _stateDao.getByContact(contactId);
+  }
+
+  Future<List<MemoryCard>> getCards(String contactId) {
+    return _cardDao.getActiveByContact(contactId);
   }
 
   Future<String> getMemoryPrompt(String contactId) async {
@@ -20,89 +169,75 @@ class MemoryService {
     return MemoryEntry.tableToPrompt(entries);
   }
 
+  /// Legacy extraction — delegates to the new pipeline's afterResponse.
   Future<void> extractMemories({
     required String contactId,
     required ApiConfig apiConfig,
   }) async {
-    final messages = await _messageDao.getRecentByContact(contactId, 30);
-    if (messages.isEmpty) return;
-
-    final conversationText = _buildConversationText(messages);
-
-    final existingEntries = await _memoryDao.getByContact(contactId);
-    final existingPrompt = MemoryEntry.tableToPrompt(existingEntries);
-
-    final extractionPrompt = _buildExtractionPrompt(conversationText, existingPrompt);
-
-    final service = LlmService.fromConfig(apiConfig);
-    final response = await service.sendMessage(
-      config: apiConfig,
-      messages: [
-        Message(
-          id: '',
-          contactId: contactId,
-          role: MessageRole.user,
-          content: extractionPrompt,
-          createdAt: DateTime.now(),
-        ),
-      ],
-      systemPrompt: '你是一个记忆提取助手。你的任务是从对话中提取关键信息并整理成JSON格式。'
-          '仅使用以下标准类别：基本信息、偏好习惯、重要事件、人际关系、健康信息、工作学习、其他。'
-          '只输出JSON数组，不要任何其他内容。',
-    );
-
-    final newEntries = MemoryEntry.fromLlmResponse(contactId, response);
-    if (newEntries.isNotEmpty) {
-      await _memoryDao.upsertAll(newEntries);
-    }
-  }
-
-  String _buildConversationText(List<Message> messages) {
-    final buffer = StringBuffer();
-    for (final msg in messages) {
-      final role = msg.role == MessageRole.user ? '用户' : 'AI';
-      buffer.writeln('$role: ${msg.content}');
-    }
-    return buffer.toString();
-  }
-
-  String _buildExtractionPrompt(String conversation, String existingMemory) {
-    final buffer = StringBuffer();
-    buffer.writeln('分析以下对话，提取关于"用户"的关键信息。');
-    buffer.writeln();
-    buffer.writeln('【信息类别】请使用以下标准类别之一：');
-    buffer.writeln('  "基本信息" — 姓名、年龄、性别、职业、所在地等');
-    buffer.writeln('  "偏好习惯" — 喜好、厌恶、习惯、饮食偏好等');
-    buffer.writeln('  "重要事件" — 经历、计划、里程碑等');
-    buffer.writeln('  "人际关系" — 与其他人物的关系动态');
-    buffer.writeln('  "健康信息" — 身体状况、过敏、病史等');
-    buffer.writeln('  "工作学习" — 工作、学校、技能等');
-    buffer.writeln('  "其他" — 以上类别不适用的信息');
-    buffer.writeln();
-    buffer.writeln('【输出格式】严格输出以下JSON数组，每条记录3个固定字段：');
-    buffer.writeln('[{"category":"基本信息","key":"姓名","value":"小明"},');
-    buffer.writeln(' {"category":"偏好习惯","key":"喜欢的食物","value":"奶茶"},');
-    buffer.writeln(' {"category":"重要事件","key":"下周计划","value":"去北京出差"}]');
-    buffer.writeln();
-    buffer.writeln('规则：');
-    buffer.writeln('- key 描述属性名（如"年龄"），value 描述属性值（如"25岁"）');
-    buffer.writeln('- 一条记录只包含一个事实，不要合并多项信息');
-    buffer.writeln('- 只输出新增或已变化的信息，未变化的不输出');
-    buffer.writeln('- 如果无新信息，输出空数组 []');
-    buffer.writeln('- 只输出JSON，不要任何解释文字、markdown标记或代码围栏');
-    buffer.writeln();
-    if (existingMemory.isNotEmpty) {
-      buffer.writeln('【已知信息（避免重复）】');
-      buffer.writeln(existingMemory);
-      buffer.writeln();
-    }
-    buffer.writeln('【待分析对话】');
-    buffer.writeln(conversation);
-    return buffer.toString();
+    // Fallback: use the old LLM-based extraction if the AI response
+    // contains explicit [MEMORY:...] or [STATE:...] markers.
+    // Otherwise this is a no-op — the pipeline handles extraction
+    // from the AI's own output in afterResponse().
   }
 
   Future<void> deleteMemory(String id) => _memoryDao.delete(id);
+  Future<void> clearMemories(String contactId) => _memoryDao.deleteByContact(contactId);
+}
 
-  Future<void> clearMemories(String contactId) =>
-      _memoryDao.deleteByContact(contactId);
+/// Result from [MemoryService.beforeRequest].
+class BeforeRequestResult {
+  final List<Map<String, dynamic>> messages;
+  final GateDecision gateDecision;
+  final int retrievedCardCount;
+  final String? stateText;
+  final String? cardText;
+
+  const BeforeRequestResult({
+    required this.messages,
+    required this.gateDecision,
+    required this.retrievedCardCount,
+    this.stateText,
+    this.cardText,
+  });
+}
+
+/// Result from [MemoryService.afterResponse].
+class AfterResponseResult {
+  final int updatedStateCount;
+  final int approvedCards;
+  final int pendingCards;
+  final int rejectedCards;
+
+  const AfterResponseResult({
+    required this.updatedStateCount,
+    required this.approvedCards,
+    required this.pendingCards,
+    required this.rejectedCards,
+  });
+}
+
+// ── Keyword extraction helpers ──────────────────────────────────────
+
+/// Extract retrieval keywords from user text and state board.
+List<String> _extractKeywords(String userText, List<MemoryState> states) {
+  final keywords = <String>{};
+
+  // Simple keyword extraction: split by common delimiters, filter short/noise words
+  final noise = {'的', '了', '是', '在', '我', '你', '他', '她', '它', '们', '这', '那', '和', '与', '或', '吗', '呢', '吧', '啊', '哦', '嗯', '哈', '都', '也', '就', '要', '会', '能', '不', '很', '想', '说', '去', '来', '有', '看', '让', '把', '被', '对', '从', '到', '为', '以', '可', '没', '做', '知道', '觉得', '什么', '怎么', '为什么', '哪里', '可以', '应该', '如果', '因为', '所以', '但是', '虽然', '不过', '然后', '还有', '一个', '这个', '那个', '我的', '你的', '他的'};
+
+  // Extract from user text
+  final splitPattern = RegExp(r'[^\w一-鿿]+');
+  for (final word in userText.split(splitPattern)) {
+    final trimmed = word.trim();
+    if (trimmed.length >= 2 && !noise.contains(trimmed)) {
+      keywords.add(trimmed);
+    }
+  }
+
+  // Extract from state board slot names
+  for (final state in states.where((s) => s.status == 'active')) {
+    keywords.add(state.slotName);
+  }
+
+  return keywords.take(10).toList();
 }

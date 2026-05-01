@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dio/dio.dart';
 import '../../models/api_config.dart';
+import '../../models/balance_info.dart';
 import '../../providers/api_config_provider.dart';
+import '../../providers/balance_provider.dart';
 import '../../theme/wechat_colors.dart';
 
 class ApiSettingsPage extends ConsumerWidget {
@@ -42,8 +44,12 @@ class ApiSettingsPage extends ConsumerWidget {
             itemBuilder: (context, index) {
               return _ConfigTile(
                 config: configs[index],
+                balanceAsync: ref.watch(balanceProvider(configs[index].id)),
                 onEdit: () => _showConfigDialog(context, ref, configs[index]),
                 onDelete: () => _deleteConfig(context, ref, configs[index]),
+                onCheckBalance: () {
+                  ref.read(balanceProvider(configs[index].id).notifier).refresh(configs[index]);
+                },
               );
             },
           );
@@ -113,35 +119,109 @@ class ApiSettingsPage extends ConsumerWidget {
 
 class _ConfigTile extends StatelessWidget {
   final ApiConfig config;
+  final AsyncValue<BalanceInfo?> balanceAsync;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback onCheckBalance;
 
   const _ConfigTile({
     required this.config,
+    required this.balanceAsync,
     required this.onEdit,
     required this.onDelete,
+    required this.onCheckBalance,
   });
 
   @override
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: ListTile(
-        leading: _providerIcon(config.provider),
-        title: Text(config.name),
-        subtitle: Text(
-          '${config.model} · ${config.provider.name.toUpperCase()}',
-          style: const TextStyle(fontSize: 12),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(icon: const Icon(Icons.edit_outlined, size: 20), onPressed: onEdit),
-            IconButton(icon: const Icon(Icons.delete_outlined, size: 20, color: Colors.red), onPressed: onDelete),
-          ],
-        ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: _providerIcon(config.provider),
+            title: Text(config.name),
+            subtitle: Text(
+              '${config.model} · ${config.provider.name.toUpperCase()}',
+              style: const TextStyle(fontSize: 12),
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.account_balance_wallet_outlined, size: 20),
+                  tooltip: '查询余额',
+                  onPressed: onCheckBalance,
+                ),
+                IconButton(icon: const Icon(Icons.edit_outlined, size: 20), onPressed: onEdit),
+                IconButton(icon: const Icon(Icons.delete_outlined, size: 20, color: Colors.red), onPressed: onDelete),
+              ],
+            ),
+          ),
+          _buildBalanceSection(),
+          const SizedBox(height: 8),
+        ],
       ),
     );
+  }
+
+  Widget _buildBalanceSection() {
+    return balanceAsync.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.only(bottom: 8),
+        child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+      ),
+      error: (e, _) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Text('查询失败', style: TextStyle(fontSize: 11, color: Colors.red.shade400)),
+      ),
+      data: (balance) {
+        if (balance == null) return const SizedBox.shrink();
+        if (!balance.hasData) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text('暂无余额数据', style: const TextStyle(fontSize: 11, color: WeChatColors.textHint)),
+          );
+        }
+        final isLow = balance.remaining != null && balance.total != null && balance.remaining! / balance.total! < 0.2;
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: isLow ? Colors.red.shade50 : Colors.green.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: isLow ? Colors.red.shade200 : Colors.green.shade200),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isLow ? Icons.warning_amber_rounded : Icons.check_circle_outline,
+                size: 18,
+                color: isLow ? Colors.red : Colors.green,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _formatBalance(balance),
+                  style: TextStyle(fontSize: 11, color: isLow ? Colors.red.shade800 : Colors.green.shade800),
+                ),
+              ),
+              if (balance.provider != null)
+                Text(balance.provider!, style: const TextStyle(fontSize: 10, color: WeChatColors.textHint)),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  String _formatBalance(BalanceInfo b) {
+    final parts = <String>[];
+    if (b.remaining != null) parts.add('剩余: ${b.remaining!.toStringAsFixed(2)} ${b.unit ?? ''}');
+    if (b.total != null) parts.add('总额: ${b.total!.toStringAsFixed(2)} ${b.unit ?? ''}');
+    if (b.used != null) parts.add('已用: ${b.used!.toStringAsFixed(2)} ${b.unit ?? ''}');
+    return parts.join(' · ');
   }
 
   Widget _providerIcon(LlmProvider provider) {

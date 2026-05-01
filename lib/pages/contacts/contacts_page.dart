@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,8 +10,7 @@ import '../../providers/contacts_provider.dart';
 import '../../providers/api_config_provider.dart';
 import '../../theme/wechat_colors.dart';
 import '../../widgets/avatar_widget.dart';
-import '../../services/character/character_card_service.dart';
-import '../../services/character/character_png_service.dart';
+import '../../services/import/import_service.dart';
 
 class ContactsPage extends ConsumerStatefulWidget {
   const ContactsPage({super.key});
@@ -93,11 +94,16 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.people_outline,
-              size: 64, color: WeChatColors.textHint),
+          const Icon(
+            Icons.people_outline,
+            size: 64,
+            color: WeChatColors.textHint,
+          ),
           const SizedBox(height: 12),
-          const Text('暂无联系人',
-              style: TextStyle(color: WeChatColors.textSecondary)),
+          const Text(
+            '暂无联系人',
+            style: TextStyle(color: WeChatColors.textSecondary),
+          ),
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -136,8 +142,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
         if (index.isEven) {
           // 分组头
           return Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             color: WeChatColors.background,
             child: Text(
               keys[groupIndex],
@@ -153,10 +158,12 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
           final group = grouped[keys[groupIndex]]!;
           return Column(
             children: group
-                .map((c) => _ContactListTile(
-                      contact: c,
-                      onTap: () => _openContact(c),
-                    ))
+                .map(
+                  (c) => _ContactListTile(
+                    contact: c,
+                    onTap: () => _openContact(c),
+                  ),
+                )
                 .toList(),
           );
         }
@@ -185,7 +192,9 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
       builder: (ctx) => _EditContactDialog(configs: configs),
     );
     if (result != null) {
-      final saved = await ref.read(contactsProvider.notifier).addAndReturn(result);
+      final saved = await ref
+          .read(contactsProvider.notifier)
+          .addAndReturn(result);
       if (!mounted) return;
       context.push('/chat/${saved.id}', extra: saved);
     }
@@ -200,7 +209,10 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.data_object, color: WeChatColors.primary),
+              leading: const Icon(
+                Icons.data_object,
+                color: WeChatColors.primary,
+              ),
               title: const Text('从 JSON 文件导入'),
               subtitle: const Text('支持 SillyTavern V2 角色卡格式'),
               onTap: () {
@@ -209,7 +221,10 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.image_outlined, color: WeChatColors.primary),
+              leading: const Icon(
+                Icons.image_outlined,
+                color: WeChatColors.primary,
+              ),
               title: const Text('从 PNG 图片导入'),
               subtitle: const Text('角色卡嵌入 PNG 图片（tEXt chunk）'),
               onTap: () {
@@ -234,15 +249,48 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
     final path = result.files.first.path;
     if (path == null) return;
 
-    final contact = await CharacterCardService.fromJsonFile(path);
-    if (!mounted) return;
-    if (contact == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('无法解析角色卡，请确认文件格式正确')),
-      );
-      return;
+    try {
+      final file = File(path);
+      final raw = await file.readAsString();
+      final validation = ImportService.validateCharacterCard(raw);
+
+      if (!validation.isValid) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('导入失败：${validation.error}'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
+        return;
+      }
+
+      final contact = ImportService.buildContactFromCard(validation.data!, raw);
+      if (contact == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('角色卡解析后名称为空，无法导入')));
+        }
+        return;
+      }
+
+      if (validation.warning != null && mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(validation.warning!)));
+      }
+
+      await _previewAndSave(contact);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('导入失败: $e')));
+      }
     }
-    await _previewAndSave(contact);
   }
 
   Future<void> _importFromPng() async {
@@ -255,18 +303,47 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
     final path = result.files.first.path;
     if (path == null) return;
 
-    final contact = await CharacterPngService.fromPngFile(path);
-    if (!mounted) return;
-    if (contact == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('该图片中未找到嵌入的角色卡数据')),
-      );
-      return;
-    }
+    try {
+      final validation = await ImportService.importCharacterCardFromFile(path);
 
-    // 将 PNG 设为头像路径
-    final contactWithAvatar = contact.copyWith(avatar: path);
-    await _previewAndSave(contactWithAvatar);
+      if (!validation.isValid) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('导入失败：${validation.error}'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
+        return;
+      }
+
+      final raw = validation.data!;
+      final contact = ImportService.buildContactFromCard(raw, jsonEncode(raw));
+      if (contact == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('角色卡解析后名称为空，无法导入')));
+        }
+        return;
+      }
+
+      final contactWithAvatar = contact.copyWith(avatar: path);
+      if (validation.warning != null && mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(validation.warning!)));
+      }
+      await _previewAndSave(contactWithAvatar);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('导入失败: $e')));
+      }
+    }
   }
 
   /// 导入后简单确认，保存后直接进入聊天
@@ -278,21 +355,20 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            AvatarWidget(
-              imagePath: draft.avatar,
-              name: draft.name,
-              size: 64,
-            ),
+            AvatarWidget(imagePath: draft.avatar, name: draft.name, size: 64),
             const SizedBox(height: 12),
-            Text(draft.name,
-                style: const TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.w600)),
+            Text(
+              draft.name,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+            ),
             if (draft.description.isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(
                 draft.description,
                 style: const TextStyle(
-                    fontSize: 13, color: WeChatColors.textSecondary),
+                  fontSize: 13,
+                  color: WeChatColors.textSecondary,
+                ),
                 textAlign: TextAlign.center,
                 maxLines: 4,
                 overflow: TextOverflow.ellipsis,
@@ -304,12 +380,13 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                 spacing: 4,
                 children: draft.tags
                     .take(5)
-                    .map((t) => Chip(
-                          label: Text(t, style: const TextStyle(fontSize: 10)),
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                          padding: EdgeInsets.zero,
-                        ))
+                    .map(
+                      (t) => Chip(
+                        label: Text(t, style: const TextStyle(fontSize: 10)),
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        padding: EdgeInsets.zero,
+                      ),
+                    )
                     .toList(),
               ),
             ],
@@ -322,11 +399,13 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('取消')),
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('取消'),
+          ),
           ElevatedButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('导入并开始聊天')),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('导入并开始聊天'),
+          ),
         ],
       ),
     );
@@ -334,9 +413,9 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
 
     final saved = await ref.read(contactsProvider.notifier).addAndReturn(draft);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('已导入「${saved.name}」')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('已导入「${saved.name}」')));
     context.push('/chat/${saved.id}', extra: saved);
   }
 }
@@ -362,16 +441,21 @@ class _ContactListTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(contact.name,
-                      style: const TextStyle(
-                          fontSize: 16, color: WeChatColors.textPrimary)),
+                  Text(
+                    contact.name,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      color: WeChatColors.textPrimary,
+                    ),
+                  ),
                   if (contact.description.isNotEmpty) ...[
                     const SizedBox(height: 2),
                     Text(
                       contact.description,
                       style: const TextStyle(
-                          fontSize: 12,
-                          color: WeChatColors.textSecondary),
+                        fontSize: 12,
+                        color: WeChatColors.textSecondary,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -381,8 +465,7 @@ class _ContactListTile extends StatelessWidget {
             ),
             if (contact.tags.isNotEmpty)
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: WeChatColors.primary.withAlpha(26),
                   borderRadius: BorderRadius.circular(4),
@@ -390,7 +473,9 @@ class _ContactListTile extends StatelessWidget {
                 child: Text(
                   contact.tags.first,
                   style: const TextStyle(
-                      fontSize: 10, color: WeChatColors.primary),
+                    fontSize: 10,
+                    color: WeChatColors.primary,
+                  ),
                 ),
               ),
           ],
@@ -417,12 +502,15 @@ class _EditContactDialog extends StatefulWidget {
 }
 
 class _EditContactDialogState extends State<_EditContactDialog> {
-  late final _nameCtrl =
-      TextEditingController(text: widget.existing?.name ?? '');
-  late final _descCtrl =
-      TextEditingController(text: widget.existing?.description ?? '');
-  late final _promptCtrl =
-      TextEditingController(text: widget.existing?.systemPrompt ?? '');
+  late final _nameCtrl = TextEditingController(
+    text: widget.existing?.name ?? '',
+  );
+  late final _descCtrl = TextEditingController(
+    text: widget.existing?.description ?? '',
+  );
+  late final _promptCtrl = TextEditingController(
+    text: widget.existing?.systemPrompt ?? '',
+  );
   late String? _selectedConfigId = widget.existing?.apiConfigId;
 
   @override
@@ -435,8 +523,8 @@ class _EditContactDialogState extends State<_EditContactDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final title = widget.titleOverride ??
-        (widget.existing == null ? '新建联系人' : '编辑联系人');
+    final title =
+        widget.titleOverride ?? (widget.existing == null ? '新建联系人' : '编辑联系人');
 
     return AlertDialog(
       title: Text(title),
@@ -450,8 +538,10 @@ class _EditContactDialogState extends State<_EditContactDialog> {
             if (widget.existing?.characterCardJson != null)
               Container(
                 width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
                   color: WeChatColors.primary.withAlpha(20),
@@ -459,12 +549,19 @@ class _EditContactDialogState extends State<_EditContactDialog> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.person_pin,
-                        size: 16, color: WeChatColors.primary),
+                    const Icon(
+                      Icons.person_pin,
+                      size: 16,
+                      color: WeChatColors.primary,
+                    ),
                     const SizedBox(width: 6),
-                    const Text('含角色卡数据',
-                        style: TextStyle(
-                            fontSize: 12, color: WeChatColors.primary)),
+                    const Text(
+                      '含角色卡数据',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: WeChatColors.primary,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -506,13 +603,15 @@ class _EditContactDialogState extends State<_EditContactDialog> {
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('取消')),
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
         ElevatedButton(
           onPressed: () {
             if (_nameCtrl.text.trim().isEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('名称不能为空')));
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('名称不能为空')));
               return;
             }
             final contact = Contact(

@@ -48,20 +48,25 @@ class MemoryEntry {
 
   factory MemoryEntry.fromDbMap(Map<String, dynamic> map) {
     return MemoryEntry(
-      id: map['id'] as String,
-      contactId: map['contact_id'] as String,
-      category: map['category'] as String,
-      key: map['key'] as String,
-      value: map['value'] as String,
-      updatedAt: DateTime.parse(map['updated_at'] as String),
+      id: map['id'] as String? ?? '',
+      contactId: map['contact_id'] as String? ?? '',
+      category: map['category'] as String? ?? '',
+      key: map['key'] as String? ?? '',
+      value: map['value'] as String? ?? '',
+      updatedAt:
+          DateTime.tryParse(map['updated_at'] as String? ?? '') ??
+          DateTime.now(),
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'category': category,
-        'key': key,
-        'value': value,
-      };
+    'id': id,
+    'contact_id': contactId,
+    'category': category,
+    'key': key,
+    'value': value,
+    'updated_at': updatedAt.toIso8601String(),
+  };
 
   static String tableToPrompt(List<MemoryEntry> entries) {
     if (entries.isEmpty) return '';
@@ -76,22 +81,25 @@ class MemoryEntry {
     }
 
     for (final cat in categories.entries) {
-      final items = cat.value.map((e) {
-        if (e.key == '备注' || e.key == 'note') return e.value;
-        return '${e.key}：${e.value}';
-      }).join('；');
+      final items = cat.value
+          .map((e) {
+            if (e.key == '备注' || e.key == 'note') return e.value;
+            return '${e.key}：${e.value}';
+          })
+          .join('；');
       buffer.writeln('- ${cat.key}：$items');
     }
     return buffer.toString().trim();
   }
 
-  static List<MemoryEntry> fromLlmResponse(
-      String contactId, String response) {
+  static List<MemoryEntry> fromLlmResponse(String contactId, String response) {
     final entries = <MemoryEntry>[];
     try {
       // Strip markdown code fences if present
       var jsonStr = response.trim();
-      final fenceMatch = RegExp(r'```(?:json)?\s*([\s\S]*?)```').firstMatch(jsonStr);
+      final fenceMatch = RegExp(
+        r'```(?:json)?\s*([\s\S]*?)```',
+      ).firstMatch(jsonStr);
       if (fenceMatch != null) {
         jsonStr = fenceMatch.group(1)!.trim();
       }
@@ -108,14 +116,16 @@ class MemoryEntry {
           final key = (item['key'] as String?) ?? '';
           final value = (item['value'] as String?) ?? '';
           if (key.isNotEmpty && value.isNotEmpty) {
-            entries.add(MemoryEntry(
-              id: '',
-              contactId: contactId,
-              category: category,
-              key: key,
-              value: value,
-              updatedAt: DateTime.now(),
-            ));
+            entries.add(
+              MemoryEntry(
+                id: '',
+                contactId: contactId,
+                category: category,
+                key: key,
+                value: value,
+                updatedAt: DateTime.now(),
+              ),
+            );
           }
         }
       }
@@ -125,7 +135,8 @@ class MemoryEntry {
       String currentCategory = '其他';
       for (final line in lines) {
         final trimmed = line.trim();
-        if (trimmed.startsWith('##') || trimmed.startsWith('**') && trimmed.endsWith('**')) {
+        if (trimmed.startsWith('##') ||
+            (trimmed.startsWith('**') && trimmed.endsWith('**'))) {
           currentCategory = trimmed
               .replaceFirst(RegExp(r'^#+\s*'), '')
               .replaceAll('*', '')
@@ -135,14 +146,16 @@ class MemoryEntry {
           final key = trimmed.substring(1, colonIdx).trim();
           final value = trimmed.substring(colonIdx + 1).trim();
           if (key.isNotEmpty && value.isNotEmpty) {
-            entries.add(MemoryEntry(
-              id: '',
-              contactId: contactId,
-              category: currentCategory,
-              key: key,
-              value: value,
-              updatedAt: DateTime.now(),
-            ));
+            entries.add(
+              MemoryEntry(
+                id: '',
+                contactId: contactId,
+                category: currentCategory,
+                key: key,
+                value: value,
+                updatedAt: DateTime.now(),
+              ),
+            );
           }
         }
       }

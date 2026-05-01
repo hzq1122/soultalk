@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../models/memory_card.dart';
 import '../../models/memory_entry.dart';
+import '../../models/memory_state.dart';
 import '../../models/contact.dart';
 import '../../providers/memory_provider.dart';
 import '../../providers/api_config_provider.dart';
@@ -21,26 +23,50 @@ class MemoryPage extends ConsumerStatefulWidget {
   ConsumerState<MemoryPage> createState() => _MemoryPageState();
 }
 
-class _MemoryPageState extends ConsumerState<MemoryPage> {
+class _MemoryPageState extends ConsumerState<MemoryPage>
+    with SingleTickerProviderStateMixin {
   bool _isExtracting = false;
+  late final TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final memoriesAsync = ref.watch(memoryProvider(widget.contactId));
-    final settings = ref.watch(settingsProvider).value;
+    final statesAsync = ref.watch(memoryStateProvider(widget.contactId));
+    final cardsAsync = ref.watch(memoryCardProvider(widget.contactId));
 
     return Scaffold(
       backgroundColor: WeChatColors.background,
       appBar: AppBar(
         backgroundColor: WeChatColors.appBarBackground,
         title: Text('${widget.contact?.name ?? ""}的记忆'),
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: WeChatColors.primary,
+          unselectedLabelColor: WeChatColors.textSecondary,
+          tabs: const [
+            Tab(text: '记忆条目'),
+            Tab(text: '状态板'),
+            Tab(text: '记忆卡片'),
+          ],
+        ),
         actions: [
           if (_isExtracting)
             const Padding(
               padding: EdgeInsets.all(16),
               child: SizedBox(
-                width: 20,
-                height: 20,
+                width: 20, height: 20,
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
             )
@@ -63,91 +89,205 @@ class _MemoryPageState extends ConsumerState<MemoryPage> {
           ),
         ],
       ),
-      body: memoriesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('加载失败: $e')),
-        data: (entries) {
-          if (entries.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.psychology_outlined,
-                      size: 64, color: WeChatColors.textHint),
-                  const SizedBox(height: 12),
-                  const Text('暂无记忆',
-                      style: TextStyle(color: WeChatColors.textSecondary)),
-                  const SizedBox(height: 8),
-                  Text(
-                    settings?.memoryEnabled == true
-                        ? '聊天时将自动提取记忆'
-                        : '请在通用设置中启用记忆表格',
-                    style: const TextStyle(
-                        fontSize: 12, color: WeChatColors.textHint),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.refresh, size: 18),
-                    label: const Text('立即提取'),
-                    onPressed: () => _extractNow(context),
-                  ),
-                ],
-              ),
-            );
-          }
-          return _buildMemoryTable(entries);
-        },
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildLegacyTab(memoriesAsync),
+          _buildStatesTab(statesAsync),
+          _buildCardsTab(cardsAsync),
+        ],
       ),
     );
   }
 
-  Widget _buildMemoryTable(List<MemoryEntry> entries) {
-    final categories = <String, List<MemoryEntry>>{};
-    for (final entry in entries) {
-      categories.putIfAbsent(entry.category, () => []).add(entry);
-    }
+  // ── Legacy memory entries tab ─────────────────────────────────────
 
-    return ListView(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      children: [
-        for (final cat in categories.entries) ...[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: Text(
-              cat.key,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: WeChatColors.primary,
+  Widget _buildLegacyTab(AsyncValue<List<MemoryEntry>> async) {
+    return async.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('加载失败: $e')),
+      data: (entries) {
+        if (entries.isEmpty) return _emptyView('暂无记忆', '聊天时将自动提取记忆');
+        final categories = <String, List<MemoryEntry>>{};
+        for (final entry in entries) {
+          categories.putIfAbsent(entry.category, () => []).add(entry);
+        }
+        return ListView(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          children: [
+            for (final cat in categories.entries) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: Text(cat.key,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: WeChatColors.primary)),
               ),
-            ),
-          ),
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Column(
-              children: [
-                for (var i = 0; i < cat.value.length; i++) ...[
-                  if (i > 0) const Divider(height: 0, indent: 16),
-                  _MemoryEntryTile(
-                    entry: cat.value[i],
-                    onDelete: () {
-                      ref
-                          .read(memoryProvider(widget.contactId).notifier)
-                          .deleteEntry(cat.value[i].id);
-                    },
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ],
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
+                child: Column(
+                  children: [
+                    for (var i = 0; i < cat.value.length; i++) ...[
+                      if (i > 0) const Divider(height: 0, indent: 16),
+                      ListTile(
+                        title: Text(cat.value[i].key, style: const TextStyle(fontSize: 14)),
+                        subtitle: Text(cat.value[i].value, style: const TextStyle(fontSize: 13)),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.close, size: 16, color: WeChatColors.textHint),
+                          onPressed: () {
+                            ref.read(memoryProvider(widget.contactId).notifier).deleteEntry(cat.value[i].id);
+                          },
+                        ),
+                        dense: true,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
+
+  // ── State board tab ────────────────────────────────────────────────
+
+  Widget _buildStatesTab(AsyncValue<List<MemoryState>> async) {
+    return async.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('加载失败: $e')),
+      data: (states) {
+        final active = states.where((s) => s.status == 'active').toList();
+        if (active.isEmpty) return _emptyView('暂无状态', '聊天后将自动更新状态板');
+        return ListView(
+          padding: const EdgeInsets.all(12),
+          children: [
+            Container(
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
+              child: Column(
+                children: [
+                  for (var i = 0; i < active.length; i++) ...[
+                    if (i > 0) const Divider(height: 0, indent: 16),
+                    ListTile(
+                      title: Text(active[i].slotName,
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                      subtitle: Text(active[i].slotValue,
+                          style: const TextStyle(fontSize: 13)),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.circle,
+                              size: 8,
+                              color: active[i].confidence >= 0.7
+                                  ? Colors.green
+                                  : Colors.orange),
+                          const SizedBox(width: 4),
+                          Text(active[i].slotType,
+                              style: const TextStyle(fontSize: 11, color: WeChatColors.textHint)),
+                        ],
+                      ),
+                      dense: true,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ── Memory cards tab ───────────────────────────────────────────────
+
+  Widget _buildCardsTab(AsyncValue<List<MemoryCard>> async) {
+    return async.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('加载失败: $e')),
+      data: (cards) {
+        if (cards.isEmpty) return _emptyView('暂无记忆卡片', '聊天时将自动提取长期记忆');
+        return ListView.builder(
+          padding: const EdgeInsets.all(12),
+          itemCount: cards.length,
+          itemBuilder: (context, index) {
+            final card = cards[index];
+            return Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: ListTile(
+                title: Text(card.content, style: const TextStyle(fontSize: 14)),
+                subtitle: Row(
+                  children: [
+                    _scoreBadge('重要性', card.importance, Icons.star),
+                    const SizedBox(width: 8),
+                    _scoreBadge('置信度', card.confidence, Icons.verified),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: _scopeColor(card.scope).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(card.scope, style: TextStyle(fontSize: 10, color: _scopeColor(card.scope))),
+                    ),
+                  ],
+                ),
+                trailing: Text(card.cardType,
+                    style: const TextStyle(fontSize: 11, color: WeChatColors.textHint)),
+                dense: true,
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _scoreBadge(String label, double value, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: value >= 0.7 ? Colors.green.withValues(alpha: 0.1) : Colors.orange.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 10, color: value >= 0.7 ? Colors.green : Colors.orange),
+          const SizedBox(width: 2),
+          Text('${(value * 100).toInt()}%',
+              style: TextStyle(fontSize: 10, color: value >= 0.7 ? Colors.green : Colors.orange)),
+        ],
+      ),
+    );
+  }
+
+  Color _scopeColor(String scope) {
+    switch (scope) {
+      case 'global':
+        return Colors.blue;
+      case 'shared':
+        return Colors.teal;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  Widget _emptyView(String title, String subtitle) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.psychology_outlined, size: 64, color: WeChatColors.textHint),
+          const SizedBox(height: 12),
+          Text(title, style: const TextStyle(color: WeChatColors.textSecondary)),
+          const SizedBox(height: 8),
+          Text(subtitle, style: const TextStyle(fontSize: 12, color: WeChatColors.textHint)),
+        ],
+      ),
+    );
+  }
+
+  // ── Actions ────────────────────────────────────────────────────────
 
   Future<void> _extractNow(BuildContext context) async {
     final configs = ref.read(apiConfigProvider).value ?? [];
@@ -157,26 +297,14 @@ class _MemoryPageState extends ConsumerState<MemoryPage> {
       );
       return;
     }
-
     final settings = ref.read(settingsProvider).value;
-    final apiConfig = configs.first;
-
-    if (settings?.memoryUseMainApi == false && configs.length < 2) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('副 API 未配置，将使用主 API')),
-      );
-    }
-
-    final selectedConfig =
-        (settings?.memoryUseMainApi == false && configs.length >= 2)
-            ? configs[1]
-            : apiConfig;
+    final selectedConfig = (settings?.memoryUseMainApi == false && configs.length >= 2)
+        ? configs[1]
+        : configs.first;
 
     setState(() => _isExtracting = true);
     try {
-      await ref
-          .read(memoryProvider(widget.contactId).notifier)
-          .extractMemories(selectedConfig);
+      await ref.read(memoryProvider(widget.contactId).notifier).extractMemories(selectedConfig);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('记忆提取完成')),
@@ -201,8 +329,7 @@ class _MemoryPageState extends ConsumerState<MemoryPage> {
         content: const Text('确定清空该联系人的所有记忆？'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('取消')),
+              onPressed: () => Navigator.of(ctx).pop(false), child: const Text('取消')),
           TextButton(
               onPressed: () => Navigator.of(ctx).pop(true),
               child: const Text('清空', style: TextStyle(color: Colors.red))),
@@ -210,34 +337,7 @@ class _MemoryPageState extends ConsumerState<MemoryPage> {
       ),
     );
     if (confirm == true) {
-      await ref
-          .read(memoryProvider(widget.contactId).notifier)
-          .clearAll();
+      await ref.read(memoryProvider(widget.contactId).notifier).clearAll();
     }
-  }
-}
-
-class _MemoryEntryTile extends StatelessWidget {
-  final MemoryEntry entry;
-  final VoidCallback onDelete;
-
-  const _MemoryEntryTile({
-    required this.entry,
-    required this.onDelete,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      title: Text(entry.key,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-      subtitle: Text(entry.value,
-          style: const TextStyle(fontSize: 13)),
-      trailing: IconButton(
-        icon: const Icon(Icons.close, size: 16, color: WeChatColors.textHint),
-        onPressed: onDelete,
-      ),
-      dense: true,
-    );
   }
 }

@@ -25,16 +25,18 @@ mixin _$CharacterCard {
   String get description => throw _privateConstructorUsedError;
   String get personality => throw _privateConstructorUsedError;
   String get scenario => throw _privateConstructorUsedError;
-  String get firstMes => throw _privateConstructorUsedError; // 第一条消息（开场白）
+  String get firstMes => throw _privateConstructorUsedError;
   String get systemPrompt => throw _privateConstructorUsedError;
-  String get mesExample => throw _privateConstructorUsedError; // 对话示例
+  String get mesExample => throw _privateConstructorUsedError;
   List<String> get tags => throw _privateConstructorUsedError;
   String get creator => throw _privateConstructorUsedError;
   String get creatorNotes => throw _privateConstructorUsedError;
-  String? get avatarBase64 =>
-      throw _privateConstructorUsedError; // PNG 图片 base64
-  String? get spec => throw _privateConstructorUsedError; // 'chara_card_v2'
+  String? get avatarBase64 => throw _privateConstructorUsedError;
+  String? get spec => throw _privateConstructorUsedError;
   String get specVersion => throw _privateConstructorUsedError;
+  String get characterVersion => throw _privateConstructorUsedError;
+  List<String> get alternateGreetings => throw _privateConstructorUsedError;
+  Map<String, dynamic> get extensions => throw _privateConstructorUsedError;
 
   /// Serializes this CharacterCard to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -67,6 +69,9 @@ abstract class $CharacterCardCopyWith<$Res> {
     String? avatarBase64,
     String? spec,
     String specVersion,
+    String characterVersion,
+    List<String> alternateGreetings,
+    Map<String, dynamic> extensions,
   });
 }
 
@@ -98,6 +103,9 @@ class _$CharacterCardCopyWithImpl<$Res, $Val extends CharacterCard>
     Object? avatarBase64 = freezed,
     Object? spec = freezed,
     Object? specVersion = null,
+    Object? characterVersion = null,
+    Object? alternateGreetings = null,
+    Object? extensions = null,
   }) {
     return _then(
       _value.copyWith(
@@ -153,6 +161,18 @@ class _$CharacterCardCopyWithImpl<$Res, $Val extends CharacterCard>
                 ? _value.specVersion
                 : specVersion // ignore: cast_nullable_to_non_nullable
                       as String,
+            characterVersion: null == characterVersion
+                ? _value.characterVersion
+                : characterVersion // ignore: cast_nullable_to_non_nullable
+                      as String,
+            alternateGreetings: null == alternateGreetings
+                ? _value.alternateGreetings
+                : alternateGreetings // ignore: cast_nullable_to_non_nullable
+                      as List<String>,
+            extensions: null == extensions
+                ? _value.extensions
+                : extensions // ignore: cast_nullable_to_non_nullable
+                      as Map<String, dynamic>,
           )
           as $Val,
     );
@@ -182,6 +202,9 @@ abstract class _$$CharacterCardImplCopyWith<$Res>
     String? avatarBase64,
     String? spec,
     String specVersion,
+    String characterVersion,
+    List<String> alternateGreetings,
+    Map<String, dynamic> extensions,
   });
 }
 
@@ -212,6 +235,9 @@ class __$$CharacterCardImplCopyWithImpl<$Res>
     Object? avatarBase64 = freezed,
     Object? spec = freezed,
     Object? specVersion = null,
+    Object? characterVersion = null,
+    Object? alternateGreetings = null,
+    Object? extensions = null,
   }) {
     return _then(
       _$CharacterCardImpl(
@@ -267,6 +293,18 @@ class __$$CharacterCardImplCopyWithImpl<$Res>
             ? _value.specVersion
             : specVersion // ignore: cast_nullable_to_non_nullable
                   as String,
+        characterVersion: null == characterVersion
+            ? _value.characterVersion
+            : characterVersion // ignore: cast_nullable_to_non_nullable
+                  as String,
+        alternateGreetings: null == alternateGreetings
+            ? _value._alternateGreetings
+            : alternateGreetings // ignore: cast_nullable_to_non_nullable
+                  as List<String>,
+        extensions: null == extensions
+            ? _value._extensions
+            : extensions // ignore: cast_nullable_to_non_nullable
+                  as Map<String, dynamic>,
       ),
     );
   }
@@ -289,7 +327,12 @@ class _$CharacterCardImpl extends _CharacterCard {
     this.avatarBase64,
     this.spec,
     this.specVersion = '2.0',
+    this.characterVersion = '',
+    final List<String> alternateGreetings = const [],
+    final Map<String, dynamic> extensions = const {},
   }) : _tags = tags,
+       _alternateGreetings = alternateGreetings,
+       _extensions = extensions,
        super._();
 
   factory _$CharacterCardImpl.fromJson(Map<String, dynamic> json) =>
@@ -309,16 +352,13 @@ class _$CharacterCardImpl extends _CharacterCard {
   @override
   @JsonKey()
   final String firstMes;
-  // 第一条消息（开场白）
   @override
   @JsonKey()
   final String systemPrompt;
   @override
   @JsonKey()
   final String mesExample;
-  // 对话示例
   final List<String> _tags;
-  // 对话示例
   @override
   @JsonKey()
   List<String> get tags {
@@ -335,17 +375,36 @@ class _$CharacterCardImpl extends _CharacterCard {
   final String creatorNotes;
   @override
   final String? avatarBase64;
-  // PNG 图片 base64
   @override
   final String? spec;
-  // 'chara_card_v2'
   @override
   @JsonKey()
   final String specVersion;
+  @override
+  @JsonKey()
+  final String characterVersion;
+  final List<String> _alternateGreetings;
+  @override
+  @JsonKey()
+  List<String> get alternateGreetings {
+    if (_alternateGreetings is EqualUnmodifiableListView)
+      return _alternateGreetings;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_alternateGreetings);
+  }
+
+  final Map<String, dynamic> _extensions;
+  @override
+  @JsonKey()
+  Map<String, dynamic> get extensions {
+    if (_extensions is EqualUnmodifiableMapView) return _extensions;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableMapView(_extensions);
+  }
 
   @override
   String toString() {
-    return 'CharacterCard(name: $name, description: $description, personality: $personality, scenario: $scenario, firstMes: $firstMes, systemPrompt: $systemPrompt, mesExample: $mesExample, tags: $tags, creator: $creator, creatorNotes: $creatorNotes, avatarBase64: $avatarBase64, spec: $spec, specVersion: $specVersion)';
+    return 'CharacterCard(name: $name, description: $description, personality: $personality, scenario: $scenario, firstMes: $firstMes, systemPrompt: $systemPrompt, mesExample: $mesExample, tags: $tags, creator: $creator, creatorNotes: $creatorNotes, avatarBase64: $avatarBase64, spec: $spec, specVersion: $specVersion, characterVersion: $characterVersion, alternateGreetings: $alternateGreetings, extensions: $extensions)';
   }
 
   @override
@@ -374,7 +433,17 @@ class _$CharacterCardImpl extends _CharacterCard {
                 other.avatarBase64 == avatarBase64) &&
             (identical(other.spec, spec) || other.spec == spec) &&
             (identical(other.specVersion, specVersion) ||
-                other.specVersion == specVersion));
+                other.specVersion == specVersion) &&
+            (identical(other.characterVersion, characterVersion) ||
+                other.characterVersion == characterVersion) &&
+            const DeepCollectionEquality().equals(
+              other._alternateGreetings,
+              _alternateGreetings,
+            ) &&
+            const DeepCollectionEquality().equals(
+              other._extensions,
+              _extensions,
+            ));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -394,6 +463,9 @@ class _$CharacterCardImpl extends _CharacterCard {
     avatarBase64,
     spec,
     specVersion,
+    characterVersion,
+    const DeepCollectionEquality().hash(_alternateGreetings),
+    const DeepCollectionEquality().hash(_extensions),
   );
 
   /// Create a copy of CharacterCard
@@ -425,6 +497,9 @@ abstract class _CharacterCard extends CharacterCard {
     final String? avatarBase64,
     final String? spec,
     final String specVersion,
+    final String characterVersion,
+    final List<String> alternateGreetings,
+    final Map<String, dynamic> extensions,
   }) = _$CharacterCardImpl;
   const _CharacterCard._() : super._();
 
@@ -440,11 +515,11 @@ abstract class _CharacterCard extends CharacterCard {
   @override
   String get scenario;
   @override
-  String get firstMes; // 第一条消息（开场白）
+  String get firstMes;
   @override
   String get systemPrompt;
   @override
-  String get mesExample; // 对话示例
+  String get mesExample;
   @override
   List<String> get tags;
   @override
@@ -452,11 +527,17 @@ abstract class _CharacterCard extends CharacterCard {
   @override
   String get creatorNotes;
   @override
-  String? get avatarBase64; // PNG 图片 base64
+  String? get avatarBase64;
   @override
-  String? get spec; // 'chara_card_v2'
+  String? get spec;
   @override
   String get specVersion;
+  @override
+  String get characterVersion;
+  @override
+  List<String> get alternateGreetings;
+  @override
+  Map<String, dynamic> get extensions;
 
   /// Create a copy of CharacterCard
   /// with the given fields replaced by the non-null parameter values.

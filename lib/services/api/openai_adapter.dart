@@ -4,20 +4,23 @@ import '../../models/api_config.dart';
 import '../../models/message.dart';
 import 'llm_service.dart';
 
-/// OpenAI 兼容协议 Adapter（支持 OpenAI、Claude via OpenAI compat、本地模型等）
 class OpenAiAdapterImpl implements LlmService {
-  Dio get _dio => Dio(BaseOptions(
-        connectTimeout: const Duration(seconds: 30),
-        receiveTimeout: const Duration(seconds: 120),
-      ));
+  static final _dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 120),
+    ),
+  );
 
   List<Map<String, String>> _buildMessages(
-      List<Message> messages, String? systemPrompt) {
+    List<Message> messages,
+    String? systemPrompt,
+  ) {
     final result = <Map<String, String>>[];
     if (systemPrompt != null && systemPrompt.isNotEmpty) {
       result.add({'role': 'system', 'content': systemPrompt});
     }
-    result.addAll(messagesToApiFormat(messages));
+    result.addAll(LlmService.toApiMessages(messages));
     return result;
   }
 
@@ -30,10 +33,12 @@ class OpenAiAdapterImpl implements LlmService {
     final baseUrl = config.baseUrl.replaceAll(RegExp(r'/+$'), '');
     final response = await _dio.post(
       '$baseUrl/chat/completions',
-      options: Options(headers: {
-        'Authorization': 'Bearer ${config.apiKey}',
-        'Content-Type': 'application/json',
-      }),
+      options: Options(
+        headers: {
+          'Authorization': 'Bearer ${config.apiKey}',
+          'Content-Type': 'application/json',
+        },
+      ),
       data: {
         'model': config.model,
         'messages': _buildMessages(messages, systemPrompt),
@@ -43,7 +48,13 @@ class OpenAiAdapterImpl implements LlmService {
       },
     );
     final data = response.data as Map<String, dynamic>;
-    return (data['choices'] as List).first['message']['content'] as String;
+    final choices = data['choices'] as List?;
+    if (choices == null || choices.isEmpty) {
+      throw Exception('API 返回了空的 choices');
+    }
+    final message = choices.first['message'] as Map<String, dynamic>?;
+    final content = message?['content'] as String?;
+    return content ?? '';
   }
 
   @override
@@ -53,12 +64,14 @@ class OpenAiAdapterImpl implements LlmService {
     String? systemPrompt,
   }) async* {
     final baseUrl = _normalizeUrl(config.baseUrl);
-    final dio = Dio(BaseOptions(
-      connectTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(seconds: 120),
-    ));
+    final streamDio = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 30),
+        receiveTimeout: const Duration(seconds: 120),
+      ),
+    );
 
-    final response = await dio.post<ResponseBody>(
+    final response = await streamDio.post<ResponseBody>(
       '$baseUrl/chat/completions',
       options: Options(
         headers: {
@@ -76,12 +89,14 @@ class OpenAiAdapterImpl implements LlmService {
       },
     );
 
-    // 行缓冲区：SSE 行可能被网络层截断到多个 chunk
+    if (response.data == null) {
+      throw Exception('API 流式响应为空');
+    }
+
     final lineBuffer = StringBuffer();
     await for (final chunk in response.data!.stream) {
-      lineBuffer.write(utf8.decode(chunk));
+      lineBuffer.write(utf8.decode(chunk, allowMalformed: true));
 
-      // 只处理以 \n 结尾的完整行，剩余部分留在缓冲区
       final raw = lineBuffer.toString();
       final lastNl = raw.lastIndexOf('\n');
       if (lastNl < 0) continue;
@@ -99,8 +114,7 @@ class OpenAiAdapterImpl implements LlmService {
           final json = jsonDecode(jsonStr) as Map<String, dynamic>;
           final choices = json['choices'] as List?;
           if (choices != null && choices.isNotEmpty) {
-            final delta =
-                choices.first['delta'] as Map<String, dynamic>?;
+            final delta = choices.first['delta'] as Map<String, dynamic>?;
             final content = delta?['content'] as String?;
             if (content != null && content.isNotEmpty) {
               yield content;
@@ -111,17 +125,6 @@ class OpenAiAdapterImpl implements LlmService {
     }
   }
 
-  /// 去除末尾多余的斜杠，避免拼出 /v1//chat/completions
   String _normalizeUrl(String url) =>
       url.endsWith('/') ? url.substring(0, url.length - 1) : url;
-
-  List<Map<String, String>> messagesToApiFormat(List<Message> messages) {
-    return messages
-        .where((m) => m.role != MessageRole.system)
-        .map((m) => {
-              'role': m.role == MessageRole.user ? 'user' : 'assistant',
-              'content': m.content,
-            })
-        .toList();
-  }
 }
