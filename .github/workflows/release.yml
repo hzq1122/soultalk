@@ -68,4 +68,3 @@ jobs:
           tag: ${{ github.ref_name }}
           token: ${{ secrets.GITHUB_TOKEN }}
           allowUpdates: true
-          generateReleaseNotes: true
