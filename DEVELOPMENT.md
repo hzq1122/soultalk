@@ -1,135 +1,77 @@
-# Talk AI 开发指南
+# soultalk 开发维护指南
 
-## 项目架构概览
+## 基本约定
 
-```
-lib/
-├── main.dart                    # 应用入口
-├── router.dart                  # 路由定义（所有页面路径）
-├── theme/                       # 主题常量（颜色、样式）
-│   ├── wechat_colors.dart
-│   └── wechat_theme.dart
-├── models/                      # 数据模型（freezed + json_serializable）
-├── providers/                   # Riverpod 状态管理
-├── services/                    # 业务逻辑层
-│   ├── api/                     # LLM API 适配器
-│   ├── backup/                  # 备份/恢复/加密
-│   ├── chat/                    # 聊天服务 + 打字模拟
-│   ├── database/                # SQLite DAO 层
-│   ├── memory/                  # 记忆提取服务
-│   ├── character/               # 角色卡服务
-│   ├── moments/                 # 朋友圈服务
-│   ├── proactive/               # AI 主动发消息服务
-│   ├── regex/                   # 正则脚本服务
-│   └── update/                  # 应用更新检查
-└── pages/                       # 页面 UI
-    ├── onboarding/              # 新手引导
-    ├── chat/                    # 聊天页
-    ├── chat_list/               # 聊天列表（首页）
-    ├── contacts/                # 通讯录
-    ├── discover/                # 发现页（朋友圈）
-    ├── memory/                  # 记忆表格
-    ├── profile/                 # 我的
-    ├── delivery/                # 配送/外卖
-    └── settings/                # 设置页
+- 项目统一名称使用 `soultalk`。
+- Android applicationId/namespace 统一使用 `com.talkai.soultalk`。
+- 平台显示名、二进制名、发布包名应保持 `soultalk` 一致。
+- Dart 包名以 `pubspec.yaml` 的 `name: soultalk` 为准。
+- 新功能优先放入已有目录，不为一次性逻辑新增抽象层。
+
+## 常用命令
+
+```bash
+flutter pub get
+flutter test
+flutter analyze
+dart run build_runner build --delete-conflicting-outputs
 ```
 
-## 页面 → 文件对照表
+修改 Freezed 或 json_serializable 模型后，需要重新运行代码生成命令。
 
-### 主框架
-| 页面/功能 | 文件 |
-|-----------|------|
-| 底部 Tab 壳（微信风格4 Tab） | `lib/pages/main_scaffold.dart` |
-| 路由定义（所有页面路径） | `lib/router.dart` |
-| 全局主题 | `lib/theme/wechat_colors.dart` |
+## 分层维护规则
 
-### Tab 1: 聊天
-| 页面/功能 | 文件 |
-|-----------|------|
-| 聊天列表（首页） | `lib/pages/chat_list/chat_list_page.dart` |
-| 单聊对话页 | `lib/pages/chat/chat_page.dart` |
-| 消息气泡 | `lib/pages/chat/widgets/message_bubble.dart` |
-| 输入栏 | `lib/pages/chat/widgets/input_bar.dart` |
-| 正在输入指示器 | `lib/pages/chat/widgets/typing_indicator.dart` |
-| 聊天消息模型 | `lib/models/message.dart` |
-| 聊天消息状态 | `lib/providers/messages_provider.dart` |
-| 聊天业务逻辑 | `lib/services/chat/chat_service.dart` |
-| AI 消息生成 | `lib/services/api/llm_service.dart` |
-| OpenAI 协议适配 | `lib/services/api/openai_adapter.dart` |
-| Anthropic 协议适配 | `lib/services/api/anthropic_adapter.dart` |
-| 上下文管理 | `lib/services/api/context_manager.dart` |
-| AI 主动发消息 | `lib/services/proactive/proactive_service.dart` |
+1. UI 页面放在 `lib/pages/`。
+2. 跨页面复用组件放在 `lib/widgets/`。
+3. 数据模型放在 `lib/models/`。
+4. Riverpod 状态管理放在 `lib/providers/`。
+5. 业务逻辑、外部 API、数据库访问放在 `lib/services/`。
+6. 平台差异配置放在 `lib/platform/`。
+7. 路由统一在 `lib/router.dart` 注册。
+8. 应用入口初始化放在 `lib/main.dart`。
 
-### Tab 2: 通讯录
-| 页面/功能 | 文件 |
-|-----------|------|
-| 通讯录列表 | `lib/pages/contacts/contacts_page.dart` |
-| 联系人详情 | `lib/pages/contacts/contact_detail_page.dart` |
-| 联系人模型 | `lib/models/contact.dart` |
-| 联系人状态 | `lib/providers/contacts_provider.dart` |
-| 角色卡服务 | `lib/services/character/character_card_service.dart` |
+## 功能修改入口
 
-### Tab 3: 发现
-| 页面/功能 | 文件 |
-|-----------|------|
-| 发现页 | `lib/pages/discover/discover_page.dart` |
-| 朋友圈 | `lib/pages/discover/moments_page.dart` |
-| 朋友圈模型 | `lib/models/moment.dart` |
-| 朋友圈状态 | `lib/providers/moments_provider.dart` |
-| 朋友圈服务 | `lib/services/moments/moments_service.dart` |
-| 配送/外卖 | `lib/pages/delivery/delivery_page.dart` |
-| 购物车状态 | `lib/providers/cart_provider.dart` |
-| 钱包模型 | `lib/models/wallet_transaction.dart` |
-| 钱包状态 | `lib/providers/wallet_provider.dart` |
+| 需求 | 优先查看位置 |
+|------|--------------|
+| 修改主 Tab 或底部导航 | `lib/pages/main_scaffold.dart` |
+| 新增页面或调整跳转 | `lib/router.dart`, `lib/pages/` |
+| 修改聊天发送与回复流程 | `lib/pages/chat/`, `lib/services/chat/`, `lib/services/api/` |
+| 修改联系人或角色管理 | `lib/pages/contacts/`, `lib/providers/contacts_provider.dart`, `lib/services/character/` |
+| 修改角色卡/预设/正则导入 | `lib/services/import/import_service.dart` |
+| 修改记忆提取、检索、审核 | `lib/services/memory/`, `lib/models/memory_*.dart` |
+| 修改朋友圈 | `lib/pages/discover/`, `lib/services/moments/`, `lib/providers/moments_provider.dart` |
+| 修改主动消息 | `lib/services/proactive/proactive_service.dart` |
+| 修改备份恢复 | `lib/pages/settings/backup_page.dart`, `lib/services/backup/` |
+| 修改应用更新 | `lib/pages/settings/update_page.dart`, `lib/services/update/update_service.dart` |
+| 修改 API 配置 | `lib/pages/settings/api_settings_page.dart`, `lib/providers/api_config_provider.dart`, `lib/services/database/api_config_dao.dart` |
+| 修改数据库结构 | `lib/services/database/database_service.dart` 和对应 DAO |
+| 修改 Android 名称或包名 | `android/app/build.gradle.kts`, `android/app/src/main/AndroidManifest.xml`, `android/app/src/main/kotlin/` |
+| 修改 Windows 应用名 | `windows/CMakeLists.txt`, `windows/runner/main.cpp`, `windows/runner/Runner.rc` |
+| 修改 Linux 应用名 | `linux/CMakeLists.txt`, `linux/runner/my_application.cc` |
+| 修改 CI 发布流程 | `.github/workflows/` |
 
-### Tab 4: 我的
-| 页面/功能 | 文件 |
-|-----------|------|
-| 个人中心 | `lib/pages/profile/profile_page.dart` |
-| 通用设置 | `lib/pages/settings/general_settings_page.dart` |
-| API 配置 | `lib/pages/settings/api_settings_page.dart` |
-| 备份设置 | `lib/pages/settings/backup_page.dart` |
-| 应用更新 | `lib/pages/settings/update_page.dart` |
-| 记忆表格页 | `lib/pages/memory/memory_page.dart` |
-| 新手引导 | `lib/pages/onboarding/onboarding_page.dart` |
+## 测试规范
 
-### API 配置相关
-| 功能 | 文件 |
-|------|------|
-| API 配置模型 | `lib/models/api_config.dart` |
-| API 配置状态 | `lib/providers/api_config_provider.dart` |
-| API 配置数据层 | `lib/services/database/api_config_dao.dart` |
-| API 设置页 | `lib/pages/settings/api_settings_page.dart` |
+- 服务层逻辑测试放在 `test/services/`。
+- 模型序列化和边界测试放在 `test/models/`。
+- 应用 smoke test 放在 `test/widget_test.dart`。
+- 涉及 onboarding 跳转的 widget test 需要设置 `SharedPreferences.setMockInitialValues({'onboarding_done': true})`。
+- 修 bug 时优先补充或更新能复现问题的测试。
 
-### 记忆表格相关
-| 功能 | 文件 |
-|------|------|
-| 记忆条目模型 | `lib/models/memory_entry.dart` |
-| 记忆状态 | `lib/providers/memory_provider.dart` |
-| 记忆提取服务 | `lib/services/memory/memory_service.dart` |
-| 记忆数据层 | `lib/services/database/memory_entry_dao.dart` |
-| 记忆表格页 | `lib/pages/memory/memory_page.dart` |
+## 不应提交的文件
 
-### 设置/全局
-| 功能 | 文件 |
-|------|------|
-| 应用设置模型 + 持久化 | `lib/providers/settings_provider.dart` |
-| 数据库统一入口 | `lib/services/database/database_service.dart` |
+- `.dart_tool/`
+- `build/`
+- `android/.gradle/`
+- `android/local.properties`
+- `windows/flutter/ephemeral/`
+- `.claude/settings.local.json`
+- `.claude/worktrees/`
+- 构建产物如 `*.zip`、`*.apk`、安装包和临时缓存
 
-## 如何修改某个功能
+## 发布和版本
 
-### 原则
-1. **改 UI** → 找 `lib/pages/` 下对应的页面文件
-2. **改数据** → 找 `lib/models/` 下对应的模型文件
-3. **改逻辑** → 找 `lib/providers/` 下的状态管理 和 `lib/services/` 下的服务文件
-4. **改数据库** → 找 `lib/services/database/` 下的 DAO 文件
-
-### 典型修改路径
-
-- **修改聊天发送逻辑** → `lib/pages/chat/widgets/input_bar.dart` (UI) + `lib/services/chat/chat_service.dart` (逻辑)
-- **调整 AI 回复行为** → `lib/services/api/llm_service.dart` + 对应的 adapter
-- **新增/修改 API 配置字段** → `lib/models/api_config.dart` (模型) → 运行 `dart run build_runner build` (重新生成 freezed/json) → 修改使用处
-- **调整记忆提取策略** → `lib/services/memory/memory_service.dart` (提取逻辑 + prompt)
-- **修改页面主题** → `lib/theme/wechat_colors.dart`
-- **添加新页面** → 创建 `lib/pages/xxx/xxx_page.dart` → 在 `lib/router.dart` 中注册路由
-- **新手引导流程** → `lib/pages/onboarding/onboarding_page.dart`
+- GitHub Actions tag 发布会从 `v*` tag 写入 `pubspec.yaml` 的 `version`。
+- 手动发布前应检查 `pubspec.yaml`、平台资源名、CI artifact 名称是否仍为 `soultalk`。
+- Windows 发布包命名应保持 `soultalk-windows-x64-v<version>.zip`。

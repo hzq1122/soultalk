@@ -291,7 +291,7 @@ class _ImageBubble extends StatelessWidget {
                   width: 200,
                   height: 200,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
+                  errorBuilder: (context, error, stackTrace) => Container(
                     width: 200,
                     height: 200,
                     color: WeChatColors.textHint.withAlpha(50),

@@ -42,7 +42,7 @@ void main() {
         id: 'c1',
         contactId: 'ct1',
         content: 'User prefers dark mode',
-        cardType: 'preference',
+        cardType: 'fact',
         importance: 0.8,
         confidence: 0.9,
         createdAt: DateTime.now(),

@@ -512,7 +512,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     );
     if (confirm == true) {
       await ref.read(contactsProvider.notifier).remove(contact.id);
-      if (mounted) context.pop();
+      if (mounted) GoRouter.of(this.context).pop();
     }
   }
 }

@@ -3,14 +3,21 @@ import 'package:soultalk/services/import/import_service.dart';
 
 void main() {
   group('ImportService', () {
-    group('_stripBom', () {
-      test('strips UTF-8 BOM', () {
-        final content = String.fromCharCodes([0xFEFF, ...'hello'.codeUnits]);
-        expect(ImportService._stripBomForTest(content), 'hello');
-      });
+    group('BOM handling', () {
+      test('accepts character card with UTF-8 BOM', () {
+        final content = '''${String.fromCharCodes([0xFEFF])}{
+          "spec": "chara_card_v2",
+          "spec_version": "2.0",
+          "data": {
+            "name": "TestChar",
+            "description": "A test character"
+          }
+        }''';
 
-      test('leaves content without BOM unchanged', () {
-        expect(ImportService._stripBomForTest('hello'), 'hello');
+        final result = ImportService.validateCharacterCard(content);
+
+        expect(result.isValid, isTrue);
+        expect(result.warning, contains('V2'));
       });
     });
 
@@ -76,7 +83,7 @@ void main() {
 
       test('handles BOM in content', () {
         final bom = String.fromCharCodes([0xFEFF]);
-        final json = '${bom}{"data":{"name":"Test"}}';
+        final json = '$bom{"data":{"name":"Test"}}';
 
         final result = ImportService.validateCharacterCard(json);
 

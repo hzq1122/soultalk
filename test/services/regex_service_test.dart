@@ -182,7 +182,7 @@ void main() {
 
       test('returns false for invalid regex', () {
         expect(RegexService.validatePattern(''), isFalse);
-        expect(RegexService.validatePattern('[invalid'), isTrue);
+        expect(RegexService.validatePattern('[invalid'), isFalse);
       });
 
       test('returns false for empty pattern', () {

@@ -196,7 +196,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
           .read(contactsProvider.notifier)
           .addAndReturn(result);
       if (!mounted) return;
-      context.push('/chat/${saved.id}', extra: saved);
+      this.context.push('/chat/${saved.id}', extra: saved);
     }
   }
 
@@ -488,13 +488,9 @@ class _ContactListTile extends StatelessWidget {
 /// 添加/编辑联系人弹窗
 class _EditContactDialog extends StatefulWidget {
   final List<ApiConfig> configs;
-  final Contact? existing;
-  final String? titleOverride;
 
   const _EditContactDialog({
     required this.configs,
-    this.existing,
-    this.titleOverride,
   });
 
   @override
@@ -502,16 +498,10 @@ class _EditContactDialog extends StatefulWidget {
 }
 
 class _EditContactDialogState extends State<_EditContactDialog> {
-  late final _nameCtrl = TextEditingController(
-    text: widget.existing?.name ?? '',
-  );
-  late final _descCtrl = TextEditingController(
-    text: widget.existing?.description ?? '',
-  );
-  late final _promptCtrl = TextEditingController(
-    text: widget.existing?.systemPrompt ?? '',
-  );
-  late String? _selectedConfigId = widget.existing?.apiConfigId;
+  late final _nameCtrl = TextEditingController();
+  late final _descCtrl = TextEditingController();
+  late final _promptCtrl = TextEditingController();
+  String? _selectedConfigId;
 
   @override
   void dispose() {
@@ -523,48 +513,14 @@ class _EditContactDialogState extends State<_EditContactDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final title =
-        widget.titleOverride ?? (widget.existing == null ? '新建联系人' : '编辑联系人');
-
     return AlertDialog(
-      title: Text(title),
+      title: const Text('新建联系人'),
       scrollable: true,
       content: SizedBox(
         width: 400,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // 角色卡预览标签
-            if (widget.existing?.characterCardJson != null)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  color: WeChatColors.primary.withAlpha(20),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.person_pin,
-                      size: 16,
-                      color: WeChatColors.primary,
-                    ),
-                    const SizedBox(width: 6),
-                    const Text(
-                      '含角色卡数据',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: WeChatColors.primary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             TextField(
               controller: _nameCtrl,
               decoration: const InputDecoration(labelText: '名称 *'),
@@ -615,14 +571,11 @@ class _EditContactDialogState extends State<_EditContactDialog> {
               return;
             }
             final contact = Contact(
-              id: widget.existing?.id ?? '',
+              id: '',
               name: _nameCtrl.text.trim(),
               description: _descCtrl.text.trim(),
               systemPrompt: _promptCtrl.text.trim(),
               apiConfigId: _selectedConfigId,
-              tags: widget.existing?.tags ?? [],
-              characterCardJson: widget.existing?.characterCardJson,
-              avatar: widget.existing?.avatar,
             );
             Navigator.of(context).pop(contact);
           },

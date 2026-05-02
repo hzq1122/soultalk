@@ -158,7 +158,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withAlpha(13),
               blurRadius: 4,
               offset: const Offset(0, -2)),
         ],
@@ -592,7 +592,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
               return ChoiceChip(
                 label: Text(t['name']!),
                 selected: selected,
-                selectedColor: WeChatColors.primary.withOpacity(0.2),
+                selectedColor: WeChatColors.primary.withAlpha(51),
                 backgroundColor: const Color(0xFFF5F5F5),
                 onSelected: (v) {
                   setState(() {

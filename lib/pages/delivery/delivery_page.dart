@@ -339,8 +339,8 @@ class _WalletDialogState extends ConsumerState<_WalletDialog> {
                 child: ListView.separated(
                   shrinkWrap: true,
                   itemCount: transactions.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (_, i) {
+                  separatorBuilder: (context, index) => const Divider(height: 1),
+                  itemBuilder: (context, i) {
                     final tx = transactions[i];
                     final isRecharge = tx.type == 'recharge';
                     return Padding(

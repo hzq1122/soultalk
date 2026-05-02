@@ -304,15 +304,16 @@ class _MemoryPageState extends ConsumerState<MemoryPage>
 
     setState(() => _isExtracting = true);
     try {
+      final messenger = ScaffoldMessenger.of(context);
       await ref.read(memoryProvider(widget.contactId).notifier).extractMemories(selectedConfig);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(content: Text('记忆提取完成')),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(this.context).showSnackBar(
           SnackBar(content: Text('提取失败: $e')),
         );
       }

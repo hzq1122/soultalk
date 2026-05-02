@@ -62,7 +62,7 @@ void main() {
     test('periodic retrieval every N turns', () {
       final decision = gate.decide(
         userText: 'hello world',
-        turnIndex: 8,
+        turnIndex: 6,
       );
 
       expect(decision.shouldRetrieve, isTrue);

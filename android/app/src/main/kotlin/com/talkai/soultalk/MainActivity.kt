@@ -1,4 +1,4 @@
-package com.talkai.talk_ai
+package com.talkai.soultalk
 
 import io.flutter.embedding.android.FlutterActivity
 

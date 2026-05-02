@@ -4,7 +4,6 @@ import '../database/database_service.dart';
 import '../database/contact_dao.dart';
 import '../database/message_dao.dart';
 import '../database/api_config_dao.dart';
-import '../database/preset_dao.dart';
 import '../database/memory_card_dao.dart';
 import '../database/memory_entry_dao.dart';
 import '../database/memory_state_dao.dart';
@@ -25,7 +24,6 @@ class ChatService {
   late final ContactDao _contactDao;
   late final MessageDao _messageDao;
   late final ApiConfigDao _apiConfigDao;
-  late final PresetDao _presetDao;
   late final MemoryEntryDao _memoryDao;
   late final MemoryStateDao _stateDao;
   late final MemoryCardDao _cardDao;
@@ -44,7 +42,6 @@ class ChatService {
     _contactDao = ContactDao(db);
     _messageDao = MessageDao(db);
     _apiConfigDao = ApiConfigDao(db);
-    _presetDao = PresetDao(db);
     _memoryDao = MemoryEntryDao(db);
     _stateDao = MemoryStateDao(db);
     _cardDao = MemoryCardDao(db);

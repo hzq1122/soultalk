@@ -52,7 +52,7 @@ class ProfilePage extends ConsumerWidget {
                     data: (contacts) =>
                         '${contacts.length} 个 AI 角色',
                     loading: () => '加载中...',
-                    error: (_, __) => '加载失败',
+                    error: (error, stackTrace) => '加载失败',
                   ),
                   onTap: () => context.push('/contacts'),
                 ),
@@ -75,7 +75,7 @@ class ProfilePage extends ConsumerWidget {
                         ? '通用提示词已启用'
                         : '通用提示词未启用',
                     loading: () => '',
-                    error: (_, __) => '',
+                    error: (error, stackTrace) => '',
                   ),
                   onTap: () => context.push('/settings/general'),
                 ),
@@ -199,7 +199,7 @@ class ProfilePage extends ConsumerWidget {
         width: 36,
         height: 36,
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withAlpha(26),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(icon, color: color, size: 20),
@@ -244,11 +244,12 @@ class ProfilePage extends ConsumerWidget {
         ],
       ),
     );
-    if (confirm == true && context.mounted) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('onboarding_done');
-      context.go('/onboarding');
-    }
+    if (confirm != true || !context.mounted) return;
+
+    final router = GoRouter.of(context);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('onboarding_done');
+    router.go('/onboarding');
   }
 
   void _showAbout(BuildContext context) {

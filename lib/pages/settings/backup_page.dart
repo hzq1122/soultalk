@@ -517,10 +517,12 @@ class _BackupPageState extends ConsumerState<BackupPage>
     }
 
     // Ask for encryption password
+    if (!mounted) return;
     final password = await showDialog<String>(
       context: context,
       builder: (ctx) => _PasswordDialog(),
     );
+    if (!mounted) return;
 
     setState(() => _cloudLoading = true);
     _cloudStatus = '正在准备...';
@@ -621,13 +623,13 @@ class _BackupPageState extends ConsumerState<BackupPage>
   }
 
   void _showCloudConfigSheet(BuildContext context) async {
-    // Reuse the cloud config sheet from general settings
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     final settings = _CloudSettings(
       autoBackupCloudType: prefs.getString('auto_backup_cloud_type') ?? '',
     );
     showModalBottomSheet(
-      context: context,
+      context: this.context,
       isScrollControlled: true,
       builder: (ctx) => _CloudConfigSheet(settings: settings),
     );
