@@ -36,7 +36,23 @@
       "Bash(winget install *)",
       "Bash(C:/Program Files/GitHub CLI/gh.exe auth *)",
       "Bash(C:/Program Files/GitHub CLI/gh.exe repo *)",
-      "Bash(git remote *)"
+      "Bash(git remote *)",
+      "Bash(git push *)",
+      "Bash(git tag *)",
+      "Bash(C:/Program Files/GitHub CLI/gh.exe run *)",
+      "Bash(\"C:/Program Files/GitHub CLI/gh.exe\" run view 25211746980 --repo hzq1122/soultalk --log)",
+      "Bash(\"C:/Program Files/GitHub CLI/gh.exe\" run list --repo hzq1122/soultalk --limit 3)",
+      "Bash(\"C:/Program Files/GitHub CLI/gh.exe\" run view 25212044402 --repo hzq1122/soultalk)",
+      "Bash(\"C:/Program Files/GitHub CLI/gh.exe\" run view 25212044402 --repo hzq1122/soultalk --log)",
+      "Bash(C:/Program Files/GitHub CLI/gh.exe api *)",
+      "Bash(\"C:/Program Files/GitHub CLI/gh.exe\" api repos/actions/checkout/git/refs/tags --jq '.[].ref')",
+      "Bash(\"C:/Program Files/GitHub CLI/gh.exe\" run list --repo hzq1122/soultalk --limit 2)",
+      "Bash(\"C:/Program Files/GitHub CLI/gh.exe\" run view 25212489462 --repo hzq1122/soultalk)",
+      "Bash(\"C:/Program Files/GitHub CLI/gh.exe\" api repos/actions/download-artifact/git/refs/tags --jq '.[].ref')",
+      "Bash(\"C:/Program Files/GitHub CLI/gh.exe\" run list --repo hzq1122/soultalk --branch v1.0.0 --limit 1)",
+      "Bash(\"C:/Program Files/GitHub CLI/gh.exe\" run view 25212790727 --repo hzq1122/soultalk)",
+      "Bash(C:/Program Files/GitHub CLI/gh.exe release *)",
+      "Bash(flutter create *)"
     ]
   }
 }

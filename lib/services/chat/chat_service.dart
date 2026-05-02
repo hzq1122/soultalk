@@ -141,6 +141,12 @@ class ChatService {
       ),
     );
 
+    await _contactDao.updateLastMessage(
+      contact.id,
+      processedUserText,
+      DateTime.now(),
+    );
+
     final aiMsgId = _uuid.v4();
     final aiMsgPlaceholder = await _messageDao.insert(
       Message(
@@ -168,21 +174,25 @@ class ChatService {
     String? systemPrompt = assembled.systemPrompt;
 
     // ── Memory pipeline: before request ──────────────────────────────
-    final memoryResult = await _memoryService.beforeRequest(
-      contactId: contact.id,
-      userText: processedUserText,
-      messages: contextMessages
-          .map((m) => {'role': m.role == MessageRole.user ? 'user' : 'assistant', 'content': m.content})
-          .toList(),
-    );
-    if (memoryResult.stateText != null || memoryResult.cardText != null) {
-      final memoryContext = [
-        if (memoryResult.stateText != null) memoryResult.stateText!,
-        if (memoryResult.cardText != null) memoryResult.cardText!,
-      ].join('\n\n');
-      systemPrompt = systemPrompt != null
-          ? '$systemPrompt\n\n$memoryContext'
-          : memoryContext;
+    try {
+      final memoryResult = await _memoryService.beforeRequest(
+        contactId: contact.id,
+        userText: processedUserText,
+        messages: contextMessages
+            .map((m) => {'role': m.role == MessageRole.user ? 'user' : 'assistant', 'content': m.content})
+            .toList(),
+      );
+      if (memoryResult.stateText != null || memoryResult.cardText != null) {
+        final memoryContext = [
+          if (memoryResult.stateText != null) memoryResult.stateText!,
+          if (memoryResult.cardText != null) memoryResult.cardText!,
+        ].join('\n\n');
+        systemPrompt = systemPrompt != null
+            ? '$systemPrompt\n\n$memoryContext'
+            : memoryContext;
+      }
+    } catch (_) {
+      // Memory pipeline failure must not block chat
     }
 
     final LlmService service = config.provider == LlmProvider.anthropic
@@ -226,10 +236,12 @@ class ChatService {
       );
 
       // ── Memory pipeline: after response ─────────────────────────────
-      _memoryService.afterResponse(
-        contactId: contact.id,
-        aiResponse: finalAiContent,
-      );
+      try {
+        _memoryService.afterResponse(
+          contactId: contact.id,
+          aiResponse: finalAiContent,
+        );
+      } catch (_) {}
 
       _tryExtractMemory(contact, config);
     } catch (e) {

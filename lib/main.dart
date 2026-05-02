@@ -1,6 +1,11 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
 import 'router.dart';
 import 'theme/wechat_theme.dart';
 import 'providers/contacts_provider.dart';
@@ -11,6 +16,14 @@ import 'services/backup/auto_backup_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // sqflite on desktop (Windows/Linux) requires FFI initialization because
+  // there is no native platform plugin.
+  if (Platform.isWindows || Platform.isLinux) {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  }
+
   final container = ProviderContainer();
 
   final proactive = ProactiveService();

@@ -207,8 +207,8 @@ class _ContactDetailView extends ConsumerWidget {
               const SizedBox(height: 8),
             ],
 
-            // System Prompt
-            if (contact.systemPrompt.isNotEmpty) ...[
+            // System Prompt（仅在没有角色卡或角色卡不包含系统提示时显示）
+            if (contact.systemPrompt.isNotEmpty && card == null) ...[
               Container(
                 color: Colors.white,
                 padding: const EdgeInsets.all(16),
