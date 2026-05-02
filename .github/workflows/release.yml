@@ -35,13 +35,15 @@ jobs:
           channel: stable
           flutter-version: '3.41.x'
 
-      - name: Install flutterfy
-        run: dart pub global activate flutterfy
-
-      - name: Update version and build number
+      - name: Update version from tag
         run: |
-          VERSION=${GITHUB_REF_NAME#v}
-          flutterfy minor --build=$GITHUB_RUN_NUMBER
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION=${GITHUB_REF_NAME#v}
+            sed -i "s/^version: .*/version: $VERSION/" pubspec.yaml
+            echo "Version set to $VERSION from tag"
+          else
+            echo "Branch build, using pubspec.yaml version as-is"
+          fi
 
       - name: Set up signing key
         if: env.KEYSTORE_BASE64 != ''
@@ -84,6 +86,17 @@ jobs:
 
       - name: Enable Windows desktop
         run: flutter config --enable-windows-desktop
+
+      - name: Update version from tag
+        shell: bash
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION=${GITHUB_REF_NAME#v}
+            sed -i "s/^version: .*/version: $VERSION/" pubspec.yaml
+            echo "Version set to $VERSION from tag"
+          else
+            echo "Branch build, using pubspec.yaml version as-is"
+          fi
 
       - name: Build Windows
         run: |

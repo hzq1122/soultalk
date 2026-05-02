@@ -52,7 +52,10 @@
       "Bash(\"C:/Program Files/GitHub CLI/gh.exe\" run list --repo hzq1122/soultalk --branch v1.0.0 --limit 1)",
       "Bash(\"C:/Program Files/GitHub CLI/gh.exe\" run view 25212790727 --repo hzq1122/soultalk)",
       "Bash(C:/Program Files/GitHub CLI/gh.exe release *)",
-      "Bash(flutter create *)"
+      "Bash(flutter create *)",
+      "Bash(cd /d C:\\\\Users\\\\Admin\\\\Desktop\\\\AI_talk)",
+      "Bash(dart pub *)",
+      "Bash(flutterfy --help)"
     ]
   }
 }
