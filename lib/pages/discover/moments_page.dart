@@ -66,7 +66,7 @@ class _MomentsPageState extends ConsumerState<MomentsPage> {
                               color: Colors.white, size: 30),
                         ),
                         SizedBox(height: 4),
-                        Text('Talk AI 用户',
+                        Text('SoulTalk 用户',
                             style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 14,
@@ -154,7 +154,7 @@ class _MomentsPageState extends ConsumerState<MomentsPage> {
       Moment moment, Contact? contact, String text) async {
     final userComment = MomentComment(
       authorId: 'user',
-      authorName: 'Talk AI 用户',
+      authorName: 'SoulTalk 用户',
       content: text,
       createdAt: DateTime.now(),
     );
@@ -171,7 +171,7 @@ class _MomentsPageState extends ConsumerState<MomentsPage> {
           authorId: contact.id,
           authorName: contact.name,
           content: reply,
-          replyToName: 'Talk AI 用户',
+          replyToName: 'SoulTalk 用户',
           createdAt: DateTime.now(),
         );
         await ref
@@ -277,7 +277,7 @@ class _MomentCard extends StatelessWidget {
                         Expanded(
                           child: Text(
                             moment.likes
-                                .map((l) => l == 'user' ? 'Talk AI 用户' : l)
+                                .map((l) => l == 'user' ? 'SoulTalk 用户' : l)
                                 .join(', '),
                             style: const TextStyle(
                                 fontSize: 12, color: Color(0xFF576B95)),

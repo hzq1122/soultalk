@@ -118,31 +118,11 @@ class _TextBubble extends StatelessWidget {
                   constraints: BoxConstraints(
                     maxWidth: MediaQuery.of(context).size.width * 0.65,
                   ),
-                  child: message.isStreaming
-                      ? Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                displayContent,
-                                style: const TextStyle(
-                                    fontSize: 16,
-                                    color: WeChatColors.textPrimary),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            const SizedBox(
-                              width: 10,
-                              height: 10,
-                              child: CircularProgressIndicator(strokeWidth: 1.5),
-                            ),
-                          ],
-                        )
-                      : SelectableText(
-                          displayContent,
-                          style: const TextStyle(
-                              fontSize: 16, color: WeChatColors.textPrimary),
-                        ),
+                  child: SelectableText(
+                    displayContent,
+                    style: const TextStyle(
+                        fontSize: 16, color: WeChatColors.textPrimary),
+                  ),
                 ),
               ],
             ),

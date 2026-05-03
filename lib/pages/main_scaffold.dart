@@ -63,7 +63,7 @@ class MainScaffold extends StatelessWidget {
           BottomNavigationBarItem(
             icon: Icon(Icons.chat_bubble_outline),
             activeIcon: Icon(Icons.chat_bubble),
-            label: 'AI Chat',
+            label: 'SoulTalk',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.people_outline),

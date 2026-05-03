@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/api_config_provider.dart';
 import '../../providers/contacts_provider.dart';
@@ -119,8 +120,19 @@ class ProfilePage extends ConsumerWidget {
                 _buildTile(
                   icon: Icons.info_outline,
                   color: WeChatColors.textSecondary,
-                  title: '关于 Talk AI',
-                  subtitle: 'v1.0.0',
+                  title: '关于 SoulTalk',
+                  subtitleWidget: FutureBuilder<PackageInfo>(
+                    future: PackageInfo.fromPlatform(),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasData) {
+                        return Text('v${snapshot.data!.version}',
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: WeChatColors.textSecondary));
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
                   onTap: () => _showAbout(context),
                 ),
               ],
@@ -156,7 +168,7 @@ class ProfilePage extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Talk AI',
+                const Text('SoulTalk',
                     style: TextStyle(
                         fontSize: 18, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 4),
@@ -190,7 +202,8 @@ class ProfilePage extends ConsumerWidget {
     required IconData icon,
     required Color color,
     required String title,
-    required String subtitle,
+    String subtitle = '',
+    Widget? subtitleWidget,
     VoidCallback? onTap,
     bool warning = false,
   }) {
@@ -205,12 +218,13 @@ class ProfilePage extends ConsumerWidget {
         child: Icon(icon, color: color, size: 20),
       ),
       title: Text(title, style: const TextStyle(fontSize: 15)),
-      subtitle: subtitle.isNotEmpty
-          ? Text(subtitle,
-              style: TextStyle(
-                  fontSize: 12,
-                  color: warning ? Colors.orange : WeChatColors.textSecondary))
-          : null,
+      subtitle: subtitleWidget ??
+          (subtitle.isNotEmpty
+              ? Text(subtitle,
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: warning ? Colors.orange : WeChatColors.textSecondary))
+              : null),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -252,11 +266,13 @@ class ProfilePage extends ConsumerWidget {
     router.go('/onboarding');
   }
 
-  void _showAbout(BuildContext context) {
+  Future<void> _showAbout(BuildContext context) async {
+    final info = await PackageInfo.fromPlatform();
+    if (!context.mounted) return;
     showAboutDialog(
       context: context,
-      applicationName: 'Talk AI',
-      applicationVersion: '1.0.0',
+      applicationName: 'SoulTalk',
+      applicationVersion: 'v${info.version}',
       applicationIcon: Container(
         width: 48,
         height: 48,
@@ -268,7 +284,7 @@ class ProfilePage extends ConsumerWidget {
             color: Colors.white, size: 28),
       ),
       applicationLegalese:
-          'AI 驱动的微信风格社交应用\n支持 OpenAI、Anthropic 等多种 LLM',
+          'SoulTalk - AI 驱动的微信风格社交应用\n支持 OpenAI、Anthropic 等多种 LLM',
     );
   }
 }

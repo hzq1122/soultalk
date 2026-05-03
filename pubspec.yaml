@@ -1,7 +1,11 @@
 name: soultalk
-description: "Talk AI — AI驱动的微信风格社交应用"
+description: "SoulTalk — AI驱动的微信风格社交应用"
 publish_to: 'none'
 
+# ── 版本管理 ───────────────────────────────────────────────────────────
+# 正式发布通过 GitHub tag （格式 vX.Y.Z）触发 CI/CD 自动更新此字段。
+# 本地构建前可运行 scripts/update_version.sh 将版本同步到最近 tag。
+# 详见 .github/workflows/release.yml
 version: 1.0.0
 
 environment:

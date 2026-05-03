@@ -482,7 +482,7 @@ class _BackupPageState extends ConsumerState<BackupPage>
   }
 
   Future<void> _shareFile(String path) async {
-    await Share.shareXFiles([XFile(path)], text: 'Talk AI 备份');
+    await Share.shareXFiles([XFile(path)], text: 'SoulTalk 备份');
   }
 
   // ─── Cloud operations ────────────────────────────────────────────────

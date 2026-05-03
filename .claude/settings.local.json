@@ -55,7 +55,10 @@
       "Bash(flutter create *)",
       "Bash(cd /d C:\\\\Users\\\\Admin\\\\Desktop\\\\AI_talk)",
       "Bash(dart pub *)",
-      "Bash(flutterfy --help)"
+      "Bash(flutterfy --help)",
+      "Bash(gh release *)",
+      "Bash(gh release create v1.1.3 --title v1.1.3 --notes ' *)",
+      "Bash(gh run *)"
     ]
   }
 }

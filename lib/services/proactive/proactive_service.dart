@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../database/database_service.dart';
@@ -26,6 +27,8 @@ class ProactiveService {
 
   void Function()? onNewMessage;
 
+  static const _kLastSeenKey = 'proactive_last_seen_at';
+
   void init() {
     if (_initialized) return;
     _initialized = true;
@@ -40,6 +43,12 @@ class ProactiveService {
     _timer?.cancel();
     _timer = null;
     _initialized = false;
+  }
+
+  /// 记录用户最后一次活跃时间（由 App 生命周期监听调用）
+  Future<void> recordUserActive() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_kLastSeenKey, DateTime.now().millisecondsSinceEpoch);
   }
 
   int _checkCount = 0;
@@ -82,14 +91,37 @@ class ProactiveService {
     }
   }
 
-  /// APP 启动时调用：根据上次消息时间差决定是否触发 AI 自动行为
+  /// APP 启动时调用：对比用户离开与返回时间，触发自动行为
   Future<void> checkOnAppOpen() async {
     if (!_initialized) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final now = DateTime.now();
+
+    // ── 1. 计算离开时长 ──────────────────────────────────────────────
+    final lastSeenMs = prefs.getInt(_kLastSeenKey);
+    Duration awayDuration = Duration.zero;
+    if (lastSeenMs != null) {
+      final lastSeen = DateTime.fromMillisecondsSinceEpoch(lastSeenMs);
+      awayDuration = now.difference(lastSeen);
+    }
+
+    // ── 2. 更新最后活跃时间 ───────────────────────────────────────────
+    await prefs.setInt(_kLastSeenKey, now.millisecondsSinceEpoch);
+
+    // ── 3. 离开足够久 → 触发朋友圈生成 ──────────────────────────────
+    final momentsInterval = prefs.getInt('moments_interval_minutes') ?? 60;
+    if (awayDuration.inMinutes >= momentsInterval) {
+      MomentsService().init();
+      await MomentsService().generateMomentsForAllContacts();
+      await _aiAutoInteractWithMoments();
+    }
+
+    // ── 4. 检查自动回复/主动消息 ─────────────────────────────────────
     final contacts = await _contactDao.getAll();
     final configs = await _apiConfigDao.getAll();
     if (configs.isEmpty) return;
 
-    final now = DateTime.now();
     for (final contact in contacts) {
       if (!contact.proactiveEnabled) continue;
       if (contact.systemPrompt.isEmpty && contact.characterCardJson == null) {
@@ -101,7 +133,24 @@ class ProactiveService {
 
       final timeDiff = now.difference(lastMsgTime);
 
-      // 超过2小时未互动，有概率主动发消息
+      // ── 4a. 自动回复：取 API 计划时间与系统时间对比 ────────────
+      final scheduledMsg = await _fetchScheduledMessage(contact, configs);
+      if (scheduledMsg != null) {
+        // 【已确认】API 返回了计划发送的消息
+        final apiTime = scheduledMsg.scheduledAt;
+        final diff = apiTime.difference(now).abs();
+
+        if (diff.inHours <= 1) {
+          // 差异 ≤ 1 小时 → 以 API 时间为准，在指定时间发送
+          await _sendScheduledMessage(contact, configs, scheduledMsg);
+        } else {
+          // 差异 > 1 小时 → 触发告警
+          _alertTimeMismatch(contact, apiTime, now);
+        }
+        continue;
+      }
+
+      // ── 4b. 超过 2 小时未互动 → 概率性主动发消息 ─────────────────
       if (timeDiff.inHours >= 2) {
         final chance = (timeDiff.inHours / 24.0).clamp(0.1, 0.8);
         if (_random.nextDouble() < chance) {
@@ -109,9 +158,145 @@ class ProactiveService {
         }
       }
     }
+  }
 
-    // 也触发朋友圈自动互动
-    await _aiAutoInteractWithMoments();
+  /// 从 API 获取计划消息（用于自动回复验证）
+  /// 【推测】此 API 接口需自行实现或对接外部调度服务
+  Future<ScheduledMessage?> _fetchScheduledMessage(
+      Contact contact, List<ApiConfig> configs) async {
+    // 优先使用联系人的绑定 API，否则取第一个配置
+    ApiConfig? config;
+    if (contact.apiConfigId != null) {
+      config = configs.where((c) => c.id == contact.apiConfigId).firstOrNull;
+    }
+    config ??= configs.first;
+
+    try {
+      // 【推测】此处调用 LLM 判断是否需要主动发送消息：
+      // 可扩展为从外部调度服务获取计划消息
+      final service = LlmService.fromConfig(config);
+      final now = DateTime.now();
+
+      final systemPrompt = '''${contact.systemPrompt}
+
+你正在检查是否需要主动给对方发一条消息。
+当前时间：${now.toString()}
+对方上次消息时间：${contact.lastMessageAt?.toString() ?? '未知'}
+
+请判断：
+1. 是否需要主动发消息？（是/否）
+2. 如果需要，你准备说什么内容？（1-2句话）
+3. 你希望的发送时间是什么？（回复格式：YYYY-MM-DD HH:MM）
+
+请按 JSON 格式回复：
+{"shouldSend": true/false, "content": "消息内容", "scheduledTime": "2026-05-03 09:00"}''';
+
+      final reply = await service.sendMessage(
+        config: config,
+        messages: [
+          Message(
+            id: 'schedule-check',
+            contactId: contact.id,
+            role: MessageRole.user,
+            content: '检查是否需要自动回复',
+          ),
+        ],
+        systemPrompt: systemPrompt,
+      );
+
+      if (reply.trim().isEmpty) return null;
+
+      // 【推测】解析 LLM 返回的 JSON
+      try {
+        final jsonStart = reply.indexOf('{');
+        final jsonEnd = reply.lastIndexOf('}');
+        if (jsonStart == -1 || jsonEnd == -1) return null;
+
+        final jsonStr = reply.substring(jsonStart, jsonEnd + 1);
+        final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+
+        if (data['shouldSend'] == true && data['content'] != null) {
+          final scheduledTime = DateTime.tryParse(
+                data['scheduledTime']?.toString() ?? '',
+              ) ??
+              now;
+          return ScheduledMessage(
+            content: data['content'].toString(),
+            scheduledAt: scheduledTime,
+          );
+        }
+      } catch (_) {
+        return null;
+      }
+
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _sendScheduledMessage(
+      Contact contact, List<ApiConfig> configs, ScheduledMessage msg) async {
+    final service = LlmService.fromConfig(configs.firstWhere(
+      (c) => c.id == contact.apiConfigId,
+      orElse: () => configs.first,
+    ));
+
+    try {
+      final reply = await service.sendMessage(
+        config: configs.firstWhere(
+          (c) => c.id == contact.apiConfigId,
+          orElse: () => configs.first,
+        ),
+        messages: [
+          Message(
+            id: 'scheduled',
+            contactId: contact.id,
+            role: MessageRole.user,
+            content: '（系统触发：自动回复）${msg.content}',
+          ),
+        ],
+        systemPrompt: '''${contact.systemPrompt}
+
+请将以下消息以你的说话风格发送给对方，要求自然不做作：
+${msg.content}
+
+直接输出消息内容，不要加任何前缀。''',
+      );
+
+      if (reply.trim().isEmpty) return;
+
+      await _messageDao.insert(Message(
+        id: '',
+        contactId: contact.id,
+        role: MessageRole.assistant,
+        content: reply.trim(),
+        createdAt: msg.scheduledAt, // 使用 API 指定的时间
+      ));
+
+      await _contactDao.updateLastMessage(contact.id, reply.trim(), msg.scheduledAt);
+      await _contactDao.incrementUnread(contact.id);
+
+      final db = await DatabaseService().database;
+      await db.update(
+        'contacts',
+        {'last_proactive_at': msg.scheduledAt.toIso8601String()},
+        where: 'id = ?',
+        whereArgs: [contact.id],
+      );
+
+      onNewMessage?.call();
+    } catch (_) {}
+  }
+
+  /// 时间差异 > 1 小时的告警
+  void _alertTimeMismatch(Contact contact, DateTime apiTime, DateTime systemTime) {
+    // 【已确认】差异超过 1 小时 → 告警记录
+    final diff = apiTime.difference(systemTime).abs();
+    // 在实际应用中，这里应接入日志/通知系统
+    // ignore: avoid_print
+    print('[时间告警] 联系人: ${contact.name}, '
+        'API 时间: $apiTime, 系统时间: $systemTime, 差异: ${diff.inMinutes} 分钟');
   }
 
   /// AI 自动对朋友圈进行点赞和评论
@@ -291,4 +476,15 @@ class ProactiveService {
       onNewMessage?.call();
     } catch (_) {}
   }
+}
+
+/// 计划消息模型，用于自动回复验证
+class ScheduledMessage {
+  final String content;
+  final DateTime scheduledAt;
+
+  const ScheduledMessage({
+    required this.content,
+    required this.scheduledAt,
+  });
 }

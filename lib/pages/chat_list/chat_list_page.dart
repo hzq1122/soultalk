@@ -16,7 +16,7 @@ class ChatListPage extends ConsumerWidget {
     return Scaffold(
       backgroundColor: WeChatColors.background,
       appBar: AppBar(
-        title: const Text('AI Chat'),
+        title: const Text('SoulTalk'),
         backgroundColor: WeChatColors.appBarBackground,
         actions: [
           IconButton(

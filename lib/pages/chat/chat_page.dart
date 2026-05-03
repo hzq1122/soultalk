@@ -34,6 +34,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   bool _isSending = false;
   bool _isTyping = false;
   bool _isRecording = false;
+  bool _hasReceivedFirstChunk = false;
 
   @override
   void initState() {
@@ -78,13 +79,15 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     setState(() {
       _isSending = true;
       _isTyping = true;
+      _hasReceivedFirstChunk = false;
     });
 
     final messagesNotifier = ref.read(messagesProvider(widget.contactId).notifier);
 
     await TypingSimulator.simulateDelay(text);
     if (!mounted) return;
-    setState(() => _isTyping = false);
+
+    // 保持 _isTyping = true，在 API 返回第一个 chunk 时再隐藏
 
     ref.read(chatServiceProvider).sendMessage(
       contact: contact,
@@ -95,6 +98,12 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         _scrollToBottom(animated: true);
       },
       onAiChunk: (content, isDone) {
+        // 第一个 chunk 到达 → 隐藏"对方正在输入"状态
+        if (!_hasReceivedFirstChunk && mounted) {
+          setState(() => _hasReceivedFirstChunk = true);
+          _delayedHideTyping();
+        }
+
         final msgs = ref.read(messagesProvider(widget.contactId)).value ?? [];
         if (msgs.isNotEmpty) {
           final lastMsg = msgs.last;
@@ -114,13 +123,24 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       },
       onError: (error) {
         if (mounted) {
-          setState(() => _isSending = false);
+          setState(() {
+            _isSending = false;
+            _isTyping = false;
+            _hasReceivedFirstChunk = true; // 隐藏 typing
+          });
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('发送失败: $error'), backgroundColor: Colors.red),
           );
         }
       },
     );
+  }
+
+  /// 确保输入状态至少显示 3 秒
+  void _delayedHideTyping() {
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _isTyping = false);
+    });
   }
 
   Future<void> _loadMore() async {

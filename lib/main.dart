@@ -40,13 +40,42 @@ void main() async {
   runApp(
     UncontrolledProviderScope(
       container: container,
-      child: const TalkAiApp(),
+      child: const SoulTalkApp(),
     ),
   );
 }
 
-class TalkAiApp extends ConsumerWidget {
-  const TalkAiApp({super.key});
+class SoulTalkApp extends ConsumerStatefulWidget {
+  const SoulTalkApp({super.key});
+
+  @override
+  ConsumerState<SoulTalkApp> createState() => _SoulTalkAppState();
+}
+
+class _SoulTalkAppState extends ConsumerState<SoulTalkApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final proactive = ProactiveService();
+    if (state == AppLifecycleState.paused) {
+      // 用户进入后台 → 记录离开时间
+      proactive.recordUserActive();
+    } else if (state == AppLifecycleState.resumed) {
+      // 用户返回前台 → 校验是否需要自动行为
+      proactive.checkOnAppOpen();
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -54,7 +83,7 @@ class TalkAiApp extends ConsumerWidget {
     final isDark = settings?.darkMode ?? false;
 
     return MaterialApp.router(
-      title: 'Talk AI',
+      title: 'SoulTalk',
       theme: WeChatTheme.light,
       darkTheme: WeChatTheme.dark,
       themeMode: isDark ? ThemeMode.dark : ThemeMode.light,

@@ -225,11 +225,11 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                 color: Colors.white, size: 48),
           ),
           const SizedBox(height: 32),
-          const Text('欢迎使用 Talk AI',
+          const Text('欢迎使用 SoulTalk',
               style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
           const Text(
-            'AI 驱动的虚拟社交世界',
+            'AI 驱动的虚拟社交世界 — SoulTalk',
             style: TextStyle(fontSize: 16, color: WeChatColors.textSecondary),
           ),
           const SizedBox(height: 8),
