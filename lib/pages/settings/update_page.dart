@@ -50,20 +50,28 @@ class _UpdatePageState extends ConsumerState<UpdatePage> {
                 color: WeChatColors.primary,
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: const Icon(Icons.chat_bubble_outline,
-                  size: 36, color: Colors.white),
+              child: const Icon(
+                Icons.chat_bubble_outline,
+                size: 36,
+                color: Colors.white,
+              ),
             ),
           ),
           const SizedBox(height: 16),
           const Center(
-            child: Text('SoulTalk',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+            child: Text(
+              'SoulTalk',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+            ),
           ),
           const SizedBox(height: 4),
           Center(
             child: Text(
               '版本 ${state.currentVersion}',
-              style: const TextStyle(color: WeChatColors.textSecondary, fontSize: 14),
+              style: const TextStyle(
+                color: WeChatColors.textSecondary,
+                fontSize: 14,
+              ),
             ),
           ),
           const SizedBox(height: 32),
@@ -79,26 +87,42 @@ class _UpdatePageState extends ConsumerState<UpdatePage> {
       case UpdateStatus.checking:
         return const Padding(
           padding: EdgeInsets.symmetric(vertical: 48),
-          child: Column(children: [
-            SizedBox(width: 28, height: 28, child: CircularProgressIndicator(strokeWidth: 2.5)),
-            SizedBox(height: 16),
-            Text('正在检查更新...',
-                style: TextStyle(color: WeChatColors.textSecondary)),
-          ]),
+          child: Column(
+            children: [
+              SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(strokeWidth: 2.5),
+              ),
+              SizedBox(height: 16),
+              Text(
+                '正在检查更新...',
+                style: TextStyle(color: WeChatColors.textSecondary),
+              ),
+            ],
+          ),
         );
 
       case UpdateStatus.noUpdate:
-        return Column(children: [
-          const Icon(Icons.check_circle, color: WeChatColors.primary, size: 48),
-          const SizedBox(height: 16),
-          const Text('已是最新版本',
-              style: TextStyle(color: WeChatColors.textSecondary, fontSize: 15)),
-          const SizedBox(height: 32),
-          OutlinedButton(
-            onPressed: () => ref.read(updateProvider.notifier).checkUpdate(),
-            child: const Text('重新检查'),
-          ),
-        ]);
+        return Column(
+          children: [
+            const Icon(
+              Icons.check_circle,
+              color: WeChatColors.primary,
+              size: 48,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              '已是最新版本',
+              style: TextStyle(color: WeChatColors.textSecondary, fontSize: 15),
+            ),
+            const SizedBox(height: 32),
+            OutlinedButton(
+              onPressed: () => ref.read(updateProvider.notifier).checkUpdate(),
+              child: const Text('重新检查'),
+            ),
+          ],
+        );
 
       case UpdateStatus.updateAvailable:
         return _buildUpdateAvailable(state);
@@ -127,34 +151,56 @@ class _UpdatePageState extends ConsumerState<UpdatePage> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: WeChatColors.primary.withValues(alpha: 0.3)),
+            border: Border.all(
+              color: WeChatColors.primary.withValues(alpha: 0.3),
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  const Icon(Icons.new_releases, color: WeChatColors.primary, size: 20),
+                  const Icon(
+                    Icons.new_releases,
+                    color: WeChatColors.primary,
+                    size: 20,
+                  ),
                   const SizedBox(width: 8),
-                  const Text('发现新版本',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  const Text(
+                    '发现新版本',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
                   const Spacer(),
                   if (info != null)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: WeChatColors.primary,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Text('v${info.version}',
-                          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                      child: Text(
+                        'v${info.version}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                 ],
               ),
               if (info?.fileSize != null) ...[
                 const SizedBox(height: 8),
-                Text('安装包大小: ${(info!.fileSize / 1024 / 1024).toStringAsFixed(1)} MB',
-                    style: const TextStyle(fontSize: 12, color: WeChatColors.textHint)),
+                Text(
+                  '安装包大小: ${(info!.fileSize / 1024 / 1024).toStringAsFixed(1)} MB',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: WeChatColors.textHint,
+                  ),
+                ),
               ],
             ],
           ),
@@ -164,14 +210,18 @@ class _UpdatePageState extends ConsumerState<UpdatePage> {
 
         // Changelog
         if (changelog.isNotEmpty) ...[
-          const Text('更新日志',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+          const Text(
+            '更新日志',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          ),
           const SizedBox(height: 8),
           ...changelog.map((release) => _buildChangelogEntry(release)),
           const SizedBox(height: 8),
         ] else if (info?.releaseNotes.isNotEmpty == true) ...[
-          const Text('更新内容',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+          const Text(
+            '更新内容',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          ),
           const SizedBox(height: 8),
           _buildSimpleNotes(info!.releaseNotes),
         ],
@@ -193,15 +243,22 @@ class _UpdatePageState extends ConsumerState<UpdatePage> {
             style: ElevatedButton.styleFrom(
               backgroundColor: WeChatColors.primary,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
-            child: Text(info?.downloadUrl.isNotEmpty == true ? '立即下载更新' : '前往 GitHub 下载'),
+            child: Text(
+              info?.downloadUrl.isNotEmpty == true ? '立即下载更新' : '前往 GitHub 下载',
+            ),
           ),
         ),
         const SizedBox(height: 12),
         TextButton(
           onPressed: () => context.pop(),
-          child: const Text('以后再说', style: TextStyle(color: WeChatColors.textSecondary)),
+          child: const Text(
+            '以后再说',
+            style: TextStyle(color: WeChatColors.textSecondary),
+          ),
         ),
         const SizedBox(height: 8),
       ],
@@ -222,23 +279,45 @@ class _UpdatePageState extends ConsumerState<UpdatePage> {
         children: [
           Row(
             children: [
-              Text('v${release.version}',
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: WeChatColors.primary)),
+              Text(
+                'v${release.version}',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: WeChatColors.primary,
+                ),
+              ),
               const Spacer(),
               if (date.isNotEmpty)
-                Text(date, style: const TextStyle(fontSize: 11, color: WeChatColors.textHint)),
+                Text(
+                  date,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: WeChatColors.textHint,
+                  ),
+                ),
             ],
           ),
-          if (release.title.isNotEmpty && release.title != 'v${release.version}') ...[
+          if (release.title.isNotEmpty &&
+              release.title != 'v${release.version}') ...[
             const SizedBox(height: 4),
-            Text(release.title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+            Text(
+              release.title,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+            ),
           ],
           if (release.body.isNotEmpty) ...[
             const SizedBox(height: 6),
-            Text(release.body,
-                style: const TextStyle(fontSize: 12, color: WeChatColors.textSecondary, height: 1.5),
-                maxLines: 20,
-                overflow: TextOverflow.ellipsis),
+            Text(
+              release.body,
+              style: const TextStyle(
+                fontSize: 12,
+                color: WeChatColors.textSecondary,
+                height: 1.5,
+              ),
+              maxLines: 20,
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
         ],
       ),
@@ -253,92 +332,120 @@ class _UpdatePageState extends ConsumerState<UpdatePage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Text(notes,
-          style: const TextStyle(fontSize: 12, color: WeChatColors.textSecondary, height: 1.5)),
+      child: Text(
+        notes,
+        style: const TextStyle(
+          fontSize: 12,
+          color: WeChatColors.textSecondary,
+          height: 1.5,
+        ),
+      ),
     );
   }
 
   Widget _buildDownloading(UpdateState state) {
-    return Column(children: [
-      const SizedBox(height: 16),
-      ClipRRect(
-        borderRadius: BorderRadius.circular(4),
-        child: LinearProgressIndicator(
-          value: state.downloadProgress,
-          minHeight: 6,
-          backgroundColor: const Color(0xFFE0E0E0),
-          valueColor: const AlwaysStoppedAnimation(WeChatColors.primary),
+    return Column(
+      children: [
+        const SizedBox(height: 16),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: state.downloadProgress,
+            minHeight: 6,
+            backgroundColor: const Color(0xFFE0E0E0),
+            valueColor: const AlwaysStoppedAnimation(WeChatColors.primary),
+          ),
         ),
-      ),
-      const SizedBox(height: 12),
-      Text('${(state.downloadProgress * 100).toStringAsFixed(0)}%',
-          style: const TextStyle(color: WeChatColors.textSecondary)),
-      const SizedBox(height: 24),
-      OutlinedButton(
-        onPressed: () => ref.read(updateProvider.notifier).cancelDownload(),
-        child: const Text('取消下载', style: TextStyle(color: Colors.red)),
-      ),
-    ]);
+        const SizedBox(height: 12),
+        Text(
+          '${(state.downloadProgress * 100).toStringAsFixed(0)}%',
+          style: const TextStyle(color: WeChatColors.textSecondary),
+        ),
+        const SizedBox(height: 24),
+        OutlinedButton(
+          onPressed: () => ref.read(updateProvider.notifier).cancelDownload(),
+          child: const Text('取消下载', style: TextStyle(color: Colors.red)),
+        ),
+      ],
+    );
   }
 
   Widget _buildDownloadComplete(UpdateState state) {
-    return Column(children: [
-      const Icon(Icons.check_circle, color: WeChatColors.primary, size: 48),
-      const SizedBox(height: 12),
-      const Text('下载完成', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-      const SizedBox(height: 24),
-      SizedBox(
-        width: double.infinity,
-        height: 48,
-        child: ElevatedButton(
-          onPressed: () async {
-            if (state.downloadPath != null) {
-              await OpenFilex.open(state.downloadPath!);
-            }
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: WeChatColors.primary,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-          child: const Text('安装更新'),
+    return Column(
+      children: [
+        const Icon(Icons.check_circle, color: WeChatColors.primary, size: 48),
+        const SizedBox(height: 12),
+        const Text(
+          '下载完成',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
         ),
-      ),
-      const SizedBox(height: 12),
-      TextButton(
-        onPressed: () => ref.read(updateProvider.notifier).deleteDownloadedApk(),
-        child: const Text('稍后安装', style: TextStyle(color: WeChatColors.textSecondary)),
-      ),
-    ]);
+        const SizedBox(height: 24),
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: ElevatedButton(
+            onPressed: () async {
+              if (state.downloadPath != null) {
+                await OpenFilex.open(state.downloadPath!);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: WeChatColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: const Text('安装更新'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextButton(
+          onPressed: () =>
+              ref.read(updateProvider.notifier).deleteDownloadedApk(),
+          child: const Text(
+            '稍后安装',
+            style: TextStyle(color: WeChatColors.textSecondary),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildError(UpdateState state) {
-    return Column(children: [
-      const Icon(Icons.error_outline, color: Colors.red, size: 48),
-      const SizedBox(height: 12),
-      Text(state.errorMessage ?? '检查更新失败',
-          style: const TextStyle(color: Colors.red), textAlign: TextAlign.center),
-      const SizedBox(height: 24),
-      SizedBox(
-        width: double.infinity,
-        height: 48,
-        child: ElevatedButton.icon(
-          icon: const Icon(Icons.refresh, size: 18),
-          label: const Text('重试'),
-          onPressed: () => ref.read(updateProvider.notifier).checkUpdate(),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: WeChatColors.primary,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    return Column(
+      children: [
+        const Icon(Icons.error_outline, color: Colors.red, size: 48),
+        const SizedBox(height: 12),
+        Text(
+          state.errorMessage ?? '检查更新失败',
+          style: const TextStyle(color: Colors.red),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 24),
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: ElevatedButton.icon(
+            icon: const Icon(Icons.refresh, size: 18),
+            label: const Text('重试'),
+            onPressed: () => ref.read(updateProvider.notifier).checkUpdate(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: WeChatColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
           ),
         ),
-      ),
-      const SizedBox(height: 12),
-      TextButton(
-        onPressed: _openGitHubReleases,
-        child: const Text('前往 GitHub 下载'),
-      ),
-    ]);
+        const SizedBox(height: 12),
+        TextButton(
+          onPressed: _openGitHubReleases,
+          child: const Text('前往 GitHub 下载'),
+        ),
+      ],
+    );
   }
 
   void _openGitHubReleases() {

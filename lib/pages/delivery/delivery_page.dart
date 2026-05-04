@@ -83,8 +83,7 @@ class DeliveryPage extends ConsumerWidget {
     final settingsAsync = ref.watch(settingsProvider);
     final balance = settingsAsync.value?.walletBalance ?? 0.0;
     final cartItems = cartAsync.value ?? [];
-    final cartTotal =
-        cartItems.fold(0.0, (sum, item) => sum + item.total);
+    final cartTotal = cartItems.fold(0.0, (sum, item) => sum + item.total);
 
     return Scaffold(
       backgroundColor: WeChatColors.background,
@@ -110,23 +109,36 @@ class DeliveryPage extends ConsumerWidget {
             onTap: () => _showWalletDialog(context, ref, balance),
             child: Container(
               color: Colors.white,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               child: Row(
                 children: [
-                  const Icon(Icons.account_balance_wallet,
-                      color: Color(0xFFFF6B35), size: 20),
+                  const Icon(
+                    Icons.account_balance_wallet,
+                    color: Color(0xFFFF6B35),
+                    size: 20,
+                  ),
                   const SizedBox(width: 8),
-                  const Text('钱包余额',
-                      style: TextStyle(
-                          color: WeChatColors.textSecondary, fontSize: 13)),
+                  const Text(
+                    '钱包余额',
+                    style: TextStyle(
+                      color: WeChatColors.textSecondary,
+                      fontSize: 13,
+                    ),
+                  ),
                   const Spacer(),
-                  Text('¥${balance.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w600)),
+                  Text(
+                    '¥${balance.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   const SizedBox(width: 4),
-                  const Icon(Icons.chevron_right,
-                      size: 18, color: WeChatColors.textHint),
+                  const Icon(
+                    Icons.chevron_right,
+                    size: 18,
+                    color: WeChatColors.textHint,
+                  ),
                 ],
               ),
             ),
@@ -141,12 +153,16 @@ class DeliveryPage extends ConsumerWidget {
                 return _CategorySection(
                   category: category,
                   onAdd: (food) {
-                    ref.read(cartProvider.notifier).addItem(CartItem(
-                          id: '',
-                          name: food.name,
-                          price: food.price,
-                          shop: '外卖商城',
-                        ));
+                    ref
+                        .read(cartProvider.notifier)
+                        .addItem(
+                          CartItem(
+                            id: '',
+                            name: food.name,
+                            price: food.price,
+                            shop: '外卖商城',
+                          ),
+                        );
                   },
                 );
               },
@@ -166,8 +182,7 @@ class DeliveryPage extends ConsumerWidget {
     );
   }
 
-  void _showWalletDialog(
-      BuildContext context, WidgetRef ref, double balance) {
+  void _showWalletDialog(BuildContext context, WidgetRef ref, double balance) {
     showDialog(
       context: context,
       builder: (ctx) => _WalletDialog(balance: balance),
@@ -181,17 +196,22 @@ class DeliveryPage extends ConsumerWidget {
     );
   }
 
-  void _checkout(BuildContext context, WidgetRef ref, double total,
-      double balance) {
+  void _checkout(
+    BuildContext context,
+    WidgetRef ref,
+    double total,
+    double balance,
+  ) {
     if (total > balance) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('余额不足，请先充值'), backgroundColor: Colors.red),
+        const SnackBar(content: Text('余额不足，请先充值'), backgroundColor: Colors.red),
       );
       return;
     }
     final cartItems = ref.read(cartProvider).value ?? [];
-    final itemsDesc = cartItems.map((i) => '${i.name} x${i.quantity}').join('、');
+    final itemsDesc = cartItems
+        .map((i) => '${i.name} x${i.quantity}')
+        .join('、');
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -207,18 +227,17 @@ class DeliveryPage extends ConsumerWidget {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.of(ctx).pop(), child: const Text('取消')),
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('取消'),
+          ),
           ElevatedButton(
             onPressed: () {
-              ref.read(walletProvider.notifier).spend(
-                    total,
-                    '外卖: $itemsDesc',
-                  );
+              ref.read(walletProvider.notifier).spend(total, '外卖: $itemsDesc');
               ref.read(cartProvider.notifier).clearCart();
               Navigator.of(ctx).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('下单成功！外卖正在配送中...')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('下单成功！外卖正在配送中...')));
             },
             child: const Text('支付'),
           ),
@@ -257,10 +276,13 @@ class _WalletDialogState extends ConsumerState<_WalletDialog> {
         children: [
           const Text('钱包'),
           const Spacer(),
-          Text('¥${widget.balance.toStringAsFixed(2)}',
-              style: const TextStyle(
-                  color: Color(0xFFFF6B35),
-                  fontWeight: FontWeight.w600)),
+          Text(
+            '¥${widget.balance.toStringAsFixed(2)}',
+            style: const TextStyle(
+              color: Color(0xFFFF6B35),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       ),
       content: SizedBox(
@@ -270,68 +292,88 @@ class _WalletDialogState extends ConsumerState<_WalletDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 快捷充值
-            Wrap(spacing: 8, runSpacing: 8, children: [
-              _QuickAmountChip(amount: 50, onTap: () => _recharge(50)),
-              _QuickAmountChip(amount: 100, onTap: () => _recharge(100)),
-              _QuickAmountChip(amount: 200, onTap: () => _recharge(200)),
-              _QuickAmountChip(amount: 500, onTap: () => _recharge(500)),
-            ]),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _QuickAmountChip(amount: 50, onTap: () => _recharge(50)),
+                _QuickAmountChip(amount: 100, onTap: () => _recharge(100)),
+                _QuickAmountChip(amount: 200, onTap: () => _recharge(200)),
+                _QuickAmountChip(amount: 500, onTap: () => _recharge(500)),
+              ],
+            ),
             const SizedBox(height: 12),
             // 自定义金额行
-            Row(children: [
-              Expanded(
-                child: TextField(
-                  controller: _amountCtrl,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    labelText: '金额',
-                    prefixText: '¥ ',
-                    border: OutlineInputBorder(),
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                    isDense: true,
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _amountCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: '金额',
+                      prefixText: '¥ ',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 6,
+                      ),
+                      isDense: true,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              ElevatedButton(
-                onPressed: _rechargeCustom,
-                style: ElevatedButton.styleFrom(
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: _rechargeCustom,
+                  style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16)),
-                child: const Text('充值'),
-              ),
-              const SizedBox(width: 4),
-              ElevatedButton(
-                onPressed: _spendCustom,
-                style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                  ),
+                  child: const Text('充值'),
+                ),
+                const SizedBox(width: 4),
+                ElevatedButton(
+                  onPressed: _spendCustom,
+                  style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.orange,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16)),
-                child: const Text('支出'),
-              ),
-            ]),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                  ),
+                  child: const Text('支出'),
+                ),
+              ],
+            ),
             const SizedBox(height: 16),
             // 交易记录
-            Row(children: [
-              const Text('交易记录',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-              const Spacer(),
-              if (transactions.isNotEmpty)
-                GestureDetector(
-                  onTap: () => ref.read(walletProvider.notifier).clearHistory(),
-                  child: const Text('清空',
-                      style: TextStyle(fontSize: 12, color: Colors.red)),
+            Row(
+              children: [
+                const Text(
+                  '交易记录',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                 ),
-            ]),
+                const Spacer(),
+                if (transactions.isNotEmpty)
+                  GestureDetector(
+                    onTap: () =>
+                        ref.read(walletProvider.notifier).clearHistory(),
+                    child: const Text(
+                      '清空',
+                      style: TextStyle(fontSize: 12, color: Colors.red),
+                    ),
+                  ),
+              ],
+            ),
             const Divider(),
             if (transactions.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 16),
-                child: Text('暂无交易记录',
-                    style: TextStyle(color: WeChatColors.textHint, fontSize: 13)),
+                child: Text(
+                  '暂无交易记录',
+                  style: TextStyle(color: WeChatColors.textHint, fontSize: 13),
+                ),
               )
             else
               ConstrainedBox(
@@ -339,47 +381,53 @@ class _WalletDialogState extends ConsumerState<_WalletDialog> {
                 child: ListView.separated(
                   shrinkWrap: true,
                   itemCount: transactions.length,
-                  separatorBuilder: (context, index) => const Divider(height: 1),
+                  separatorBuilder: (context, index) =>
+                      const Divider(height: 1),
                   itemBuilder: (context, i) {
                     final tx = transactions[i];
                     final isRecharge = tx.type == 'recharge';
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: Row(children: [
-                        Icon(
-                          isRecharge
-                              ? Icons.add_circle_outline
-                              : Icons.remove_circle_outline,
-                          size: 18,
-                          color: isRecharge ? Colors.green : Colors.red,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(tx.description,
-                                  style: const TextStyle(fontSize: 13)),
-                              Text(
-                                '${tx.createdAt.month}/${tx.createdAt.day} ${tx.createdAt.hour.toString().padLeft(2, '0')}:${tx.createdAt.minute.toString().padLeft(2, '0')}',
-                                style: const TextStyle(
-                                    fontSize: 11,
-                                    color: WeChatColors.textHint),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Text(
-                          isRecharge
-                              ? '+¥${tx.amount.toStringAsFixed(2)}'
-                              : '-¥${tx.amount.toStringAsFixed(2)}',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
+                      child: Row(
+                        children: [
+                          Icon(
+                            isRecharge
+                                ? Icons.add_circle_outline
+                                : Icons.remove_circle_outline,
+                            size: 18,
                             color: isRecharge ? Colors.green : Colors.red,
                           ),
-                        ),
-                      ]),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  tx.description,
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                                Text(
+                                  '${tx.createdAt.month}/${tx.createdAt.day} ${tx.createdAt.hour.toString().padLeft(2, '0')}:${tx.createdAt.minute.toString().padLeft(2, '0')}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: WeChatColors.textHint,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            isRecharge
+                                ? '+¥${tx.amount.toStringAsFixed(2)}'
+                                : '-¥${tx.amount.toStringAsFixed(2)}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: isRecharge ? Colors.green : Colors.red,
+                            ),
+                          ),
+                        ],
+                      ),
                     );
                   },
                 ),
@@ -389,8 +437,9 @@ class _WalletDialogState extends ConsumerState<_WalletDialog> {
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('关闭')),
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('关闭'),
+        ),
       ],
     );
   }
@@ -430,8 +479,9 @@ class _WalletDialogState extends ConsumerState<_WalletDialog> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('取消')),
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('取消'),
+          ),
           ElevatedButton(
             onPressed: () {
               final desc = descCtrl.text.trim();
@@ -456,8 +506,10 @@ class _QuickAmountChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ActionChip(
-      label: Text('¥${amount.toStringAsFixed(0)}',
-          style: const TextStyle(fontSize: 12)),
+      label: Text(
+        '¥${amount.toStringAsFixed(0)}',
+        style: const TextStyle(fontSize: 12),
+      ),
       backgroundColor: const Color(0xFFF0FFF0),
       side: const BorderSide(color: Color(0xFF07C160), width: 0.5),
       onPressed: onTap,
@@ -518,9 +570,10 @@ class _CartBar extends StatelessWidget {
                       color: Colors.red,
                       shape: BoxShape.circle,
                     ),
-                    child: Text('$itemCount',
-                        style: const TextStyle(
-                            color: Colors.white, fontSize: 10)),
+                    child: Text(
+                      '$itemCount',
+                      style: const TextStyle(color: Colors.white, fontSize: 10),
+                    ),
                   ),
                 ),
               ],
@@ -532,11 +585,14 @@ class _CartBar extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('¥${total.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold)),
+                Text(
+                  '¥${total.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ],
             ),
           ),
@@ -546,7 +602,8 @@ class _CartBar extends StatelessWidget {
               backgroundColor: const Color(0xFFFF6B35),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20)),
+                borderRadius: BorderRadius.circular(20),
+              ),
             ),
             child: const Text('去结算'),
           ),
@@ -572,8 +629,10 @@ class _CartSheet extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                const Text('购物车',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                const Text(
+                  '购物车',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
                 const Spacer(),
                 TextButton(
                   onPressed: () {
@@ -587,8 +646,9 @@ class _CartSheet extends StatelessWidget {
           ),
           const Divider(height: 0),
           ConstrainedBox(
-            constraints:
-                BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.4),
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.4,
+            ),
             child: ListView.builder(
               shrinkWrap: true,
               itemCount: cartItems.length,
@@ -625,11 +685,14 @@ class _CartSheet extends StatelessWidget {
             child: Row(
               children: [
                 const Text('合计: ', style: TextStyle(fontSize: 14)),
-                Text('¥${total.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFFFF6B35))),
+                Text(
+                  '¥${total.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFFFF6B35),
+                  ),
+                ),
               ],
             ),
           ),
@@ -652,11 +715,14 @@ class _CategorySection extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-          child: Text(category.name,
-              style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: WeChatColors.textPrimary)),
+          child: Text(
+            category.name,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: WeChatColors.textPrimary,
+            ),
+          ),
         ),
         Container(
           color: Colors.white,
@@ -670,18 +736,24 @@ class _CategorySection extends StatelessWidget {
                     color: const Color(0xFFFFF3E0),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.restaurant,
-                      color: Color(0xFFFF6B35), size: 22),
+                  child: const Icon(
+                    Icons.restaurant,
+                    color: Color(0xFFFF6B35),
+                    size: 22,
+                  ),
                 ),
                 title: Text(food.name),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('¥${food.price.toStringAsFixed(0)}',
-                        style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xFFFF6B35))),
+                    Text(
+                      '¥${food.price.toStringAsFixed(0)}',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFFFF6B35),
+                      ),
+                    ),
                     const SizedBox(width: 8),
                     GestureDetector(
                       onTap: () => onAdd(food),
@@ -692,8 +764,11 @@ class _CategorySection extends StatelessWidget {
                           color: Color(0xFFFF6B35),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.add,
-                            color: Colors.white, size: 16),
+                        child: const Icon(
+                          Icons.add,
+                          color: Colors.white,
+                          size: 16,
+                        ),
                       ),
                     ),
                   ],

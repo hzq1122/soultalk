@@ -12,39 +12,39 @@ class ApiConfigDao {
   Future<Database> get _database => _db.database;
 
   Map<String, dynamic> _toMap(ApiConfig config) => {
-        'id': config.id,
-        'name': config.name,
-        'provider': config.provider.name,
-        'base_url': config.baseUrl,
-        'api_key': config.apiKey,
-        'model': config.model,
-        'max_tokens': config.maxTokens,
-        'temperature': config.temperature,
-        'stream_enabled': config.streamEnabled ? 1 : 0,
-        'created_at': config.createdAt?.toIso8601String(),
-        'updated_at': config.updatedAt?.toIso8601String(),
-      };
+    'id': config.id,
+    'name': config.name,
+    'provider': config.provider.name,
+    'base_url': config.baseUrl,
+    'api_key': config.apiKey,
+    'model': config.model,
+    'max_tokens': config.maxTokens,
+    'temperature': config.temperature,
+    'stream_enabled': config.streamEnabled ? 1 : 0,
+    'created_at': config.createdAt?.toIso8601String(),
+    'updated_at': config.updatedAt?.toIso8601String(),
+  };
 
   ApiConfig _fromMap(Map<String, dynamic> map) => ApiConfig(
-        id: map['id'] as String,
-        name: map['name'] as String,
-        provider: LlmProvider.values.firstWhere(
-          (p) => p.name == map['provider'],
-          orElse: () => LlmProvider.openai,
-        ),
-        baseUrl: map['base_url'] as String,
-        apiKey: map['api_key'] as String,
-        model: map['model'] as String,
-        maxTokens: map['max_tokens'] as int,
-        temperature: (map['temperature'] as num).toDouble(),
-        streamEnabled: (map['stream_enabled'] as int) == 1,
-        createdAt: map['created_at'] != null
-            ? DateTime.tryParse(map['created_at'] as String)
-            : null,
-        updatedAt: map['updated_at'] != null
-            ? DateTime.tryParse(map['updated_at'] as String)
-            : null,
-      );
+    id: map['id'] as String,
+    name: map['name'] as String,
+    provider: LlmProvider.values.firstWhere(
+      (p) => p.name == map['provider'],
+      orElse: () => LlmProvider.openai,
+    ),
+    baseUrl: map['base_url'] as String,
+    apiKey: map['api_key'] as String,
+    model: map['model'] as String,
+    maxTokens: map['max_tokens'] as int,
+    temperature: (map['temperature'] as num).toDouble(),
+    streamEnabled: (map['stream_enabled'] as int) == 1,
+    createdAt: map['created_at'] != null
+        ? DateTime.tryParse(map['created_at'] as String)
+        : null,
+    updatedAt: map['updated_at'] != null
+        ? DateTime.tryParse(map['updated_at'] as String)
+        : null,
+  );
 
   Future<List<ApiConfig>> getAll() async {
     final db = await _database;
@@ -54,7 +54,11 @@ class ApiConfigDao {
 
   Future<ApiConfig?> getById(String id) async {
     final db = await _database;
-    final rows = await db.query('api_configs', where: 'id = ?', whereArgs: [id]);
+    final rows = await db.query(
+      'api_configs',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
     return rows.isEmpty ? null : _fromMap(rows.first);
   }
 

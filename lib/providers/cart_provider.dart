@@ -16,8 +16,9 @@ class CartNotifier extends AsyncNotifier<List<CartItem>> {
     final items = state.value ?? [];
     final existing = items.where((i) => i.name == item.name).firstOrNull;
     if (existing != null) {
-      final updated =
-          existing.copyWith(quantity: existing.quantity + item.quantity);
+      final updated = existing.copyWith(
+        quantity: existing.quantity + item.quantity,
+      );
       await _dao.updateQuantity(existing.id, updated.quantity);
       state = AsyncData(
         items.map((i) => i.id == existing.id ? updated : i).toList(),
@@ -44,9 +45,7 @@ class CartNotifier extends AsyncNotifier<List<CartItem>> {
 
   Future<void> removeItem(String id) async {
     await _dao.delete(id);
-    state = AsyncData(
-      state.value?.where((i) => i.id != id).toList() ?? [],
-    );
+    state = AsyncData(state.value?.where((i) => i.id != id).toList() ?? []);
   }
 
   Future<void> clearCart() async {
@@ -58,5 +57,6 @@ class CartNotifier extends AsyncNotifier<List<CartItem>> {
       (state.value ?? []).fold(0.0, (sum, item) => sum + item.total);
 }
 
-final cartProvider =
-    AsyncNotifierProvider<CartNotifier, List<CartItem>>(CartNotifier.new);
+final cartProvider = AsyncNotifierProvider<CartNotifier, List<CartItem>>(
+  CartNotifier.new,
+);

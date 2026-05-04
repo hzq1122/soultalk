@@ -13,11 +13,7 @@ class MemoryPage extends ConsumerStatefulWidget {
   final String contactId;
   final Contact? contact;
 
-  const MemoryPage({
-    super.key,
-    required this.contactId,
-    this.contact,
-  });
+  const MemoryPage({super.key, required this.contactId, this.contact});
 
   @override
   ConsumerState<MemoryPage> createState() => _MemoryPageState();
@@ -66,7 +62,8 @@ class _MemoryPageState extends ConsumerState<MemoryPage>
             const Padding(
               padding: EdgeInsets.all(16),
               child: SizedBox(
-                width: 20, height: 20,
+                width: 20,
+                height: 20,
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
             )
@@ -118,23 +115,44 @@ class _MemoryPageState extends ConsumerState<MemoryPage>
             for (final cat in categories.entries) ...[
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                child: Text(cat.key,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: WeChatColors.primary)),
+                child: Text(
+                  cat.key,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: WeChatColors.primary,
+                  ),
+                ),
               ),
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                ),
                 child: Column(
                   children: [
                     for (var i = 0; i < cat.value.length; i++) ...[
                       if (i > 0) const Divider(height: 0, indent: 16),
                       ListTile(
-                        title: Text(cat.value[i].key, style: const TextStyle(fontSize: 14)),
-                        subtitle: Text(cat.value[i].value, style: const TextStyle(fontSize: 13)),
+                        title: Text(
+                          cat.value[i].key,
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                        subtitle: Text(
+                          cat.value[i].value,
+                          style: const TextStyle(fontSize: 13),
+                        ),
                         trailing: IconButton(
-                          icon: const Icon(Icons.close, size: 16, color: WeChatColors.textHint),
+                          icon: const Icon(
+                            Icons.close,
+                            size: 16,
+                            color: WeChatColors.textHint,
+                          ),
                           onPressed: () {
-                            ref.read(memoryProvider(widget.contactId).notifier).deleteEntry(cat.value[i].id);
+                            ref
+                                .read(memoryProvider(widget.contactId).notifier)
+                                .deleteEntry(cat.value[i].id);
                           },
                         ),
                         dense: true,
@@ -163,27 +181,44 @@ class _MemoryPageState extends ConsumerState<MemoryPage>
           padding: const EdgeInsets.all(12),
           children: [
             Container(
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+              ),
               child: Column(
                 children: [
                   for (var i = 0; i < active.length; i++) ...[
                     if (i > 0) const Divider(height: 0, indent: 16),
                     ListTile(
-                      title: Text(active[i].slotName,
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-                      subtitle: Text(active[i].slotValue,
-                          style: const TextStyle(fontSize: 13)),
+                      title: Text(
+                        active[i].slotName,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      subtitle: Text(
+                        active[i].slotValue,
+                        style: const TextStyle(fontSize: 13),
+                      ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.circle,
-                              size: 8,
-                              color: active[i].confidence >= 0.7
-                                  ? Colors.green
-                                  : Colors.orange),
+                          Icon(
+                            Icons.circle,
+                            size: 8,
+                            color: active[i].confidence >= 0.7
+                                ? Colors.green
+                                : Colors.orange,
+                          ),
                           const SizedBox(width: 4),
-                          Text(active[i].slotType,
-                              style: const TextStyle(fontSize: 11, color: WeChatColors.textHint)),
+                          Text(
+                            active[i].slotType,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: WeChatColors.textHint,
+                            ),
+                          ),
                         ],
                       ),
                       dense: true,
@@ -222,17 +257,31 @@ class _MemoryPageState extends ConsumerState<MemoryPage>
                     _scoreBadge('置信度', card.confidence, Icons.verified),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: _scopeColor(card.scope).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: Text(card.scope, style: TextStyle(fontSize: 10, color: _scopeColor(card.scope))),
+                      child: Text(
+                        card.scope,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: _scopeColor(card.scope),
+                        ),
+                      ),
                     ),
                   ],
                 ),
-                trailing: Text(card.cardType,
-                    style: const TextStyle(fontSize: 11, color: WeChatColors.textHint)),
+                trailing: Text(
+                  card.cardType,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: WeChatColors.textHint,
+                  ),
+                ),
                 dense: true,
               ),
             );
@@ -246,16 +295,27 @@ class _MemoryPageState extends ConsumerState<MemoryPage>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: value >= 0.7 ? Colors.green.withValues(alpha: 0.1) : Colors.orange.withValues(alpha: 0.1),
+        color: value >= 0.7
+            ? Colors.green.withValues(alpha: 0.1)
+            : Colors.orange.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 10, color: value >= 0.7 ? Colors.green : Colors.orange),
+          Icon(
+            icon,
+            size: 10,
+            color: value >= 0.7 ? Colors.green : Colors.orange,
+          ),
           const SizedBox(width: 2),
-          Text('${(value * 100).toInt()}%',
-              style: TextStyle(fontSize: 10, color: value >= 0.7 ? Colors.green : Colors.orange)),
+          Text(
+            '${(value * 100).toInt()}%',
+            style: TextStyle(
+              fontSize: 10,
+              color: value >= 0.7 ? Colors.green : Colors.orange,
+            ),
+          ),
         ],
       ),
     );
@@ -277,11 +337,21 @@ class _MemoryPageState extends ConsumerState<MemoryPage>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.psychology_outlined, size: 64, color: WeChatColors.textHint),
+          const Icon(
+            Icons.psychology_outlined,
+            size: 64,
+            color: WeChatColors.textHint,
+          ),
           const SizedBox(height: 12),
-          Text(title, style: const TextStyle(color: WeChatColors.textSecondary)),
+          Text(
+            title,
+            style: const TextStyle(color: WeChatColors.textSecondary),
+          ),
           const SizedBox(height: 8),
-          Text(subtitle, style: const TextStyle(fontSize: 12, color: WeChatColors.textHint)),
+          Text(
+            subtitle,
+            style: const TextStyle(fontSize: 12, color: WeChatColors.textHint),
+          ),
         ],
       ),
     );
@@ -292,30 +362,31 @@ class _MemoryPageState extends ConsumerState<MemoryPage>
   Future<void> _extractNow(BuildContext context) async {
     final configs = ref.read(apiConfigProvider).value ?? [];
     if (configs.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先配置 API')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请先配置 API')));
       return;
     }
     final settings = ref.read(settingsProvider).value;
-    final selectedConfig = (settings?.memoryUseMainApi == false && configs.length >= 2)
+    final selectedConfig =
+        (settings?.memoryUseMainApi == false && configs.length >= 2)
         ? configs[1]
         : configs.first;
 
     setState(() => _isExtracting = true);
     try {
       final messenger = ScaffoldMessenger.of(context);
-      await ref.read(memoryProvider(widget.contactId).notifier).extractMemories(selectedConfig);
+      await ref
+          .read(memoryProvider(widget.contactId).notifier)
+          .extractMemories(selectedConfig);
       if (mounted) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('记忆提取完成')),
-        );
+        messenger.showSnackBar(const SnackBar(content: Text('记忆提取完成')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(this.context).showSnackBar(
-          SnackBar(content: Text('提取失败: $e')),
-        );
+        ScaffoldMessenger.of(
+          this.context,
+        ).showSnackBar(SnackBar(content: Text('提取失败: $e')));
       }
     } finally {
       if (mounted) setState(() => _isExtracting = false);
@@ -330,10 +401,13 @@ class _MemoryPageState extends ConsumerState<MemoryPage>
         content: const Text('确定清空该联系人的所有记忆？'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false), child: const Text('取消')),
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('取消'),
+          ),
           TextButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('清空', style: TextStyle(color: Colors.red))),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('清空', style: TextStyle(color: Colors.red)),
+          ),
         ],
       ),
     );

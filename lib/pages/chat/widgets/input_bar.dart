@@ -7,7 +7,8 @@ import '../../../theme/wechat_colors.dart';
 
 class InputBar extends ConsumerStatefulWidget {
   final void Function(String text) onSend;
-  final void Function(String type, Map<String, dynamic> metadata)? onSendSpecial;
+  final void Function(String type, Map<String, dynamic> metadata)?
+  onSendSpecial;
   final void Function(String path) onSendImage;
   final VoidCallback? onMicTap;
   final bool enabled;
@@ -155,8 +156,9 @@ class _InputBarState extends ConsumerState<InputBar> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('取消')),
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('取消'),
+          ),
           ElevatedButton(
             onPressed: () {
               final amount = amountCtrl.text.trim();
@@ -215,8 +217,9 @@ class _InputBarState extends ConsumerState<InputBar> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('取消')),
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('取消'),
+          ),
           ElevatedButton(
             onPressed: () {
               if (shopCtrl.text.trim().isEmpty) return;
@@ -258,14 +261,21 @@ class _InputBarState extends ConsumerState<InputBar> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('选择要添加到购物车的食品',
-                    style: TextStyle(fontSize: 13, color: WeChatColors.textSecondary)),
+                const Text(
+                  '选择要添加到购物车的食品',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: WeChatColors.textSecondary,
+                  ),
+                ),
                 const SizedBox(height: 12),
                 ...List.generate(foods.length, (i) {
                   final food = foods[i];
                   return CheckboxListTile(
                     title: Text(food['name'] as String),
-                    subtitle: Text('¥${(food['price'] as double).toStringAsFixed(0)}'),
+                    subtitle: Text(
+                      '¥${(food['price'] as double).toStringAsFixed(0)}',
+                    ),
                     value: selected.contains(i),
                     activeColor: WeChatColors.primary,
                     onChanged: (v) => setDialogState(() {
@@ -284,20 +294,25 @@ class _InputBarState extends ConsumerState<InputBar> {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('取消')),
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('取消'),
+            ),
             ElevatedButton(
               onPressed: selected.isEmpty
                   ? null
                   : () {
                       for (final i in selected) {
                         final food = foods[i];
-                        ref.read(cartProvider.notifier).addItem(CartItem(
-                              id: '',
-                              name: food['name'] as String,
-                              price: food['price'] as double,
-                              shop: '外卖商城',
-                            ));
+                        ref
+                            .read(cartProvider.notifier)
+                            .addItem(
+                              CartItem(
+                                id: '',
+                                name: food['name'] as String,
+                                price: food['price'] as double,
+                                shop: '外卖商城',
+                              ),
+                            );
                       }
                       Navigator.of(ctx).pop();
                       final names = selected
@@ -320,7 +335,9 @@ class _InputBarState extends ConsumerState<InputBar> {
     return Container(
       decoration: const BoxDecoration(
         color: Color(0xFFF7F7F7),
-        border: Border(top: BorderSide(color: WeChatColors.divider, width: 0.5)),
+        border: Border(
+          top: BorderSide(color: WeChatColors.divider, width: 0.5),
+        ),
       ),
       padding: EdgeInsets.only(
         left: 8,
@@ -362,8 +379,10 @@ class _InputBarState extends ConsumerState<InputBar> {
                   style: const TextStyle(fontSize: 16),
                   decoration: const InputDecoration(
                     border: InputBorder.none,
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
                     hintText: '发消息...',
                     hintStyle: TextStyle(color: WeChatColors.textHint),
                   ),
@@ -373,8 +392,10 @@ class _InputBarState extends ConsumerState<InputBar> {
             const SizedBox(width: 4),
             // 表情按钮（占位）
             IconButton(
-              icon: const Icon(Icons.emoji_emotions_outlined,
-                  color: WeChatColors.textSecondary),
+              icon: const Icon(
+                Icons.emoji_emotions_outlined,
+                color: WeChatColors.textSecondary,
+              ),
               onPressed: widget.enabled ? () {} : null,
             ),
             // 发送/加号按钮
@@ -382,8 +403,10 @@ class _InputBarState extends ConsumerState<InputBar> {
               _SendButton(onSend: _send, enabled: widget.enabled)
             else
               IconButton(
-                icon: const Icon(Icons.add_circle_outline,
-                    color: WeChatColors.textSecondary),
+                icon: const Icon(
+                  Icons.add_circle_outline,
+                  color: WeChatColors.textSecondary,
+                ),
                 onPressed: widget.enabled ? () => _showPlusMenu(context) : null,
               ),
           ],
@@ -412,7 +435,10 @@ class _SendButton extends StatelessWidget {
         child: const Text(
           '发送',
           style: TextStyle(
-              color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
+            color: Colors.white,
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ),
     );
@@ -452,9 +478,13 @@ class _PlusMenuItem extends StatelessWidget {
               child: Icon(icon, color: color, size: 28),
             ),
             const SizedBox(height: 6),
-            Text(label,
-                style: const TextStyle(
-                    fontSize: 11, color: WeChatColors.textSecondary)),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                color: WeChatColors.textSecondary,
+              ),
+            ),
           ],
         ),
       ),

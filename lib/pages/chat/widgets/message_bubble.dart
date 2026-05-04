@@ -80,8 +80,9 @@ class _TextBubble extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: Row(
-        mainAxisAlignment:
-            _isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: _isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (!_isUser && showAvatar) ...[
@@ -96,7 +97,9 @@ class _TextBubble extends StatelessWidget {
               children: [
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 10),
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: _isUser
                         ? WeChatColors.bubbleSent
@@ -121,7 +124,9 @@ class _TextBubble extends StatelessWidget {
                   child: SelectableText(
                     displayContent,
                     style: const TextStyle(
-                        fontSize: 16, color: WeChatColors.textPrimary),
+                      fontSize: 16,
+                      color: WeChatColors.textPrimary,
+                    ),
                   ),
                 ),
               ],
@@ -159,7 +164,9 @@ class _SystemMessage extends StatelessWidget {
           child: Text(
             content,
             style: const TextStyle(
-                fontSize: 12, color: WeChatColors.textSecondary),
+              fontSize: 12,
+              color: WeChatColors.textSecondary,
+            ),
           ),
         ),
       ),
@@ -198,23 +205,32 @@ class _TransferBubble extends StatelessWidget {
                 padding: const EdgeInsets.all(14),
                 child: Row(
                   children: [
-                    const Icon(Icons.monetization_on,
-                        color: Colors.white, size: 36),
+                    const Icon(
+                      Icons.monetization_on,
+                      color: Colors.white,
+                      size: 36,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(displayContent,
-                              style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white)),
+                          Text(
+                            displayContent,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
                           if (remark.isNotEmpty)
-                            Text(remark,
-                                style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xAAFFFFFF))),
+                            Text(
+                              remark,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xAAFFFFFF),
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -223,8 +239,10 @@ class _TransferBubble extends StatelessWidget {
               ),
               Container(
                 width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 6,
+                ),
                 decoration: const BoxDecoration(
                   color: Color(0xFFF5E3C6),
                   borderRadius: BorderRadius.only(
@@ -232,8 +250,10 @@ class _TransferBubble extends StatelessWidget {
                     bottomRight: Radius.circular(8),
                   ),
                 ),
-                child: const Text('微信转账',
-                    style: TextStyle(fontSize: 11, color: Color(0xFF9B7B4F))),
+                child: const Text(
+                  '微信转账',
+                  style: TextStyle(fontSize: 11, color: Color(0xFF9B7B4F)),
+                ),
               ),
             ],
           ),
@@ -275,16 +295,22 @@ class _ImageBubble extends StatelessWidget {
                     width: 200,
                     height: 200,
                     color: WeChatColors.textHint.withAlpha(50),
-                    child: const Icon(Icons.broken_image,
-                        color: WeChatColors.textHint, size: 48),
+                    child: const Icon(
+                      Icons.broken_image,
+                      color: WeChatColors.textHint,
+                      size: 48,
+                    ),
                   ),
                 )
               : Container(
                   width: 200,
                   height: 200,
                   color: WeChatColors.textHint.withAlpha(50),
-                  child: const Icon(Icons.image,
-                      color: WeChatColors.textHint, size: 48),
+                  child: const Icon(
+                    Icons.image,
+                    color: WeChatColors.textHint,
+                    size: 48,
+                  ),
                 ),
         ),
       ),
@@ -336,11 +362,14 @@ class _DeliveryBubble extends StatelessWidget {
                     const Icon(Icons.fastfood, color: Colors.white, size: 18),
                     const SizedBox(width: 6),
                     Expanded(
-                      child: Text(shop,
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600)),
+                      child: Text(
+                        shop,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -353,16 +382,23 @@ class _DeliveryBubble extends StatelessWidget {
                     Text(items, style: const TextStyle(fontSize: 13)),
                     if (price.isNotEmpty) ...[
                       const SizedBox(height: 6),
-                      Text('¥$price',
-                          style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFFFF6B35))),
+                      Text(
+                        '¥$price',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFFFF6B35),
+                        ),
+                      ),
                     ],
                     const SizedBox(height: 4),
-                    const Text('美团外卖',
-                        style: TextStyle(
-                            fontSize: 11, color: WeChatColors.textHint)),
+                    const Text(
+                      '美团外卖',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: WeChatColors.textHint,
+                      ),
+                    ),
                   ],
                 ),
               ),

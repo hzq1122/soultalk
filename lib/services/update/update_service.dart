@@ -37,10 +37,12 @@ class UpdateService {
   static const _repoOwner = 'hzq1122';
   static const _repoName = 'soultalk';
 
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 15),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  final Dio _dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 30),
+    ),
+  );
 
   /// Check GitHub for a newer release. Returns [UpdateInfo] with full
   /// changelog (all releases between current and latest) if an update
@@ -57,7 +59,8 @@ class UpdateService {
       );
       final latest = latestResp.data as Map<String, dynamic>;
       final latestVersion =
-          (latest['tag_name'] as String?)?.replaceFirst(RegExp(r'^v'), '') ?? '0.0.0';
+          (latest['tag_name'] as String?)?.replaceFirst(RegExp(r'^v'), '') ??
+          '0.0.0';
 
       if (_compareVersions(latestVersion, currentVersion) <= 0) {
         return null; // Already up to date
@@ -104,16 +107,20 @@ class UpdateService {
       final entries = <ReleaseEntry>[];
 
       for (final item in list) {
-        final tag = (item['tag_name'] as String?)?.replaceFirst(RegExp(r'^v'), '') ?? '0.0.0';
+        final tag =
+            (item['tag_name'] as String?)?.replaceFirst(RegExp(r'^v'), '') ??
+            '0.0.0';
         // Stop once we reach releases <= current version
         if (_compareVersions(tag, currentVersion) <= 0) break;
 
-        entries.add(ReleaseEntry(
-          version: tag,
-          title: (item['name'] as String?) ?? tag,
-          body: (item['body'] as String?) ?? '',
-          publishedAt: (item['published_at'] as String?) ?? '',
-        ));
+        entries.add(
+          ReleaseEntry(
+            version: tag,
+            title: (item['name'] as String?) ?? tag,
+            body: (item['body'] as String?) ?? '',
+            publishedAt: (item['published_at'] as String?) ?? '',
+          ),
+        );
       }
 
       return entries;
@@ -123,7 +130,9 @@ class UpdateService {
   }
 
   Future<String> downloadApk(
-      UpdateInfo info, void Function(double progress) onProgress) async {
+    UpdateInfo info,
+    void Function(double progress) onProgress,
+  ) async {
     final dir = await getApplicationDocumentsDirectory();
     final filePath = '${dir.path}/update_${info.version}.apk';
 

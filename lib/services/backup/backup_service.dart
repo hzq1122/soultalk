@@ -21,26 +21,26 @@ enum BackupSection {
 
 extension BackupSectionLabel on BackupSection {
   String get label => switch (this) {
-        BackupSection.apiConfigs => 'API 配置',
-        BackupSection.contacts => '联系人',
-        BackupSection.messages => '聊天记录',
-        BackupSection.moments => '朋友圈',
-        BackupSection.settings => '应用设置',
-        BackupSection.presets => '对话预设',
-        BackupSection.regexScripts => '正则脚本',
-        BackupSection.memoryEntries => '记忆表格',
-      };
+    BackupSection.apiConfigs => 'API 配置',
+    BackupSection.contacts => '联系人',
+    BackupSection.messages => '聊天记录',
+    BackupSection.moments => '朋友圈',
+    BackupSection.settings => '应用设置',
+    BackupSection.presets => '对话预设',
+    BackupSection.regexScripts => '正则脚本',
+    BackupSection.memoryEntries => '记忆表格',
+  };
 
   String get folderName => switch (this) {
-        BackupSection.apiConfigs => 'api',
-        BackupSection.contacts => 'contacts',
-        BackupSection.messages => 'messages',
-        BackupSection.moments => 'moments',
-        BackupSection.settings => 'settings',
-        BackupSection.presets => 'presets',
-        BackupSection.regexScripts => 'regex',
-        BackupSection.memoryEntries => 'memory',
-      };
+    BackupSection.apiConfigs => 'api',
+    BackupSection.contacts => 'contacts',
+    BackupSection.messages => 'messages',
+    BackupSection.moments => 'moments',
+    BackupSection.settings => 'settings',
+    BackupSection.presets => 'presets',
+    BackupSection.regexScripts => 'regex',
+    BackupSection.memoryEntries => 'memory',
+  };
 }
 
 class BackupService {
@@ -61,35 +61,52 @@ class BackupService {
           final rows = await db.query('api_configs');
           if (rows.isNotEmpty) {
             final data = jsonEncode(rows);
-            archive.addFile(ArchiveFile(
-                '$folder/api_configs.json', data.length, data.codeUnits));
+            archive.addFile(
+              ArchiveFile(
+                '$folder/api_configs.json',
+                data.length,
+                data.codeUnits,
+              ),
+            );
           }
         case BackupSection.contacts:
           final rows = await db.query('contacts');
           if (rows.isNotEmpty) {
             final data = jsonEncode(rows);
-            archive.addFile(ArchiveFile(
-                '$folder/contacts.json', data.length, data.codeUnits));
+            archive.addFile(
+              ArchiveFile('$folder/contacts.json', data.length, data.codeUnits),
+            );
           }
         case BackupSection.messages:
           final contacts = await db.query('contacts');
           for (final c in contacts) {
-            final rows = await db.query('messages',
-                where: 'contact_id = ?', whereArgs: [c['id']]);
+            final rows = await db.query(
+              'messages',
+              where: 'contact_id = ?',
+              whereArgs: [c['id']],
+            );
             if (rows.isNotEmpty) {
               final data = jsonEncode(rows);
-              final safeId = (c['id'] as String)
-                  .replaceAll(RegExp(r'[^\w\-]'), '_');
-              archive.addFile(ArchiveFile(
-                  '$folder/$safeId.json', data.length, data.codeUnits));
+              final safeId = (c['id'] as String).replaceAll(
+                RegExp(r'[^\w\-]'),
+                '_',
+              );
+              archive.addFile(
+                ArchiveFile(
+                  '$folder/$safeId.json',
+                  data.length,
+                  data.codeUnits,
+                ),
+              );
             }
           }
         case BackupSection.moments:
           final rows = await db.query('moments');
           if (rows.isNotEmpty) {
             final data = jsonEncode(rows);
-            archive.addFile(ArchiveFile(
-                '$folder/moments.json', data.length, data.codeUnits));
+            archive.addFile(
+              ArchiveFile('$folder/moments.json', data.length, data.codeUnits),
+            );
           }
         case BackupSection.settings:
           final prefs = await SharedPreferences.getInstance();
@@ -99,28 +116,40 @@ class BackupService {
             settings[key] = prefs.get(key);
           }
           final data = jsonEncode(settings);
-          archive.addFile(ArchiveFile(
-              '$folder/settings.json', data.length, data.codeUnits));
+          archive.addFile(
+            ArchiveFile('$folder/settings.json', data.length, data.codeUnits),
+          );
         case BackupSection.presets:
           final rows = await db.query('chat_presets');
           if (rows.isNotEmpty) {
             final data = jsonEncode(rows);
-            archive.addFile(ArchiveFile(
-                '$folder/presets.json', data.length, data.codeUnits));
+            archive.addFile(
+              ArchiveFile('$folder/presets.json', data.length, data.codeUnits),
+            );
           }
         case BackupSection.regexScripts:
           final rows = await db.query('regex_scripts');
           if (rows.isNotEmpty) {
             final data = jsonEncode(rows);
-            archive.addFile(ArchiveFile(
-                '$folder/regex_scripts.json', data.length, data.codeUnits));
+            archive.addFile(
+              ArchiveFile(
+                '$folder/regex_scripts.json',
+                data.length,
+                data.codeUnits,
+              ),
+            );
           }
         case BackupSection.memoryEntries:
           final rows = await db.query('memory_entries');
           if (rows.isNotEmpty) {
             final data = jsonEncode(rows);
-            archive.addFile(ArchiveFile(
-                '$folder/memory_entries.json', data.length, data.codeUnits));
+            archive.addFile(
+              ArchiveFile(
+                '$folder/memory_entries.json',
+                data.length,
+                data.codeUnits,
+              ),
+            );
           }
       }
     }
@@ -132,15 +161,18 @@ class BackupService {
       'sections': sections.map((s) => s.folderName).toList(),
     };
     final manifestData = jsonEncode(manifest);
-    archive.addFile(ArchiveFile(
-        'manifest.json', manifestData.length, manifestData.codeUnits));
+    archive.addFile(
+      ArchiveFile('manifest.json', manifestData.length, manifestData.codeUnits),
+    );
 
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final zipBytes = ZipEncoder().encode(archive);
 
     if (password != null && password.isNotEmpty) {
       final encrypted = BackupEncryption.encrypt(
-          Uint8List.fromList(zipBytes), password);
+        Uint8List.fromList(zipBytes),
+        password,
+      );
       final zipPath = '$targetDir/soultalk_backup_$timestamp.enc.zip';
       await File(zipPath).writeAsBytes(encrypted);
       return zipPath;
@@ -163,8 +195,7 @@ class BackupService {
       if (isEnc) {
         if (password == null || password.isEmpty) return false;
         try {
-          bytes = BackupEncryption.decrypt(
-              Uint8List.fromList(bytes), password);
+          bytes = BackupEncryption.decrypt(Uint8List.fromList(bytes), password);
         } catch (_) {
           return false; // wrong password
         }
@@ -186,8 +217,11 @@ class BackupService {
             if (file != null) {
               final rows = jsonDecode(utf8.decode(file.content)) as List;
               for (final row in rows) {
-                await db.insert('api_configs', row as Map<String, dynamic>,
-                    conflictAlgorithm: ConflictAlgorithm.replace);
+                await db.insert(
+                  'api_configs',
+                  row as Map<String, dynamic>,
+                  conflictAlgorithm: ConflictAlgorithm.replace,
+                );
               }
             }
           case BackupSection.contacts:
@@ -195,8 +229,11 @@ class BackupService {
             if (file != null) {
               final rows = jsonDecode(utf8.decode(file.content)) as List;
               for (final row in rows) {
-                await db.insert('contacts', row as Map<String, dynamic>,
-                    conflictAlgorithm: ConflictAlgorithm.replace);
+                await db.insert(
+                  'contacts',
+                  row as Map<String, dynamic>,
+                  conflictAlgorithm: ConflictAlgorithm.replace,
+                );
               }
             }
           case BackupSection.messages:
@@ -205,8 +242,11 @@ class BackupService {
                 try {
                   final rows = jsonDecode(utf8.decode(f.content)) as List;
                   for (final row in rows) {
-                    await db.insert('messages', row as Map<String, dynamic>,
-                        conflictAlgorithm: ConflictAlgorithm.replace);
+                    await db.insert(
+                      'messages',
+                      row as Map<String, dynamic>,
+                      conflictAlgorithm: ConflictAlgorithm.replace,
+                    );
                   }
                 } catch (_) {}
               }
@@ -216,8 +256,11 @@ class BackupService {
             if (file != null) {
               final rows = jsonDecode(utf8.decode(file.content)) as List;
               for (final row in rows) {
-                await db.insert('moments', row as Map<String, dynamic>,
-                    conflictAlgorithm: ConflictAlgorithm.replace);
+                await db.insert(
+                  'moments',
+                  row as Map<String, dynamic>,
+                  conflictAlgorithm: ConflictAlgorithm.replace,
+                );
               }
             }
           case BackupSection.settings:
@@ -244,8 +287,11 @@ class BackupService {
             if (file != null) {
               final rows = jsonDecode(utf8.decode(file.content)) as List;
               for (final row in rows) {
-                await db.insert('chat_presets', row as Map<String, dynamic>,
-                    conflictAlgorithm: ConflictAlgorithm.replace);
+                await db.insert(
+                  'chat_presets',
+                  row as Map<String, dynamic>,
+                  conflictAlgorithm: ConflictAlgorithm.replace,
+                );
               }
             }
           case BackupSection.regexScripts:
@@ -253,8 +299,11 @@ class BackupService {
             if (file != null) {
               final rows = jsonDecode(utf8.decode(file.content)) as List;
               for (final row in rows) {
-                await db.insert('regex_scripts', row as Map<String, dynamic>,
-                    conflictAlgorithm: ConflictAlgorithm.replace);
+                await db.insert(
+                  'regex_scripts',
+                  row as Map<String, dynamic>,
+                  conflictAlgorithm: ConflictAlgorithm.replace,
+                );
               }
             }
           case BackupSection.memoryEntries:
@@ -262,8 +311,11 @@ class BackupService {
             if (file != null) {
               final rows = jsonDecode(utf8.decode(file.content)) as List;
               for (final row in rows) {
-                await db.insert('memory_entries', row as Map<String, dynamic>,
-                    conflictAlgorithm: ConflictAlgorithm.replace);
+                await db.insert(
+                  'memory_entries',
+                  row as Map<String, dynamic>,
+                  conflictAlgorithm: ConflictAlgorithm.replace,
+                );
               }
             }
         }
@@ -274,16 +326,17 @@ class BackupService {
     }
   }
 
-  Future<List<BackupSection>> listSections(String zipPath,
-      {String? password}) async {
+  Future<List<BackupSection>> listSections(
+    String zipPath, {
+    String? password,
+  }) async {
     try {
       var bytes = await File(zipPath).readAsBytes();
 
       if (zipPath.endsWith('.enc.zip')) {
         if (password == null || password.isEmpty) return [];
         try {
-          bytes = BackupEncryption.decrypt(
-              Uint8List.fromList(bytes), password);
+          bytes = BackupEncryption.decrypt(Uint8List.fromList(bytes), password);
         } catch (_) {
           return [];
         }
@@ -301,8 +354,10 @@ class BackupService {
           (manifest['sections'] as List?)?.cast<String>() ?? [];
 
       return sectionNames
-          .map((name) => BackupSection.values
-              .firstWhere((s) => s.folderName == name))
+          .map(
+            (name) =>
+                BackupSection.values.firstWhere((s) => s.folderName == name),
+          )
           .toList();
     } catch (_) {
       return [];

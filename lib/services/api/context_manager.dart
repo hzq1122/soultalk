@@ -2,15 +2,15 @@ import '../../models/message.dart';
 import '../../models/api_config.dart';
 
 enum ContextStrategy {
-  slidingWindow,   // 保留最近 N 条消息
-  tokenBudget,     // 按 Token 预算裁剪
+  slidingWindow, // 保留最近 N 条消息
+  tokenBudget, // 按 Token 预算裁剪
 }
 
 /// 上下文窗口管理器
 class ContextManager {
   final ContextStrategy strategy;
-  final int maxMessages;      // 滑动窗口大小（对话轮次）
-  final int maxTokenBudget;   // Token 预算上限
+  final int maxMessages; // 滑动窗口大小（对话轮次）
+  final int maxTokenBudget; // Token 预算上限
 
   const ContextManager({
     this.strategy = ContextStrategy.slidingWindow,
@@ -32,7 +32,9 @@ class ContextManager {
 
   List<Message> _slidingWindow(List<Message> messages) {
     // 保留最近 maxMessages 条（不含 system 消息）
-    final nonSystem = messages.where((m) => m.role != MessageRole.system).toList();
+    final nonSystem = messages
+        .where((m) => m.role != MessageRole.system)
+        .toList();
     if (nonSystem.length <= maxMessages) return messages;
 
     final kept = nonSystem.sublist(nonSystem.length - maxMessages);

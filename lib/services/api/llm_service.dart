@@ -34,10 +34,12 @@ abstract class LlmService {
   static List<Map<String, String>> toApiMessages(List<Message> messages) {
     return messages
         .where((m) => m.role != MessageRole.system)
-        .map((m) => {
-              'role': m.role == MessageRole.user ? 'user' : 'assistant',
-              'content': m.content,
-            })
+        .map(
+          (m) => {
+            'role': m.role == MessageRole.user ? 'user' : 'assistant',
+            'content': m.content,
+          },
+        )
         .toList();
   }
 }

@@ -29,6 +29,5 @@ class Moment with _$Moment {
     DateTime? createdAt,
   }) = _Moment;
 
-  factory Moment.fromJson(Map<String, dynamic> json) =>
-      _$MomentFromJson(json);
+  factory Moment.fromJson(Map<String, dynamic> json) => _$MomentFromJson(json);
 }

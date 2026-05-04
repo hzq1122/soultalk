@@ -8,12 +8,15 @@ class CardRetriever {
   final PlatformConfig _config;
 
   CardRetriever(this._dao, [PlatformConfig? config])
-      : _config = config ?? PlatformConfig.current;
+    : _config = config ?? PlatformConfig.current;
 
   /// Score and return the top-K memory cards for [contactId] matching [keywords].
   ///
   /// Scoring weights: importance 45%, confidence 25%, recency 20%, scope 10%.
-  Future<List<MemoryCard>> retrieve(String contactId, List<String> keywords) async {
+  Future<List<MemoryCard>> retrieve(
+    String contactId,
+    List<String> keywords,
+  ) async {
     if (keywords.isEmpty) return [];
 
     final candidates = await _dao.searchByKeywords(contactId, keywords);
@@ -21,10 +24,19 @@ class CardRetriever {
 
     final now = DateTime.now();
     final scored = candidates.map((card) {
-      final ageDays = now.difference(card.createdAt).inDays.clamp(0, 365).toDouble();
+      final ageDays = now
+          .difference(card.createdAt)
+          .inDays
+          .clamp(0, 365)
+          .toDouble();
       final recency = 1.0 - (ageDays / 365);
-      final scopeWeight = card.scope == 'global' ? 1.0 : card.scope == 'shared' ? 0.7 : 0.4;
-      final score = card.importance * 0.45 +
+      final scopeWeight = card.scope == 'global'
+          ? 1.0
+          : card.scope == 'shared'
+          ? 0.7
+          : 0.4;
+      final score =
+          card.importance * 0.45 +
           card.confidence * 0.25 +
           recency * 0.20 +
           scopeWeight * 0.10;

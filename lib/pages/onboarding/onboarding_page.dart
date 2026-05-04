@@ -56,35 +56,39 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   static const _charTemplates = [
     {
       'name': '温柔女友',
-      'prompt': '你是一个温柔体贴的女朋友。你关心对方的生活，会主动问候，分享日常小事，'
+      'prompt':
+          '你是一个温柔体贴的女朋友。你关心对方的生活，会主动问候，分享日常小事，'
           '在对方难过时给予安慰。你的语气温柔、细腻，偶尔会撒娇但不做作。'
-          '回答时自然、口语化，像普通聊天一样。'
+          '回答时自然、口语化，像普通聊天一样。',
     },
     {
       'name': '毒舌损友',
-      'prompt': '你是一个毒舌但讲义气的损友。你说话直接、犀利，喜欢吐槽和开玩笑，'
+      'prompt':
+          '你是一个毒舌但讲义气的损友。你说话直接、犀利，喜欢吐槽和开玩笑，'
           '但内心关心朋友。你的吐槽点到为止不会真的伤人，偶尔也会认真起来。'
-          '回答时幽默风趣，不拘小节，偶尔用网络流行语。'
+          '回答时幽默风趣，不拘小节，偶尔用网络流行语。',
     },
     {
       'name': '专业顾问',
-      'prompt': '你是一个知识渊博的专业顾问。你逻辑清晰，分析问题一针见血，'
+      'prompt':
+          '你是一个知识渊博的专业顾问。你逻辑清晰，分析问题一针见血，'
           '善于从多个角度思考。你说话简洁有力，不废话，但会耐心解答问题。'
-          '回答时条理分明，引用事实和数据，但不失人情味。'
+          '回答时条理分明，引用事实和数据，但不失人情味。',
     },
     {
       'name': '动漫伙伴',
-      'prompt': '你是一个来自二次元的伙伴。你热情开朗，充满元气，喜欢用动漫梗和颜文字，'
+      'prompt':
+          '你是一个来自二次元的伙伴。你热情开朗，充满元气，喜欢用动漫梗和颜文字，'
           '但不会过度夸张。你对ACG文化了如指掌，能聊番剧、游戏、轻小说等各种话题。'
-          '回答时活泼可爱，偶尔中二，让人感到轻松愉快。'
+          '回答时活泼可爱，偶尔中二，让人感到轻松愉快。',
     },
   ];
 
   String get _defaultBaseUrl => switch (_apiProvider) {
-        LlmProvider.openai => 'https://api.openai.com/v1',
-        LlmProvider.anthropic => 'https://api.anthropic.com',
-        LlmProvider.custom => '',
-      };
+    LlmProvider.openai => 'https://api.openai.com/v1',
+    LlmProvider.anthropic => 'https://api.anthropic.com',
+    LlmProvider.custom => '',
+  };
 
   @override
   void dispose() {
@@ -133,18 +137,23 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
           if (_current > 0)
             TextButton(
               onPressed: () => _pageCtrl.previousPage(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut),
-              child: const Text('上一步',
-                  style: TextStyle(color: WeChatColors.textSecondary)),
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+              ),
+              child: const Text(
+                '上一步',
+                style: TextStyle(color: WeChatColors.textSecondary),
+              ),
             )
           else
             const SizedBox(width: 80),
           const Spacer(),
           TextButton(
             onPressed: _finishOnboarding,
-            child: const Text('跳过全部',
-                style: TextStyle(color: WeChatColors.textHint)),
+            child: const Text(
+              '跳过全部',
+              style: TextStyle(color: WeChatColors.textHint),
+            ),
           ),
         ],
       ),
@@ -158,9 +167,10 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withAlpha(13),
-              blurRadius: 4,
-              offset: const Offset(0, -2)),
+            color: Colors.black.withAlpha(13),
+            blurRadius: 4,
+            offset: const Offset(0, -2),
+          ),
         ],
       ),
       child: _current < _totalSteps - 1
@@ -172,7 +182,8 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                   backgroundColor: WeChatColors.primary,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
                 onPressed: () {
                   if (_current == 1) {
@@ -182,8 +193,9 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                     _saveCharacter();
                   }
                   _pageCtrl.nextPage(
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut);
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  );
                 },
                 child: const Text('下一步', style: TextStyle(fontSize: 16)),
               ),
@@ -196,11 +208,11 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                   backgroundColor: WeChatColors.primary,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
                 onPressed: _finishOnboarding,
-                child:
-                    const Text('开始使用', style: TextStyle(fontSize: 16)),
+                child: const Text('开始使用', style: TextStyle(fontSize: 16)),
               ),
             ),
     );
@@ -221,12 +233,17 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
               color: WeChatColors.primary,
               borderRadius: BorderRadius.circular(24),
             ),
-            child: const Icon(Icons.chat_bubble_rounded,
-                color: Colors.white, size: 48),
+            child: const Icon(
+              Icons.chat_bubble_rounded,
+              color: Colors.white,
+              size: 48,
+            ),
           ),
           const SizedBox(height: 32),
-          const Text('欢迎使用 SoulTalk',
-              style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+          const Text(
+            '欢迎使用 SoulTalk',
+            style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 16),
           const Text(
             'AI 驱动的虚拟社交世界 — SoulTalk',
@@ -238,7 +255,11 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
             style: TextStyle(fontSize: 14, color: WeChatColors.textHint),
           ),
           const SizedBox(height: 32),
-          _buildFeatureRow(Icons.api, '配置 LLM API', '支持 OpenAI、Anthropic 及兼容服务'),
+          _buildFeatureRow(
+            Icons.api,
+            '配置 LLM API',
+            '支持 OpenAI、Anthropic 及兼容服务',
+          ),
           const SizedBox(height: 12),
           _buildFeatureRow(Icons.person_add, '创建 AI 角色', '定义性格、人设，打造专属聊天伙伴'),
           const SizedBox(height: 12),
@@ -257,12 +278,20 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title,
-                  style: const TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w600)),
-              Text(subtitle,
-                  style: const TextStyle(
-                      fontSize: 12, color: WeChatColors.textSecondary)),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: WeChatColors.textSecondary,
+                ),
+              ),
             ],
           ),
         ),
@@ -278,25 +307,34 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('配置 API',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          const Text(
+            '配置 API',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 4),
-          const Text('连接 AI 服务以开始聊天',
-              style:
-                  TextStyle(fontSize: 14, color: WeChatColors.textSecondary)),
+          const Text(
+            '连接 AI 服务以开始聊天',
+            style: TextStyle(fontSize: 14, color: WeChatColors.textSecondary),
+          ),
           const SizedBox(height: 20),
           TextField(
             controller: _apiNameCtrl,
-            decoration:
-                const InputDecoration(labelText: '配置名称', hintText: 'My API'),
+            decoration: const InputDecoration(
+              labelText: '配置名称',
+              hintText: 'My API',
+            ),
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<LlmProvider>(
             initialValue: _apiProvider,
             decoration: const InputDecoration(labelText: '提供商'),
             items: LlmProvider.values
-                .map((p) => DropdownMenuItem(
-                    value: p, child: Text(p.name.toUpperCase())))
+                .map(
+                  (p) => DropdownMenuItem(
+                    value: p,
+                    child: Text(p.name.toUpperCase()),
+                  ),
+                )
                 .toList(),
             onChanged: (p) {
               if (p == null) return;
@@ -344,20 +382,20 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                       )
                     : DropdownButtonFormField<String>(
                         key: ValueKey(_availableModels.join(',')),
-                        initialValue: _apiModelCtrl.text.isNotEmpty &&
+                        initialValue:
+                            _apiModelCtrl.text.isNotEmpty &&
                                 _availableModels.contains(_apiModelCtrl.text)
                             ? _apiModelCtrl.text
                             : _availableModels.first,
                         decoration: const InputDecoration(labelText: '模型'),
                         isExpanded: true,
                         items: _availableModels
-                            .map((m) => DropdownMenuItem(
-                                  value: m,
-                                  child: Text(
-                                    m,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ))
+                            .map(
+                              (m) => DropdownMenuItem(
+                                value: m,
+                                child: Text(m, overflow: TextOverflow.ellipsis),
+                              ),
+                            )
                             .toList(),
                         onChanged: (v) {
                           if (v != null) setState(() => _apiModelCtrl.text = v);
@@ -398,8 +436,8 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                   ? const SizedBox(
                       width: 16,
                       height: 16,
-                      child:
-                          CircularProgressIndicator(strokeWidth: 2))
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
                   : const Icon(Icons.wifi_find, size: 18),
               label: Text(_apiTesting ? '测试中...' : '测试连接'),
               onPressed: _apiTesting ? null : _testApiConnection,
@@ -434,16 +472,18 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       _apiTestResult = null;
     });
     try {
-      final dio = Dio(BaseOptions(
+      final dio = Dio(
+        BaseOptions(
           connectTimeout: const Duration(seconds: 10),
-          receiveTimeout: const Duration(seconds: 10)));
+          receiveTimeout: const Duration(seconds: 10),
+        ),
+      );
       if (_apiProvider == LlmProvider.anthropic) {
         await dio.get(
           '${_apiUrlCtrl.text.trim().isEmpty ? _defaultBaseUrl : _apiUrlCtrl.text.trim()}/v1/models',
-          options: Options(headers: {
-            'x-api-key': key,
-            'anthropic-version': '2023-06-01',
-          }),
+          options: Options(
+            headers: {'x-api-key': key, 'anthropic-version': '2023-06-01'},
+          ),
         );
       } else {
         await dio.get(
@@ -480,29 +520,28 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     });
 
     try {
-      final dio = Dio(BaseOptions(
-        connectTimeout: const Duration(seconds: 15),
-        receiveTimeout: const Duration(seconds: 15),
-      ));
+      final dio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 15),
+          receiveTimeout: const Duration(seconds: 15),
+        ),
+      );
 
       List<String> models;
 
       if (_apiProvider == LlmProvider.anthropic) {
         final resp = await dio.get(
           '$baseUrl/v1/models',
-          options: Options(headers: {
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-          }),
+          options: Options(
+            headers: {'x-api-key': apiKey, 'anthropic-version': '2023-06-01'},
+          ),
         );
         final list = (resp.data['data'] as List?) ?? [];
         models = list.map((m) => m['id'] as String).toList()..sort();
       } else {
         final resp = await dio.get(
           '$baseUrl/models',
-          options: Options(headers: {
-            'Authorization': 'Bearer $apiKey',
-          }),
+          options: Options(headers: {'Authorization': 'Bearer $apiKey'}),
         );
         final list = (resp.data['data'] as List?) ?? [];
         models = list.map((m) => m['id'] as String).toList()..sort();
@@ -550,7 +589,9 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     final existing = ref.read(apiConfigProvider).value ?? [];
     final config = ApiConfig(
       id: '',
-      name: _apiNameCtrl.text.trim().isEmpty ? 'My API' : _apiNameCtrl.text.trim(),
+      name: _apiNameCtrl.text.trim().isEmpty
+          ? 'My API'
+          : _apiNameCtrl.text.trim(),
       provider: _apiProvider,
       baseUrl: _apiUrlCtrl.text.trim().isEmpty
           ? _defaultBaseUrl
@@ -576,12 +617,15 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('创建你的第一个 AI 角色',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          const Text(
+            '创建你的第一个 AI 角色',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 4),
-          const Text('选择一个模板或自定义角色设定',
-              style:
-                  TextStyle(fontSize: 14, color: WeChatColors.textSecondary)),
+          const Text(
+            '选择一个模板或自定义角色设定',
+            style: TextStyle(fontSize: 14, color: WeChatColors.textSecondary),
+          ),
           const SizedBox(height: 16),
           // Template chips
           Wrap(
@@ -612,8 +656,10 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
           const SizedBox(height: 16),
           TextField(
             controller: _charNameCtrl,
-            decoration:
-                const InputDecoration(labelText: '角色名称', hintText: '给 AI 起个名字'),
+            decoration: const InputDecoration(
+              labelText: '角色名称',
+              hintText: '给 AI 起个名字',
+            ),
           ),
           const SizedBox(height: 12),
           TextField(
@@ -621,7 +667,8 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
             maxLines: 6,
             decoration: const InputDecoration(
               labelText: '角色设定（系统提示词）',
-              hintText: '描述 AI 的性格、说话方式、背景故事...\n\n'
+              hintText:
+                  '描述 AI 的性格、说话方式、背景故事...\n\n'
                   '示例：你是一个温柔体贴的朋友，喜欢分享日常...',
               alignLabelWithHint: true,
               border: OutlineInputBorder(),
@@ -663,11 +710,16 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.check_circle_rounded,
-              color: WeChatColors.primary, size: 80),
+          const Icon(
+            Icons.check_circle_rounded,
+            color: WeChatColors.primary,
+            size: 80,
+          ),
           const SizedBox(height: 24),
-          const Text('一切就绪！',
-              style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+          const Text(
+            '一切就绪！',
+            style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 12),
           const Text(
             '你已经配置好了 API 和 AI 角色',

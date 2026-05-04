@@ -24,8 +24,12 @@ class CartDao {
 
   Future<void> updateQuantity(String id, int quantity) async {
     final db = await _db.database;
-    await db.update('cart_items', {'quantity': quantity},
-        where: 'id = ?', whereArgs: [id]);
+    await db.update(
+      'cart_items',
+      {'quantity': quantity},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   Future<void> delete(String id) async {

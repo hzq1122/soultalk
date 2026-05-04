@@ -25,10 +25,13 @@ class BackupEncryption {
     final ivBytes = iv.bytes;
     final cipherBytes = encrypted.bytes;
     final result = Uint8List(
-        saltBytes.length + ivBytes.length + cipherBytes.length);
+      saltBytes.length + ivBytes.length + cipherBytes.length,
+    );
     var offset = 0;
-    result.setAll(offset, saltBytes); offset += saltBytes.length;
-    result.setAll(offset, ivBytes); offset += ivBytes.length;
+    result.setAll(offset, saltBytes);
+    offset += saltBytes.length;
+    result.setAll(offset, ivBytes);
+    offset += ivBytes.length;
     result.setAll(offset, cipherBytes);
     return result;
   }
@@ -40,8 +43,7 @@ class BackupEncryption {
     }
 
     final saltBytes = encryptedData.sublist(0, _saltLength);
-    final ivBytes = encryptedData.sublist(
-        _saltLength, _saltLength + _ivLength);
+    final ivBytes = encryptedData.sublist(_saltLength, _saltLength + _ivLength);
     final cipherBytes = encryptedData.sublist(_saltLength + _ivLength);
 
     final keyBytes = _deriveKey(password, saltBytes);
@@ -50,8 +52,9 @@ class BackupEncryption {
 
     final encrypter = enc.Encrypter(enc.AES(key, mode: enc.AESMode.cbc));
     final decrypted = encrypter.decryptBytes(
-        enc.Encrypted(Uint8List.fromList(cipherBytes)),
-        iv: iv);
+      enc.Encrypted(Uint8List.fromList(cipherBytes)),
+      iv: iv,
+    );
 
     return Uint8List.fromList(decrypted);
   }

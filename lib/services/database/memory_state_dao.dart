@@ -9,18 +9,22 @@ class MemoryStateDao {
 
   Future<List<MemoryState>> getByContact(String contactId) async {
     final db = await _db.database;
-    final rows = await db.query('memory_states',
-        where: 'contact_id = ? AND status = ?',
-        whereArgs: [contactId, 'active'],
-        orderBy: 'slot_name ASC');
+    final rows = await db.query(
+      'memory_states',
+      where: 'contact_id = ? AND status = ?',
+      whereArgs: [contactId, 'active'],
+      orderBy: 'slot_name ASC',
+    );
     return rows.map(MemoryState.fromDbMap).toList();
   }
 
   Future<void> upsert(MemoryState state) async {
     final db = await _db.database;
-    final existing = await db.query('memory_states',
-        where: 'contact_id = ? AND slot_name = ?',
-        whereArgs: [state.contactId, state.slotName]);
+    final existing = await db.query(
+      'memory_states',
+      where: 'contact_id = ? AND slot_name = ?',
+      whereArgs: [state.contactId, state.slotName],
+    );
     if (existing.isNotEmpty) {
       await db.update(
         'memory_states',

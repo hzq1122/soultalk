@@ -19,25 +19,41 @@ class WalletNotifier extends AsyncNotifier<List<WalletTransaction>> {
     _updateBalance((b) => b + amount);
   }
 
-  Future<void> spend(double amount, String description,
-      {String? contactId, String? contactName}) async {
-    await _addTransaction(amount, 'spend', description,
-        contactId: contactId, contactName: contactName);
+  Future<void> spend(
+    double amount,
+    String description, {
+    String? contactId,
+    String? contactName,
+  }) async {
+    await _addTransaction(
+      amount,
+      'spend',
+      description,
+      contactId: contactId,
+      contactName: contactName,
+    );
     _updateBalance((b) => b - amount);
   }
 
   Future<void> setCustomBalance(double newBalance) async {
-    final oldBalance =
-        ref.read(settingsProvider).value?.walletBalance ?? 0;
+    final oldBalance = ref.read(settingsProvider).value?.walletBalance ?? 0;
     final diff = newBalance - oldBalance;
     final type = diff >= 0 ? 'recharge' : 'spend';
     await _addTransaction(
-        diff.abs(), type, '手动调整余额 (总 ¥${newBalance.toStringAsFixed(2)})');
+      diff.abs(),
+      type,
+      '手动调整余额 (总 ¥${newBalance.toStringAsFixed(2)})',
+    );
     _updateBalance((_) => newBalance);
   }
 
-  Future<void> _addTransaction(double amount, String type, String description,
-      {String? contactId, String? contactName}) async {
+  Future<void> _addTransaction(
+    double amount,
+    String type,
+    String description, {
+    String? contactId,
+    String? contactName,
+  }) async {
     final tx = WalletTransaction(
       id: const Uuid().v4(),
       amount: amount,
@@ -63,5 +79,7 @@ class WalletNotifier extends AsyncNotifier<List<WalletTransaction>> {
   }
 }
 
-final walletProvider = AsyncNotifierProvider<WalletNotifier, List<WalletTransaction>>(
-    WalletNotifier.new);
+final walletProvider =
+    AsyncNotifierProvider<WalletNotifier, List<WalletTransaction>>(
+      WalletNotifier.new,
+    );

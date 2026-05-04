@@ -57,11 +57,16 @@ class ChatListPage extends ConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.chat_bubble_outline,
-              size: 64, color: WeChatColors.textHint),
+          const Icon(
+            Icons.chat_bubble_outline,
+            size: 64,
+            color: WeChatColors.textHint,
+          ),
           const SizedBox(height: 12),
-          const Text('暂无会话',
-              style: TextStyle(color: WeChatColors.textSecondary)),
+          const Text(
+            '暂无会话',
+            style: TextStyle(color: WeChatColors.textSecondary),
+          ),
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: () => context.go('/contacts'),
@@ -125,11 +130,13 @@ class _ConversationTile extends ConsumerWidget {
             content: Text('确定删除与 ${contact.name} 的会话记录？'),
             actions: [
               TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(false),
-                  child: const Text('取消')),
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('取消'),
+              ),
               TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(true),
-                  child: const Text('删除', style: TextStyle(color: Colors.red))),
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text('删除', style: TextStyle(color: Colors.red)),
+              ),
             ],
           ),
         );
@@ -155,7 +162,11 @@ class _ConversationTile extends ConsumerWidget {
               if (contact.pinned)
                 const Padding(
                   padding: EdgeInsets.only(left: 4),
-                  child: Icon(Icons.push_pin, size: 14, color: WeChatColors.textHint),
+                  child: Icon(
+                    Icons.push_pin,
+                    size: 14,
+                    color: WeChatColors.textHint,
+                  ),
                 )
               else
                 const SizedBox(width: 10),
@@ -173,8 +184,10 @@ class _ConversationTile extends ConsumerWidget {
                           color: WeChatColors.unreadBadge,
                           shape: BoxShape.circle,
                         ),
-                        constraints:
-                            const BoxConstraints(minWidth: 16, minHeight: 16),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
                         child: Text(
                           contact.unreadCount > 99
                               ? '99+'
@@ -196,7 +209,10 @@ class _ConversationTile extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   decoration: const BoxDecoration(
                     border: Border(
-                      bottom: BorderSide(color: WeChatColors.divider, width: 0.5),
+                      bottom: BorderSide(
+                        color: WeChatColors.divider,
+                        width: 0.5,
+                      ),
                     ),
                   ),
                   child: Row(

@@ -39,14 +39,14 @@ class MemoryService {
     this._stateDao,
     this._cardDao, {
     PlatformConfig? config,
-  })  : _stateRenderer = StateRenderer(config),
-        _stateInjector = const StateInjector(),
-        _retrievalGate = RetrievalGate(config: config),
-        _cardRetriever = CardRetriever(_cardDao, config),
-        _cardInjector = const CardInjector(),
-        _stateFiller = StateFiller(_stateDao),
-        _cardExtractor = CardExtractor(),
-        _reviewPolicy = ReviewPolicy(config);
+  }) : _stateRenderer = StateRenderer(config),
+       _stateInjector = const StateInjector(),
+       _retrievalGate = RetrievalGate(config: config),
+       _cardRetriever = CardRetriever(_cardDao, config),
+       _cardInjector = const CardInjector(),
+       _stateFiller = StateFiller(_stateDao),
+       _cardExtractor = CardExtractor(),
+       _reviewPolicy = ReviewPolicy(config);
 
   // ── Pipeline: before request ─────────────────────────────────────
 
@@ -118,10 +118,16 @@ class MemoryService {
     required String aiResponse,
   }) async {
     // 1. Fill state board from AI response
-    final updatedStates = await _stateFiller.fillFromResponse(contactId, aiResponse);
+    final updatedStates = await _stateFiller.fillFromResponse(
+      contactId,
+      aiResponse,
+    );
 
     // 2. Extract candidate memory cards
-    final candidates = await _cardExtractor.extractFromResponse(contactId, aiResponse);
+    final candidates = await _cardExtractor.extractFromResponse(
+      contactId,
+      aiResponse,
+    );
 
     // 3. Review and insert
     var approvedCount = 0;
@@ -132,7 +138,9 @@ class MemoryService {
       final action = _reviewPolicy.review(card);
       switch (action) {
         case ReviewAction.approve:
-          await _cardDao.insert(card.copyWith(status: 'active', reviewedAt: DateTime.now()));
+          await _cardDao.insert(
+            card.copyWith(status: 'active', reviewedAt: DateTime.now()),
+          );
           approvedCount++;
         case ReviewAction.pending:
           await _cardDao.insert(card);
@@ -181,7 +189,8 @@ class MemoryService {
   }
 
   Future<void> deleteMemory(String id) => _memoryDao.delete(id);
-  Future<void> clearMemories(String contactId) => _memoryDao.deleteByContact(contactId);
+  Future<void> clearMemories(String contactId) =>
+      _memoryDao.deleteByContact(contactId);
 }
 
 /// Result from [MemoryService.beforeRequest].
@@ -223,7 +232,77 @@ List<String> _extractKeywords(String userText, List<MemoryState> states) {
   final keywords = <String>{};
 
   // Simple keyword extraction: split by common delimiters, filter short/noise words
-  final noise = {'的', '了', '是', '在', '我', '你', '他', '她', '它', '们', '这', '那', '和', '与', '或', '吗', '呢', '吧', '啊', '哦', '嗯', '哈', '都', '也', '就', '要', '会', '能', '不', '很', '想', '说', '去', '来', '有', '看', '让', '把', '被', '对', '从', '到', '为', '以', '可', '没', '做', '知道', '觉得', '什么', '怎么', '为什么', '哪里', '可以', '应该', '如果', '因为', '所以', '但是', '虽然', '不过', '然后', '还有', '一个', '这个', '那个', '我的', '你的', '他的'};
+  final noise = {
+    '的',
+    '了',
+    '是',
+    '在',
+    '我',
+    '你',
+    '他',
+    '她',
+    '它',
+    '们',
+    '这',
+    '那',
+    '和',
+    '与',
+    '或',
+    '吗',
+    '呢',
+    '吧',
+    '啊',
+    '哦',
+    '嗯',
+    '哈',
+    '都',
+    '也',
+    '就',
+    '要',
+    '会',
+    '能',
+    '不',
+    '很',
+    '想',
+    '说',
+    '去',
+    '来',
+    '有',
+    '看',
+    '让',
+    '把',
+    '被',
+    '对',
+    '从',
+    '到',
+    '为',
+    '以',
+    '可',
+    '没',
+    '做',
+    '知道',
+    '觉得',
+    '什么',
+    '怎么',
+    '为什么',
+    '哪里',
+    '可以',
+    '应该',
+    '如果',
+    '因为',
+    '所以',
+    '但是',
+    '虽然',
+    '不过',
+    '然后',
+    '还有',
+    '一个',
+    '这个',
+    '那个',
+    '我的',
+    '你的',
+    '他的',
+  };
 
   // Extract from user text
   final splitPattern = RegExp(r'[^\w一-鿿]+');

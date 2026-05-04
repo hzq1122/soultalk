@@ -17,7 +17,8 @@ class MomentsNotifier extends AsyncNotifier<List<Moment>> {
   Future<void> refresh() async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(
-        () => ref.read(momentsServiceProvider).getAllMoments(limit: 50));
+      () => ref.read(momentsServiceProvider).getAllMoments(limit: 50),
+    );
   }
 
   Future<void> toggleLike(String momentId) async {
@@ -25,8 +26,7 @@ class MomentsNotifier extends AsyncNotifier<List<Moment>> {
     await refresh();
   }
 
-  Future<void> addComment(
-      String momentId, MomentComment comment) async {
+  Future<void> addComment(String momentId, MomentComment comment) async {
     await ref.read(momentsServiceProvider).addComment(momentId, comment);
     await refresh();
   }
@@ -37,5 +37,6 @@ class MomentsNotifier extends AsyncNotifier<List<Moment>> {
   }
 }
 
-final momentsProvider =
-    AsyncNotifierProvider<MomentsNotifier, List<Moment>>(MomentsNotifier.new);
+final momentsProvider = AsyncNotifierProvider<MomentsNotifier, List<Moment>>(
+  MomentsNotifier.new,
+);

@@ -34,15 +34,14 @@ class ContactsNotifier extends AsyncNotifier<List<Contact>> {
   Future<void> remove(String id) async {
     final service = ref.read(chatServiceProvider);
     await service.deleteContact(id);
-    state = AsyncData(
-      state.value?.where((c) => c.id != id).toList() ?? [],
-    );
+    state = AsyncData(state.value?.where((c) => c.id != id).toList() ?? []);
   }
 
   Future<void> refresh() async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(
-        () => ref.read(chatServiceProvider).getContacts());
+      () => ref.read(chatServiceProvider).getContacts(),
+    );
   }
 
   /// 更新单个联系人（用于未读计数、最后消息等）
@@ -75,9 +74,9 @@ class ContactsNotifier extends AsyncNotifier<List<Contact>> {
   }
 }
 
-final contactsProvider =
-    AsyncNotifierProvider<ContactsNotifier, List<Contact>>(
-        ContactsNotifier.new);
+final contactsProvider = AsyncNotifierProvider<ContactsNotifier, List<Contact>>(
+  ContactsNotifier.new,
+);
 
 // ─── 搜索联系人 Provider ──────────────────────────────────────────────────────
 
@@ -89,10 +88,14 @@ final filteredContactsProvider = Provider<AsyncValue<List<Contact>>>((ref) {
 
   if (query.isEmpty) return contacts;
 
-  return contacts.whenData((list) => list
-      .where((c) =>
-          c.name.toLowerCase().contains(query.toLowerCase()) ||
-          c.description.toLowerCase().contains(query.toLowerCase()) ||
-          c.tags.any((t) => t.toLowerCase().contains(query.toLowerCase())))
-      .toList());
+  return contacts.whenData(
+    (list) => list
+        .where(
+          (c) =>
+              c.name.toLowerCase().contains(query.toLowerCase()) ||
+              c.description.toLowerCase().contains(query.toLowerCase()) ||
+              c.tags.any((t) => t.toLowerCase().contains(query.toLowerCase())),
+        )
+        .toList(),
+  );
 });

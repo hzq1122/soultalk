@@ -48,7 +48,9 @@ class ApiSettingsPage extends ConsumerWidget {
                 onEdit: () => _showConfigDialog(context, ref, configs[index]),
                 onDelete: () => _deleteConfig(context, ref, configs[index]),
                 onCheckBalance: () {
-                  ref.read(balanceProvider(configs[index].id).notifier).refresh(configs[index]);
+                  ref
+                      .read(balanceProvider(configs[index].id).notifier)
+                      .refresh(configs[index]);
                 },
               );
             },
@@ -65,8 +67,10 @@ class ApiSettingsPage extends ConsumerWidget {
         children: [
           const Icon(Icons.api, size: 64, color: WeChatColors.textHint),
           const SizedBox(height: 12),
-          const Text('还没有 API 配置',
-              style: TextStyle(color: WeChatColors.textSecondary)),
+          const Text(
+            '还没有 API 配置',
+            style: TextStyle(color: WeChatColors.textSecondary),
+          ),
           const SizedBox(height: 16),
           ElevatedButton.icon(
             icon: const Icon(Icons.add),
@@ -79,7 +83,10 @@ class ApiSettingsPage extends ConsumerWidget {
   }
 
   Future<void> _showConfigDialog(
-      BuildContext context, WidgetRef ref, ApiConfig? existing) async {
+    BuildContext context,
+    WidgetRef ref,
+    ApiConfig? existing,
+  ) async {
     final result = await showDialog<ApiConfig>(
       context: context,
       builder: (ctx) => _ConfigDialog(existing: existing),
@@ -94,7 +101,10 @@ class ApiSettingsPage extends ConsumerWidget {
   }
 
   Future<void> _deleteConfig(
-      BuildContext context, WidgetRef ref, ApiConfig config) async {
+    BuildContext context,
+    WidgetRef ref,
+    ApiConfig config,
+  ) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -102,12 +112,13 @@ class ApiSettingsPage extends ConsumerWidget {
         content: Text('确定删除 "${config.name}"？'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('取消')),
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('取消'),
+          ),
           TextButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child:
-                  const Text('删除', style: TextStyle(color: Colors.red))),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('删除', style: TextStyle(color: Colors.red)),
+          ),
         ],
       ),
     );
@@ -150,12 +161,25 @@ class _ConfigTile extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.account_balance_wallet_outlined, size: 20),
+                  icon: const Icon(
+                    Icons.account_balance_wallet_outlined,
+                    size: 20,
+                  ),
                   tooltip: '查询余额',
                   onPressed: onCheckBalance,
                 ),
-                IconButton(icon: const Icon(Icons.edit_outlined, size: 20), onPressed: onEdit),
-                IconButton(icon: const Icon(Icons.delete_outlined, size: 20, color: Colors.red), onPressed: onDelete),
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, size: 20),
+                  onPressed: onEdit,
+                ),
+                IconButton(
+                  icon: const Icon(
+                    Icons.delete_outlined,
+                    size: 20,
+                    color: Colors.red,
+                  ),
+                  onPressed: onDelete,
+                ),
               ],
             ),
           ),
@@ -170,33 +194,53 @@ class _ConfigTile extends StatelessWidget {
     return balanceAsync.when(
       loading: () => const Padding(
         padding: EdgeInsets.only(bottom: 8),
-        child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+        child: SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
       ),
       error: (e, _) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
-        child: Text('查询失败', style: TextStyle(fontSize: 11, color: Colors.red.shade400)),
+        child: Text(
+          '查询失败',
+          style: TextStyle(fontSize: 11, color: Colors.red.shade400),
+        ),
       ),
       data: (balance) {
         if (balance == null) return const SizedBox.shrink();
         if (!balance.hasData) {
           return Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: Text('暂无余额数据', style: const TextStyle(fontSize: 11, color: WeChatColors.textHint)),
+            child: Text(
+              '暂无余额数据',
+              style: const TextStyle(
+                fontSize: 11,
+                color: WeChatColors.textHint,
+              ),
+            ),
           );
         }
-        final isLow = balance.remaining != null && balance.total != null && balance.remaining! / balance.total! < 0.2;
+        final isLow =
+            balance.remaining != null &&
+            balance.total != null &&
+            balance.remaining! / balance.total! < 0.2;
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 16),
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: isLow ? Colors.red.shade50 : Colors.green.shade50,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: isLow ? Colors.red.shade200 : Colors.green.shade200),
+            border: Border.all(
+              color: isLow ? Colors.red.shade200 : Colors.green.shade200,
+            ),
           ),
           child: Row(
             children: [
               Icon(
-                isLow ? Icons.warning_amber_rounded : Icons.check_circle_outline,
+                isLow
+                    ? Icons.warning_amber_rounded
+                    : Icons.check_circle_outline,
                 size: 18,
                 color: isLow ? Colors.red : Colors.green,
               ),
@@ -204,11 +248,20 @@ class _ConfigTile extends StatelessWidget {
               Expanded(
                 child: Text(
                   _formatBalance(balance),
-                  style: TextStyle(fontSize: 11, color: isLow ? Colors.red.shade800 : Colors.green.shade800),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isLow ? Colors.red.shade800 : Colors.green.shade800,
+                  ),
                 ),
               ),
               if (balance.provider != null)
-                Text(balance.provider!, style: const TextStyle(fontSize: 10, color: WeChatColors.textHint)),
+                Text(
+                  balance.provider!,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: WeChatColors.textHint,
+                  ),
+                ),
             ],
           ),
         );
@@ -218,9 +271,12 @@ class _ConfigTile extends StatelessWidget {
 
   String _formatBalance(BalanceInfo b) {
     final parts = <String>[];
-    if (b.remaining != null) parts.add('剩余: ${b.remaining!.toStringAsFixed(2)} ${b.unit ?? ''}');
-    if (b.total != null) parts.add('总额: ${b.total!.toStringAsFixed(2)} ${b.unit ?? ''}');
-    if (b.used != null) parts.add('已用: ${b.used!.toStringAsFixed(2)} ${b.unit ?? ''}');
+    if (b.remaining != null)
+      parts.add('剩余: ${b.remaining!.toStringAsFixed(2)} ${b.unit ?? ''}');
+    if (b.total != null)
+      parts.add('总额: ${b.total!.toStringAsFixed(2)} ${b.unit ?? ''}');
+    if (b.used != null)
+      parts.add('已用: ${b.used!.toStringAsFixed(2)} ${b.unit ?? ''}');
     return parts.join(' · ');
   }
 
@@ -238,9 +294,14 @@ class _ConfigTile extends StatelessWidget {
     return CircleAvatar(
       backgroundColor: color,
       radius: 20,
-      child: Text(label,
-          style: const TextStyle(
-              color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
     );
   }
 }
@@ -254,16 +315,19 @@ class _ConfigDialog extends StatefulWidget {
 }
 
 class _ConfigDialogState extends State<_ConfigDialog> {
-  late final _nameCtrl =
-      TextEditingController(text: widget.existing?.name ?? '');
-  late final _baseUrlCtrl =
-      TextEditingController(text: widget.existing?.baseUrl ?? '');
-  late final _apiKeyCtrl =
-      TextEditingController(text: widget.existing?.apiKey ?? '');
-  late final _modelCtrl =
-      TextEditingController(text: widget.existing?.model ?? 'gpt-4o-mini');
-  late LlmProvider _provider =
-      widget.existing?.provider ?? LlmProvider.openai;
+  late final _nameCtrl = TextEditingController(
+    text: widget.existing?.name ?? '',
+  );
+  late final _baseUrlCtrl = TextEditingController(
+    text: widget.existing?.baseUrl ?? '',
+  );
+  late final _apiKeyCtrl = TextEditingController(
+    text: widget.existing?.apiKey ?? '',
+  );
+  late final _modelCtrl = TextEditingController(
+    text: widget.existing?.model ?? 'gpt-4o-mini',
+  );
+  late LlmProvider _provider = widget.existing?.provider ?? LlmProvider.openai;
   bool _showKey = false;
 
   // 模型列表相关状态
@@ -281,10 +345,10 @@ class _ConfigDialogState extends State<_ConfigDialog> {
   }
 
   String get _defaultBaseUrl => switch (_provider) {
-        LlmProvider.openai => 'https://api.openai.com/v1',
-        LlmProvider.anthropic => 'https://api.anthropic.com',
-        LlmProvider.custom => '',
-      };
+    LlmProvider.openai => 'https://api.openai.com/v1',
+    LlmProvider.anthropic => 'https://api.anthropic.com',
+    LlmProvider.custom => '',
+  };
 
   /// 向 API 站点请求可用模型列表
   Future<void> _fetchModels() async {
@@ -294,9 +358,9 @@ class _ConfigDialogState extends State<_ConfigDialog> {
     final apiKey = _apiKeyCtrl.text.trim();
 
     if (apiKey.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先填写 API Key')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请先填写 API Key')));
       return;
     }
 
@@ -306,10 +370,12 @@ class _ConfigDialogState extends State<_ConfigDialog> {
     });
 
     try {
-      final dio = Dio(BaseOptions(
-        connectTimeout: const Duration(seconds: 15),
-        receiveTimeout: const Duration(seconds: 15),
-      ));
+      final dio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 15),
+          receiveTimeout: const Duration(seconds: 15),
+        ),
+      );
 
       List<String> models;
 
@@ -317,29 +383,20 @@ class _ConfigDialogState extends State<_ConfigDialog> {
         // Anthropic: GET {baseUrl}/v1/models
         final resp = await dio.get(
           '$baseUrl/v1/models',
-          options: Options(headers: {
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-          }),
+          options: Options(
+            headers: {'x-api-key': apiKey, 'anthropic-version': '2023-06-01'},
+          ),
         );
         final list = (resp.data['data'] as List?) ?? [];
-        models = list
-            .map((m) => m['id'] as String)
-            .toList()
-          ..sort();
+        models = list.map((m) => m['id'] as String).toList()..sort();
       } else {
         // OpenAI 兼容协议: GET {baseUrl}/models
         final resp = await dio.get(
           '$baseUrl/models',
-          options: Options(headers: {
-            'Authorization': 'Bearer $apiKey',
-          }),
+          options: Options(headers: {'Authorization': 'Bearer $apiKey'}),
         );
         final list = (resp.data['data'] as List?) ?? [];
-        models = list
-            .map((m) => m['id'] as String)
-            .toList()
-          ..sort();
+        models = list.map((m) => m['id'] as String).toList()..sort();
       }
 
       if (!mounted) return;
@@ -384,8 +441,7 @@ class _ConfigDialogState extends State<_ConfigDialog> {
     final dropdownModels = {
       ..._availableModels,
       if (_modelCtrl.text.isNotEmpty) _modelCtrl.text,
-    }.toList()
-      ..sort();
+    }.toList()..sort();
 
     return AlertDialog(
       title: Text(widget.existing == null ? '添加 API 配置' : '编辑 API 配置'),
@@ -398,8 +454,10 @@ class _ConfigDialogState extends State<_ConfigDialog> {
             // 名称
             TextField(
               controller: _nameCtrl,
-              decoration:
-                  const InputDecoration(labelText: '名称', hintText: 'My API'),
+              decoration: const InputDecoration(
+                labelText: '名称',
+                hintText: 'My API',
+              ),
             ),
             const SizedBox(height: 12),
             // Provider
@@ -407,10 +465,12 @@ class _ConfigDialogState extends State<_ConfigDialog> {
               initialValue: _provider,
               decoration: const InputDecoration(labelText: '类型'),
               items: LlmProvider.values
-                  .map((p) => DropdownMenuItem(
-                        value: p,
-                        child: Text(p.name.toUpperCase()),
-                      ))
+                  .map(
+                    (p) => DropdownMenuItem(
+                      value: p,
+                      child: Text(p.name.toUpperCase()),
+                    ),
+                  )
                   .toList(),
               onChanged: (p) {
                 if (p == null) return;
@@ -444,7 +504,8 @@ class _ConfigDialogState extends State<_ConfigDialog> {
                 hintText: 'sk-...',
                 suffixIcon: IconButton(
                   icon: Icon(
-                      _showKey ? Icons.visibility_off : Icons.visibility),
+                    _showKey ? Icons.visibility_off : Icons.visibility,
+                  ),
                   onPressed: () => setState(() => _showKey = !_showKey),
                 ),
               ),
@@ -469,20 +530,23 @@ class _ConfigDialogState extends State<_ConfigDialog> {
                       // 已获取时：下拉选择
                       : DropdownButtonFormField<String>(
                           key: ValueKey(_availableModels.join(',')),
-                          initialValue: _modelCtrl.text.isNotEmpty &&
+                          initialValue:
+                              _modelCtrl.text.isNotEmpty &&
                                   dropdownModels.contains(_modelCtrl.text)
                               ? _modelCtrl.text
                               : dropdownModels.first,
                           decoration: const InputDecoration(labelText: '模型'),
                           isExpanded: true,
                           items: dropdownModels
-                              .map((m) => DropdownMenuItem(
-                                    value: m,
-                                    child: Text(
-                                      m,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ))
+                              .map(
+                                (m) => DropdownMenuItem(
+                                  value: m,
+                                  child: Text(
+                                    m,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              )
                               .toList(),
                           onChanged: (v) {
                             if (v != null) {
@@ -522,14 +586,16 @@ class _ConfigDialogState extends State<_ConfigDialog> {
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('取消')),
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
         ElevatedButton(
           onPressed: () {
             if (_nameCtrl.text.trim().isEmpty ||
                 _apiKeyCtrl.text.trim().isEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('名称和 API Key 不能为空')));
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('名称和 API Key 不能为空')));
               return;
             }
             final config = ApiConfig(

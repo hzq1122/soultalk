@@ -49,7 +49,8 @@ class AutoBackupService {
       final hashes = <String>[];
       for (final table in tables) {
         final count = Sqflite.firstIntValue(
-            await db.rawQuery('SELECT COUNT(*) FROM $table'));
+          await db.rawQuery('SELECT COUNT(*) FROM $table'),
+        );
         hashes.add('$table:$count');
       }
       final currentHash = hashes.join('|');
@@ -78,16 +79,19 @@ class AutoBackupService {
         final password = prefs.getString('auto_backup_webdav_password') ?? '';
         if (url.isNotEmpty && username.isNotEmpty) {
           storage = WebDavStorage(
-              WebDavConfig(url: url, username: username, password: password));
+            WebDavConfig(url: url, username: username, password: password),
+          );
         }
       } else if (cloudType == 's3') {
-        storage = S3Storage(S3Config(
-          endpoint: prefs.getString('auto_backup_s3_endpoint') ?? '',
-          region: prefs.getString('auto_backup_s3_region') ?? '',
-          accessKey: prefs.getString('auto_backup_s3_access_key') ?? '',
-          secretKey: prefs.getString('auto_backup_s3_secret_key') ?? '',
-          bucket: prefs.getString('auto_backup_s3_bucket') ?? '',
-        ));
+        storage = S3Storage(
+          S3Config(
+            endpoint: prefs.getString('auto_backup_s3_endpoint') ?? '',
+            region: prefs.getString('auto_backup_s3_region') ?? '',
+            accessKey: prefs.getString('auto_backup_s3_access_key') ?? '',
+            secretKey: prefs.getString('auto_backup_s3_secret_key') ?? '',
+            bucket: prefs.getString('auto_backup_s3_bucket') ?? '',
+          ),
+        );
       }
 
       if (storage != null) {
@@ -96,7 +100,9 @@ class AutoBackupService {
         if (success) {
           await prefs.setString('auto_backup_last_hash', currentHash);
           await prefs.setString(
-              'auto_backup_last_time', DateTime.now().toIso8601String());
+            'auto_backup_last_time',
+            DateTime.now().toIso8601String(),
+          );
         }
       }
     } catch (_) {}

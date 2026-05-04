@@ -9,18 +9,22 @@ class MemoryEntryDao {
 
   Future<List<MemoryEntry>> getByContact(String contactId) async {
     final db = await _db.database;
-    final rows = await db.query('memory_entries',
-        where: 'contact_id = ?',
-        whereArgs: [contactId],
-        orderBy: 'category ASC, key ASC');
+    final rows = await db.query(
+      'memory_entries',
+      where: 'contact_id = ?',
+      whereArgs: [contactId],
+      orderBy: 'category ASC, key ASC',
+    );
     return rows.map(MemoryEntry.fromDbMap).toList();
   }
 
   Future<void> upsert(MemoryEntry entry) async {
     final db = await _db.database;
-    final existing = await db.query('memory_entries',
-        where: 'contact_id = ? AND category = ? AND key = ?',
-        whereArgs: [entry.contactId, entry.category, entry.key]);
+    final existing = await db.query(
+      'memory_entries',
+      where: 'contact_id = ? AND category = ? AND key = ?',
+      whereArgs: [entry.contactId, entry.category, entry.key],
+    );
     if (existing.isNotEmpty) {
       await db.update(
         'memory_entries',
@@ -37,13 +41,18 @@ class MemoryEntryDao {
   Future<void> upsertAll(List<MemoryEntry> entries) async {
     final db = await _db.database;
     for (final entry in entries) {
-      final existing = await db.query('memory_entries',
-          where: 'contact_id = ? AND category = ? AND key = ?',
-          whereArgs: [entry.contactId, entry.category, entry.key]);
+      final existing = await db.query(
+        'memory_entries',
+        where: 'contact_id = ? AND category = ? AND key = ?',
+        whereArgs: [entry.contactId, entry.category, entry.key],
+      );
       if (existing.isNotEmpty) {
         await db.update(
           'memory_entries',
-          {'value': entry.value, 'updated_at': entry.updatedAt.toIso8601String()},
+          {
+            'value': entry.value,
+            'updated_at': entry.updatedAt.toIso8601String(),
+          },
           where: 'id = ?',
           whereArgs: [existing.first['id']],
         );
@@ -61,7 +70,10 @@ class MemoryEntryDao {
 
   Future<void> deleteByContact(String contactId) async {
     final db = await _db.database;
-    await db.delete('memory_entries',
-        where: 'contact_id = ?', whereArgs: [contactId]);
+    await db.delete(
+      'memory_entries',
+      where: 'contact_id = ?',
+      whereArgs: [contactId],
+    );
   }
 }

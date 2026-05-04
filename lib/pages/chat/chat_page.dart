@@ -19,11 +19,7 @@ class ChatPage extends ConsumerStatefulWidget {
   final String contactId;
   final Contact? contact;
 
-  const ChatPage({
-    super.key,
-    required this.contactId,
-    this.contact,
-  });
+  const ChatPage({super.key, required this.contactId, this.contact});
 
   @override
   ConsumerState<ChatPage> createState() => _ChatPageState();
@@ -82,58 +78,66 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       _hasReceivedFirstChunk = false;
     });
 
-    final messagesNotifier = ref.read(messagesProvider(widget.contactId).notifier);
+    final messagesNotifier = ref.read(
+      messagesProvider(widget.contactId).notifier,
+    );
 
     await TypingSimulator.simulateDelay(text);
     if (!mounted) return;
 
     // 保持 _isTyping = true，在 API 返回第一个 chunk 时再隐藏
 
-    ref.read(chatServiceProvider).sendMessage(
-      contact: contact,
-      userText: text,
-      onMessagesCreated: (userMsg, aiMsg) {
-        messagesNotifier.addMessage(userMsg);
-        messagesNotifier.addMessage(aiMsg);
-        _scrollToBottom(animated: true);
-      },
-      onAiChunk: (content, isDone) {
-        // 第一个 chunk 到达 → 隐藏"对方正在输入"状态
-        if (!_hasReceivedFirstChunk && mounted) {
-          setState(() => _hasReceivedFirstChunk = true);
-          _delayedHideTyping();
-        }
+    ref
+        .read(chatServiceProvider)
+        .sendMessage(
+          contact: contact,
+          userText: text,
+          onMessagesCreated: (userMsg, aiMsg) {
+            messagesNotifier.addMessage(userMsg);
+            messagesNotifier.addMessage(aiMsg);
+            _scrollToBottom(animated: true);
+          },
+          onAiChunk: (content, isDone) {
+            // 第一个 chunk 到达 → 隐藏"对方正在输入"状态
+            if (!_hasReceivedFirstChunk && mounted) {
+              setState(() => _hasReceivedFirstChunk = true);
+              _delayedHideTyping();
+            }
 
-        final msgs = ref.read(messagesProvider(widget.contactId)).value ?? [];
-        if (msgs.isNotEmpty) {
-          final lastMsg = msgs.last;
-          if (lastMsg.role == MessageRole.assistant) {
-            messagesNotifier.updateLastMessage(
-              lastMsg.id,
-              content,
-              isStreaming: !isDone,
-            );
-            _scrollToBottom(animated: false);
-          }
-        }
-        if (isDone) {
-          if (mounted) setState(() => _isSending = false);
-          ref.read(contactsProvider.notifier).refresh();
-        }
-      },
-      onError: (error) {
-        if (mounted) {
-          setState(() {
-            _isSending = false;
-            _isTyping = false;
-            _hasReceivedFirstChunk = true; // 隐藏 typing
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('发送失败: $error'), backgroundColor: Colors.red),
-          );
-        }
-      },
-    );
+            final msgs =
+                ref.read(messagesProvider(widget.contactId)).value ?? [];
+            if (msgs.isNotEmpty) {
+              final lastMsg = msgs.last;
+              if (lastMsg.role == MessageRole.assistant) {
+                messagesNotifier.updateLastMessage(
+                  lastMsg.id,
+                  content,
+                  isStreaming: !isDone,
+                );
+                _scrollToBottom(animated: false);
+              }
+            }
+            if (isDone) {
+              if (mounted) setState(() => _isSending = false);
+              ref.read(contactsProvider.notifier).refresh();
+            }
+          },
+          onError: (error) {
+            if (mounted) {
+              setState(() {
+                _isSending = false;
+                _isTyping = false;
+                _hasReceivedFirstChunk = true; // 隐藏 typing
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('发送失败: $error'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          },
+        );
   }
 
   /// 确保输入状态至少显示 3 秒
@@ -170,16 +174,16 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       // Recording started — in a full implementation, this would
       // start audio capture and stream to STT API.
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('开始录音...（再次点击停止）')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('开始录音...（再次点击停止）')));
       }
     } else {
       // Recording stopped — process audio through STT
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('录音已停止，正在识别...')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('录音已停止，正在识别...')));
       }
     }
   }
@@ -196,8 +200,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               ListTile(
                 leading: const Icon(Icons.undo, color: WeChatColors.primary),
                 title: const Text('撤回消息'),
-                subtitle: const Text('AI 会知道此消息被撤回',
-                    style: TextStyle(fontSize: 12, color: WeChatColors.textSecondary)),
+                subtitle: const Text(
+                  'AI 会知道此消息被撤回',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: WeChatColors.textSecondary,
+                  ),
+                ),
                 onTap: () {
                   ctx.pop();
                   ref
@@ -208,8 +217,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             ListTile(
               leading: const Icon(Icons.delete_outline, color: Colors.red),
               title: const Text('删除消息'),
-              subtitle: const Text('AI 不会知道此消息被删除',
-                  style: TextStyle(fontSize: 12, color: WeChatColors.textSecondary)),
+              subtitle: const Text(
+                'AI 不会知道此消息被删除',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: WeChatColors.textSecondary,
+                ),
+              ),
               onTap: () {
                 ctx.pop();
                 ref
@@ -224,8 +238,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   }
 
   Future<void> _sendImageMessage(Contact contact, String imagePath) async {
-    final messagesNotifier =
-        ref.read(messagesProvider(widget.contactId).notifier);
+    final messagesNotifier = ref.read(
+      messagesProvider(widget.contactId).notifier,
+    );
     final userMsg = Message(
       id: '',
       contactId: widget.contactId,
@@ -243,11 +258,16 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   }
 
   Future<void> _sendSpecialMessage(
-      Contact contact, String type, Map<String, dynamic> metadata) async {
-    final messagesNotifier =
-        ref.read(messagesProvider(widget.contactId).notifier);
-    final msgType =
-        type == 'transfer' ? MessageType.transfer : MessageType.delivery;
+    Contact contact,
+    String type,
+    Map<String, dynamic> metadata,
+  ) async {
+    final messagesNotifier = ref.read(
+      messagesProvider(widget.contactId).notifier,
+    );
+    final msgType = type == 'transfer'
+        ? MessageType.transfer
+        : MessageType.delivery;
     String content;
     if (type == 'transfer') {
       content = '¥${metadata['amount']}';
@@ -274,8 +294,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
   @override
   Widget build(BuildContext context) {
-    final contactAsync = ref.watch(contactsProvider).whenData(
-          (contacts) => contacts.where((c) => c.id == widget.contactId).firstOrNull,
+    final contactAsync = ref
+        .watch(contactsProvider)
+        .whenData(
+          (contacts) =>
+              contacts.where((c) => c.id == widget.contactId).firstOrNull,
         );
     final contact = contactAsync.value ?? widget.contact;
 
@@ -308,8 +331,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               ],
             ),
             if (_isTyping)
-              const Text('对方正在输入...',
-                  style: TextStyle(fontSize: 11, color: WeChatColors.textSecondary)),
+              const Text(
+                '对方正在输入...',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: WeChatColors.textSecondary,
+                ),
+              ),
           ],
         ),
         actions: [
@@ -324,8 +352,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           // 消息列表
           Expanded(
             child: messagesAsync.when(
-              loading: () =>
-                  const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text('加载失败: $e')),
               data: (messages) {
                 if (messages.isEmpty && !_isTyping) {
@@ -340,10 +367,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                       final msg = messages[index];
                       return GestureDetector(
                         onLongPress: () => _showMessageActions(context, msg),
-                        child: MessageBubble(
-                          message: msg,
-                          contact: contact,
-                        ),
+                        child: MessageBubble(message: msg, contact: contact),
                       );
                     }
                     return const TypingIndicator();
@@ -375,9 +399,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         children: [
           AvatarWidget.fromContact(contact, size: 64),
           const SizedBox(height: 12),
-          Text(contact.name,
-              style: const TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.w500)),
+          Text(
+            contact.name,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          ),
           if (contact.description.isNotEmpty) ...[
             const SizedBox(height: 4),
             Padding(
@@ -385,7 +410,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               child: Text(
                 contact.description,
                 style: const TextStyle(
-                    fontSize: 13, color: WeChatColors.textSecondary),
+                  fontSize: 13,
+                  color: WeChatColors.textSecondary,
+                ),
                 textAlign: TextAlign.center,
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
@@ -424,9 +451,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               activeThumbColor: WeChatColors.primary,
               onChanged: (v) {
                 ctx.pop();
-                ref.read(contactsProvider.notifier).updateContact(
-                      contact.copyWith(pinned: v),
-                    );
+                ref
+                    .read(contactsProvider.notifier)
+                    .updateContact(contact.copyWith(pinned: v));
               },
             ),
             SwitchListTile(
@@ -436,9 +463,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               activeThumbColor: WeChatColors.primary,
               onChanged: (v) {
                 ctx.pop();
-                ref.read(contactsProvider.notifier).updateContact(
-                      contact.copyWith(proactiveEnabled: v),
-                    );
+                ref
+                    .read(contactsProvider.notifier)
+                    .updateContact(contact.copyWith(proactiveEnabled: v));
               },
             ),
             ListTile(
@@ -469,12 +496,16 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                     content: const Text('确定清空所有聊天记录？'),
                     actions: [
                       TextButton(
-                          onPressed: () => Navigator.of(d).pop(false),
-                          child: const Text('取消')),
+                        onPressed: () => Navigator.of(d).pop(false),
+                        child: const Text('取消'),
+                      ),
                       TextButton(
-                          onPressed: () => Navigator.of(d).pop(true),
-                          child: const Text('清空',
-                              style: TextStyle(color: Colors.red))),
+                        onPressed: () => Navigator.of(d).pop(true),
+                        child: const Text(
+                          '清空',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                      ),
                     ],
                   ),
                 );
@@ -487,8 +518,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             ),
             ListTile(
               leading: const Icon(Icons.delete_outline, color: Colors.red),
-              title: const Text('删除联系人',
-                  style: TextStyle(color: Colors.red)),
+              title: const Text('删除联系人', style: TextStyle(color: Colors.red)),
               onTap: () {
                 ctx.pop();
                 _deleteContact(context, contact);
@@ -504,10 +534,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final configs = ref.read(apiConfigProvider).value ?? [];
     final result = await showDialog<Contact>(
       context: context,
-      builder: (ctx) => _ChatEditContactDialog(
-        contact: contact,
-        configs: configs,
-      ),
+      builder: (ctx) =>
+          _ChatEditContactDialog(contact: contact, configs: configs),
     );
     if (result != null) {
       await ref.read(contactsProvider.notifier).updateContact(result);
@@ -522,11 +550,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         content: Text('确定删除 "${contact.name}"？相关聊天记录将一并删除。'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('取消')),
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('取消'),
+          ),
           TextButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('删除', style: TextStyle(color: Colors.red))),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('删除', style: TextStyle(color: Colors.red)),
+          ),
         ],
       ),
     );
@@ -540,22 +570,20 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 class _ChatEditContactDialog extends StatefulWidget {
   final Contact contact;
   final List<ApiConfig> configs;
-  const _ChatEditContactDialog({
-    required this.contact,
-    required this.configs,
-  });
+  const _ChatEditContactDialog({required this.contact, required this.configs});
 
   @override
-  State<_ChatEditContactDialog> createState() =>
-      _ChatEditContactDialogState();
+  State<_ChatEditContactDialog> createState() => _ChatEditContactDialogState();
 }
 
 class _ChatEditContactDialogState extends State<_ChatEditContactDialog> {
   late final _nameCtrl = TextEditingController(text: widget.contact.name);
-  late final _descCtrl =
-      TextEditingController(text: widget.contact.description);
-  late final _promptCtrl =
-      TextEditingController(text: widget.contact.systemPrompt);
+  late final _descCtrl = TextEditingController(
+    text: widget.contact.description,
+  );
+  late final _promptCtrl = TextEditingController(
+    text: widget.contact.systemPrompt,
+  );
   late String? _selectedConfigId = widget.contact.apiConfigId;
 
   @override
@@ -577,19 +605,21 @@ class _ChatEditContactDialogState extends State<_ChatEditContactDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
-                controller: _nameCtrl,
-                decoration: const InputDecoration(labelText: '名称')),
+              controller: _nameCtrl,
+              decoration: const InputDecoration(labelText: '名称'),
+            ),
             const SizedBox(height: 12),
             TextField(
-                controller: _descCtrl,
-                decoration: const InputDecoration(labelText: '简介'),
-                maxLines: 2),
+              controller: _descCtrl,
+              decoration: const InputDecoration(labelText: '简介'),
+              maxLines: 2,
+            ),
             const SizedBox(height: 12),
             TextField(
-                controller: _promptCtrl,
-                decoration:
-                    const InputDecoration(labelText: 'System Prompt'),
-                maxLines: 4),
+              controller: _promptCtrl,
+              decoration: const InputDecoration(labelText: 'System Prompt'),
+              maxLines: 4,
+            ),
             if (widget.configs.isNotEmpty) ...[
               const SizedBox(height: 12),
               DropdownButtonFormField<String?>(
@@ -609,8 +639,9 @@ class _ChatEditContactDialogState extends State<_ChatEditContactDialog> {
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('取消')),
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
         ElevatedButton(
           onPressed: () {
             if (_nameCtrl.text.trim().isEmpty) return;

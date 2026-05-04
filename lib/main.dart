@@ -28,7 +28,8 @@ void main() async {
   final proactive = ProactiveService();
   proactive.init();
   proactive.checkOnAppOpen();
-  proactive.onNewMessage = () => container.read(contactsProvider.notifier).refresh();
+  proactive.onNewMessage = () =>
+      container.read(contactsProvider.notifier).refresh();
 
   final prefs = await SharedPreferences.getInstance();
   if (prefs.getBool('check_update_on_startup') ?? false) {
@@ -38,10 +39,7 @@ void main() async {
   AutoBackupService().init();
 
   runApp(
-    UncontrolledProviderScope(
-      container: container,
-      child: const SoulTalkApp(),
-    ),
+    UncontrolledProviderScope(container: container, child: const SoulTalkApp()),
   );
 }
 
@@ -52,7 +50,8 @@ class SoulTalkApp extends ConsumerStatefulWidget {
   ConsumerState<SoulTalkApp> createState() => _SoulTalkAppState();
 }
 
-class _SoulTalkAppState extends ConsumerState<SoulTalkApp> with WidgetsBindingObserver {
+class _SoulTalkAppState extends ConsumerState<SoulTalkApp>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();

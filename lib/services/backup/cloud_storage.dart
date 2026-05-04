@@ -17,18 +17,25 @@ class WebDavConfig extends CloudStorageConfig {
   final String username;
   final String password;
 
-  const WebDavConfig(
-      {required this.url, required this.username, required this.password});
+  const WebDavConfig({
+    required this.url,
+    required this.username,
+    required this.password,
+  });
 
   @override
-  Map<String, dynamic> toJson() =>
-      {'type': 'webdav', 'url': url, 'username': username, 'password': password};
+  Map<String, dynamic> toJson() => {
+    'type': 'webdav',
+    'url': url,
+    'username': username,
+    'password': password,
+  };
 
   factory WebDavConfig.fromJson(Map<String, dynamic> json) => WebDavConfig(
-        url: json['url'] as String,
-        username: json['username'] as String,
-        password: json['password'] as String,
-      );
+    url: json['url'] as String,
+    username: json['username'] as String,
+    password: json['password'] as String,
+  );
 }
 
 class S3Config extends CloudStorageConfig {
@@ -48,21 +55,21 @@ class S3Config extends CloudStorageConfig {
 
   @override
   Map<String, dynamic> toJson() => {
-        'type': 's3',
-        'endpoint': endpoint,
-        'region': region,
-        'accessKey': accessKey,
-        'secretKey': secretKey,
-        'bucket': bucket,
-      };
+    'type': 's3',
+    'endpoint': endpoint,
+    'region': region,
+    'accessKey': accessKey,
+    'secretKey': secretKey,
+    'bucket': bucket,
+  };
 
   factory S3Config.fromJson(Map<String, dynamic> json) => S3Config(
-        endpoint: json['endpoint'] as String,
-        region: json['region'] as String,
-        accessKey: json['accessKey'] as String,
-        secretKey: json['secretKey'] as String,
-        bucket: json['bucket'] as String,
-      );
+    endpoint: json['endpoint'] as String,
+    region: json['region'] as String,
+    accessKey: json['accessKey'] as String,
+    secretKey: json['secretKey'] as String,
+    bucket: json['bucket'] as String,
+  );
 }
 
 // ─── 抽象接口 ────────────────────────────────────────────────────────────────────
@@ -88,23 +95,26 @@ class WebDavStorage implements CloudStorage {
 
   WebDavStorage(this.config) {
     final base = config.url.endsWith('/') ? config.url : '${config.url}/';
-    _dio = Dio(BaseOptions(
-      baseUrl: base,
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 120),
-      headers: {
-        'Authorization':
-            'Basic ${base64Encode(utf8.encode('${config.username}:${config.password}'))}',
-      },
-    ));
+    _dio = Dio(
+      BaseOptions(
+        baseUrl: base,
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 120),
+        headers: {
+          'Authorization':
+              'Basic ${base64Encode(utf8.encode('${config.username}:${config.password}'))}',
+        },
+      ),
+    );
   }
 
   @override
   Future<bool> testConnection() async {
     try {
-      final resp = await _dio.request('/',
-          options:
-              Options(method: 'PROPFIND', headers: {'Depth': '0'}));
+      final resp = await _dio.request(
+        '/',
+        options: Options(method: 'PROPFIND', headers: {'Depth': '0'}),
+      );
       return resp.statusCode != null && resp.statusCode! < 400;
     } catch (_) {
       return false;
@@ -116,10 +126,11 @@ class WebDavStorage implements CloudStorage {
     try {
       final file = File(localPath);
       final bytes = await file.readAsBytes();
-      await _dio.put(remoteName,
-          data: bytes,
-          options: Options(
-              headers: {'Content-Type': 'application/octet-stream'}));
+      await _dio.put(
+        remoteName,
+        data: bytes,
+        options: Options(headers: {'Content-Type': 'application/octet-stream'}),
+      );
       return true;
     } catch (_) {
       return false;
@@ -139,9 +150,10 @@ class WebDavStorage implements CloudStorage {
   @override
   Future<List<String>> listBackups() async {
     try {
-      final resp = await _dio.request('/',
-          options:
-              Options(method: 'PROPFIND', headers: {'Depth': '1'}));
+      final resp = await _dio.request(
+        '/',
+        options: Options(method: 'PROPFIND', headers: {'Depth': '1'}),
+      );
       final body = resp.data.toString();
       final regex = RegExp(r'<D:href>([^<]+)</D:href>');
       return regex
@@ -162,23 +174,28 @@ class S3Storage implements CloudStorage {
   final Dio _dio;
 
   S3Storage(this.config)
-      : _dio = Dio(BaseOptions(
-          baseUrl:
-              config.endpoint.endsWith('/') ? config.endpoint : '${config.endpoint}/',
+    : _dio = Dio(
+        BaseOptions(
+          baseUrl: config.endpoint.endsWith('/')
+              ? config.endpoint
+              : '${config.endpoint}/',
           connectTimeout: const Duration(seconds: 15),
           receiveTimeout: const Duration(seconds: 120),
-        ));
+        ),
+      );
 
   String _host() => Uri.parse(config.endpoint).host;
 
-  Map<String, String> _signedHeaders(String method, String path,
-      {String? body}) {
+  Map<String, String> _signedHeaders(
+    String method,
+    String path, {
+    String? body,
+  }) {
     final now = DateTime.now().toUtc();
     final amzDate = _amzDateStr(now);
     final dateStamp = amzDate.substring(0, 8);
 
-    final bodyHash =
-        sha256.convert(utf8.encode(body ?? '')).toString();
+    final bodyHash = sha256.convert(utf8.encode(body ?? '')).toString();
 
     final headers = <String, String>{
       'Host': _host(),
@@ -187,8 +204,9 @@ class S3Storage implements CloudStorage {
     };
 
     final signedHeaderKeys = ['host', 'x-amz-content-sha256', 'x-amz-date'];
-    final canonicalHeaders =
-        signedHeaderKeys.map((k) => '$k:${headers[k]!}').join('\n');
+    final canonicalHeaders = signedHeaderKeys
+        .map((k) => '$k:${headers[k]!}')
+        .join('\n');
     final signedHeaders = signedHeaderKeys.join(';');
 
     final canonicalRequest = [
@@ -202,8 +220,7 @@ class S3Storage implements CloudStorage {
     ].join('\n');
 
     final algorithm = 'AWS4-HMAC-SHA256';
-    final credentialScope =
-        '$dateStamp/${config.region}/s3/aws4_request';
+    final credentialScope = '$dateStamp/${config.region}/s3/aws4_request';
     final stringToSign = [
       algorithm,
       amzDate,
@@ -211,17 +228,23 @@ class S3Storage implements CloudStorage {
       sha256.convert(utf8.encode(canonicalRequest)).toString(),
     ].join('\n');
 
-    final kDate = Hmac(sha256, utf8.encode('AWS4${config.secretKey}'))
-        .convert(utf8.encode(dateStamp));
-    final kRegion =
-        Hmac(sha256, kDate.bytes).convert(utf8.encode(config.region));
-    final kService =
-        Hmac(sha256, kRegion.bytes).convert(utf8.encode('s3'));
-    final kSigning = Hmac(sha256, kService.bytes)
-        .convert(utf8.encode('aws4_request'));
-    final signature = Hmac(sha256, kSigning.bytes)
-        .convert(utf8.encode(stringToSign))
-        .toString();
+    final kDate = Hmac(
+      sha256,
+      utf8.encode('AWS4${config.secretKey}'),
+    ).convert(utf8.encode(dateStamp));
+    final kRegion = Hmac(
+      sha256,
+      kDate.bytes,
+    ).convert(utf8.encode(config.region));
+    final kService = Hmac(sha256, kRegion.bytes).convert(utf8.encode('s3'));
+    final kSigning = Hmac(
+      sha256,
+      kService.bytes,
+    ).convert(utf8.encode('aws4_request'));
+    final signature = Hmac(
+      sha256,
+      kSigning.bytes,
+    ).convert(utf8.encode(stringToSign)).toString();
 
     headers['Authorization'] =
         '$algorithm Credential=${config.accessKey}/$credentialScope, SignedHeaders=$signedHeaders, Signature=$signature';
@@ -236,8 +259,10 @@ class S3Storage implements CloudStorage {
   @override
   Future<bool> testConnection() async {
     try {
-      final resp = await _dio.head(config.bucket,
-          options: Options(headers: _signedHeaders('HEAD', '')));
+      final resp = await _dio.head(
+        config.bucket,
+        options: Options(headers: _signedHeaders('HEAD', '')),
+      );
       return resp.statusCode != null && resp.statusCode! < 400;
     } catch (_) {
       return false;
@@ -249,10 +274,11 @@ class S3Storage implements CloudStorage {
     try {
       final file = File(localPath);
       final bytes = await file.readAsBytes();
-      final resp = await _dio.put('${config.bucket}/$remoteName',
-          data: bytes,
-          options:
-              Options(headers: _signedHeaders('PUT', '/$remoteName')));
+      final resp = await _dio.put(
+        '${config.bucket}/$remoteName',
+        data: bytes,
+        options: Options(headers: _signedHeaders('PUT', '/$remoteName')),
+      );
       return resp.statusCode == 200;
     } catch (_) {
       return false;
@@ -262,9 +288,11 @@ class S3Storage implements CloudStorage {
   @override
   Future<String?> download(String remoteName, String localPath) async {
     try {
-      await _dio.download('${config.bucket}/$remoteName', localPath,
-          options:
-              Options(headers: _signedHeaders('GET', '/$remoteName')));
+      await _dio.download(
+        '${config.bucket}/$remoteName',
+        localPath,
+        options: Options(headers: _signedHeaders('GET', '/$remoteName')),
+      );
       return localPath;
     } catch (_) {
       return null;
@@ -274,8 +302,10 @@ class S3Storage implements CloudStorage {
   @override
   Future<List<String>> listBackups() async {
     try {
-      final resp = await _dio.get(config.bucket,
-          options: Options(headers: _signedHeaders('GET', '')));
+      final resp = await _dio.get(
+        config.bucket,
+        options: Options(headers: _signedHeaders('GET', '')),
+      );
       final body = resp.data.toString();
       final regex = RegExp(r'<Key>([^<]+)</Key>');
       return regex

@@ -7,13 +7,15 @@ class StateRenderer {
   final PlatformConfig _config;
 
   StateRenderer([PlatformConfig? config])
-      : _config = config ?? PlatformConfig.current;
+    : _config = config ?? PlatformConfig.current;
 
   /// Render state items grouped by [slotType], respecting the character budget.
   String render(List<MemoryState> items) {
     if (items.isEmpty) return '';
 
-    final activeItems = items.where((s) => s.status == 'active' && s.slotValue.trim().isNotEmpty).toList();
+    final activeItems = items
+        .where((s) => s.status == 'active' && s.slotValue.trim().isNotEmpty)
+        .toList();
     if (activeItems.isEmpty) return '';
 
     final buffer = StringBuffer();

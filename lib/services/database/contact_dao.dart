@@ -13,51 +13,50 @@ class ContactDao {
   Future<Database> get _database => _db.database;
 
   Map<String, dynamic> _toMap(Contact contact) => {
-        'id': contact.id,
-        'name': contact.name,
-        'avatar': contact.avatar,
-        'description': contact.description,
-        'api_config_id': contact.apiConfigId,
-        'system_prompt': contact.systemPrompt,
-        'character_card_json': contact.characterCardJson,
-        'tags': jsonEncode(contact.tags),
-        'pinned': contact.pinned ? 1 : 0,
-        'unread_count': contact.unreadCount,
-        'last_message': contact.lastMessage,
-        'last_message_at': contact.lastMessageAt?.toIso8601String(),
-        'proactive_enabled': contact.proactiveEnabled ? 1 : 0,
-        'last_proactive_at': contact.lastProactiveAt?.toIso8601String(),
-        'created_at': contact.createdAt?.toIso8601String(),
-        'updated_at': contact.updatedAt?.toIso8601String(),
-      };
+    'id': contact.id,
+    'name': contact.name,
+    'avatar': contact.avatar,
+    'description': contact.description,
+    'api_config_id': contact.apiConfigId,
+    'system_prompt': contact.systemPrompt,
+    'character_card_json': contact.characterCardJson,
+    'tags': jsonEncode(contact.tags),
+    'pinned': contact.pinned ? 1 : 0,
+    'unread_count': contact.unreadCount,
+    'last_message': contact.lastMessage,
+    'last_message_at': contact.lastMessageAt?.toIso8601String(),
+    'proactive_enabled': contact.proactiveEnabled ? 1 : 0,
+    'last_proactive_at': contact.lastProactiveAt?.toIso8601String(),
+    'created_at': contact.createdAt?.toIso8601String(),
+    'updated_at': contact.updatedAt?.toIso8601String(),
+  };
 
   Contact _fromMap(Map<String, dynamic> map) => Contact(
-        id: map['id'] as String,
-        name: map['name'] as String,
-        avatar: map['avatar'] as String?,
-        description: map['description'] as String? ?? '',
-        apiConfigId: map['api_config_id'] as String?,
-        systemPrompt: map['system_prompt'] as String? ?? '',
-        characterCardJson: map['character_card_json'] as String?,
-        tags: List<String>.from(
-            jsonDecode(map['tags'] as String? ?? '[]') as List),
-        pinned: (map['pinned'] as int) == 1,
-        unreadCount: map['unread_count'] as int? ?? 0,
-        lastMessage: map['last_message'] as String?,
-        lastMessageAt: map['last_message_at'] != null
-            ? DateTime.tryParse(map['last_message_at'] as String)
-            : null,
-        proactiveEnabled: (map['proactive_enabled'] as int? ?? 1) == 1,
-        lastProactiveAt: map['last_proactive_at'] != null
-            ? DateTime.tryParse(map['last_proactive_at'] as String)
-            : null,
-        createdAt: map['created_at'] != null
-            ? DateTime.tryParse(map['created_at'] as String)
-            : null,
-        updatedAt: map['updated_at'] != null
-            ? DateTime.tryParse(map['updated_at'] as String)
-            : null,
-      );
+    id: map['id'] as String,
+    name: map['name'] as String,
+    avatar: map['avatar'] as String?,
+    description: map['description'] as String? ?? '',
+    apiConfigId: map['api_config_id'] as String?,
+    systemPrompt: map['system_prompt'] as String? ?? '',
+    characterCardJson: map['character_card_json'] as String?,
+    tags: List<String>.from(jsonDecode(map['tags'] as String? ?? '[]') as List),
+    pinned: (map['pinned'] as int) == 1,
+    unreadCount: map['unread_count'] as int? ?? 0,
+    lastMessage: map['last_message'] as String?,
+    lastMessageAt: map['last_message_at'] != null
+        ? DateTime.tryParse(map['last_message_at'] as String)
+        : null,
+    proactiveEnabled: (map['proactive_enabled'] as int? ?? 1) == 1,
+    lastProactiveAt: map['last_proactive_at'] != null
+        ? DateTime.tryParse(map['last_proactive_at'] as String)
+        : null,
+    createdAt: map['created_at'] != null
+        ? DateTime.tryParse(map['created_at'] as String)
+        : null,
+    updatedAt: map['updated_at'] != null
+        ? DateTime.tryParse(map['updated_at'] as String)
+        : null,
+  );
 
   Future<List<Contact>> getAll() async {
     final db = await _database;
@@ -109,7 +108,10 @@ class ContactDao {
   }
 
   Future<void> updateLastMessage(
-      String contactId, String message, DateTime at) async {
+    String contactId,
+    String message,
+    DateTime at,
+  ) async {
     final db = await _database;
     await db.update(
       'contacts',

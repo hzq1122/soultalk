@@ -489,9 +489,7 @@ class _ContactListTile extends StatelessWidget {
 class _EditContactDialog extends StatefulWidget {
   final List<ApiConfig> configs;
 
-  const _EditContactDialog({
-    required this.configs,
-  });
+  const _EditContactDialog({required this.configs});
 
   @override
   State<_EditContactDialog> createState() => _EditContactDialogState();

@@ -25,9 +25,7 @@ class RegexScriptNotifier extends AsyncNotifier<List<RegexScript>> {
 
   Future<void> remove(String id) async {
     await ref.read(regexScriptDaoProvider).delete(id);
-    state = AsyncData(
-      state.value?.where((s) => s.id != id).toList() ?? [],
-    );
+    state = AsyncData(state.value?.where((s) => s.id != id).toList() ?? []);
   }
 
   Future<void> removeAll() async {
@@ -38,13 +36,15 @@ class RegexScriptNotifier extends AsyncNotifier<List<RegexScript>> {
   Future<void> refresh() async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(
-        () => ref.read(regexScriptDaoProvider).getAll());
+      () => ref.read(regexScriptDaoProvider).getAll(),
+    );
   }
 }
 
 final regexScriptProvider =
     AsyncNotifierProvider<RegexScriptNotifier, List<RegexScript>>(
-        RegexScriptNotifier.new);
+      RegexScriptNotifier.new,
+    );
 
 final enabledRegexScriptsProvider = Provider<List<RegexScript>>((ref) {
   final scripts = ref.watch(regexScriptProvider).value ?? [];

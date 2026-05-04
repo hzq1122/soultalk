@@ -163,7 +163,9 @@ class ProactiveService {
   /// 从 API 获取计划消息（用于自动回复验证）
   /// 【推测】此 API 接口需自行实现或对接外部调度服务
   Future<ScheduledMessage?> _fetchScheduledMessage(
-      Contact contact, List<ApiConfig> configs) async {
+    Contact contact,
+    List<ApiConfig> configs,
+  ) async {
     // 优先使用联系人的绑定 API，否则取第一个配置
     ApiConfig? config;
     if (contact.apiConfigId != null) {
@@ -177,7 +179,8 @@ class ProactiveService {
       final service = LlmService.fromConfig(config);
       final now = DateTime.now();
 
-      final systemPrompt = '''${contact.systemPrompt}
+      final systemPrompt =
+          '''${contact.systemPrompt}
 
 你正在检查是否需要主动给对方发一条消息。
 当前时间：${now.toString()}
@@ -216,10 +219,8 @@ class ProactiveService {
         final data = jsonDecode(jsonStr) as Map<String, dynamic>;
 
         if (data['shouldSend'] == true && data['content'] != null) {
-          final scheduledTime = DateTime.tryParse(
-                data['scheduledTime']?.toString() ?? '',
-              ) ??
-              now;
+          final scheduledTime =
+              DateTime.tryParse(data['scheduledTime']?.toString() ?? '') ?? now;
           return ScheduledMessage(
             content: data['content'].toString(),
             scheduledAt: scheduledTime,
@@ -236,11 +237,16 @@ class ProactiveService {
   }
 
   Future<void> _sendScheduledMessage(
-      Contact contact, List<ApiConfig> configs, ScheduledMessage msg) async {
-    final service = LlmService.fromConfig(configs.firstWhere(
-      (c) => c.id == contact.apiConfigId,
-      orElse: () => configs.first,
-    ));
+    Contact contact,
+    List<ApiConfig> configs,
+    ScheduledMessage msg,
+  ) async {
+    final service = LlmService.fromConfig(
+      configs.firstWhere(
+        (c) => c.id == contact.apiConfigId,
+        orElse: () => configs.first,
+      ),
+    );
 
     try {
       final reply = await service.sendMessage(
@@ -256,7 +262,8 @@ class ProactiveService {
             content: '（系统触发：自动回复）${msg.content}',
           ),
         ],
-        systemPrompt: '''${contact.systemPrompt}
+        systemPrompt:
+            '''${contact.systemPrompt}
 
 请将以下消息以你的说话风格发送给对方，要求自然不做作：
 ${msg.content}
@@ -266,15 +273,21 @@ ${msg.content}
 
       if (reply.trim().isEmpty) return;
 
-      await _messageDao.insert(Message(
-        id: '',
-        contactId: contact.id,
-        role: MessageRole.assistant,
-        content: reply.trim(),
-        createdAt: msg.scheduledAt, // 使用 API 指定的时间
-      ));
+      await _messageDao.insert(
+        Message(
+          id: '',
+          contactId: contact.id,
+          role: MessageRole.assistant,
+          content: reply.trim(),
+          createdAt: msg.scheduledAt, // 使用 API 指定的时间
+        ),
+      );
 
-      await _contactDao.updateLastMessage(contact.id, reply.trim(), msg.scheduledAt);
+      await _contactDao.updateLastMessage(
+        contact.id,
+        reply.trim(),
+        msg.scheduledAt,
+      );
       await _contactDao.incrementUnread(contact.id);
 
       final db = await DatabaseService().database;
@@ -290,13 +303,19 @@ ${msg.content}
   }
 
   /// 时间差异 > 1 小时的告警
-  void _alertTimeMismatch(Contact contact, DateTime apiTime, DateTime systemTime) {
+  void _alertTimeMismatch(
+    Contact contact,
+    DateTime apiTime,
+    DateTime systemTime,
+  ) {
     // 【已确认】差异超过 1 小时 → 告警记录
     final diff = apiTime.difference(systemTime).abs();
     // 在实际应用中，这里应接入日志/通知系统
     // ignore: avoid_print
-    print('[时间告警] 联系人: ${contact.name}, '
-        'API 时间: $apiTime, 系统时间: $systemTime, 差异: ${diff.inMinutes} 分钟');
+    print(
+      '[时间告警] 联系人: ${contact.name}, '
+      'API 时间: $apiTime, 系统时间: $systemTime, 差异: ${diff.inMinutes} 分钟',
+    );
   }
 
   /// AI 自动对朋友圈进行点赞和评论
@@ -309,8 +328,9 @@ ${msg.content}
     if (configs.isEmpty) return;
 
     for (final moment in moments) {
-      final momentAuthor =
-          contacts.where((c) => c.id == moment.contactId).firstOrNull;
+      final momentAuthor = contacts
+          .where((c) => c.id == moment.contactId)
+          .firstOrNull;
       if (momentAuthor == null) continue;
 
       // 其他 AI 联系人对这条朋友圈进行互动
@@ -324,8 +344,9 @@ ${msg.content}
 
         // 已经互动过就跳过
         if (moment.likes.contains(otherContact.id)) continue;
-        final alreadyCommented = moment.comments
-            .any((c) => c.authorId == otherContact.id);
+        final alreadyCommented = moment.comments.any(
+          (c) => c.authorId == otherContact.id,
+        );
         if (alreadyCommented) continue;
 
         // 30% 概率点赞
@@ -336,23 +357,31 @@ ${msg.content}
         // 20% 概率评论
         if (_random.nextDouble() < 0.2) {
           await _aiCommentOnMoment(
-              momentsService, moment, otherContact, configs);
+            momentsService,
+            moment,
+            otherContact,
+            configs,
+          );
         }
       }
     }
   }
 
-  Future<void> _aiCommentOnMoment(MomentsService momentsService,
-      Moment moment, Contact commenter, List<ApiConfig> configs) async {
+  Future<void> _aiCommentOnMoment(
+    MomentsService momentsService,
+    Moment moment,
+    Contact commenter,
+    List<ApiConfig> configs,
+  ) async {
     ApiConfig config = configs.first;
     if (commenter.apiConfigId != null) {
-      config = configs
-              .where((c) => c.id == commenter.apiConfigId)
-              .firstOrNull ??
+      config =
+          configs.where((c) => c.id == commenter.apiConfigId).firstOrNull ??
           config;
     }
 
-    final systemPrompt = '''${commenter.systemPrompt}
+    final systemPrompt =
+        '''${commenter.systemPrompt}
 
 你看到朋友圈一条动态: "${moment.content}"
 请你以自己的身份写一条评论。
@@ -391,7 +420,9 @@ ${msg.content}
   }
 
   Future<void> _sendProactiveMessage(
-      Contact contact, List<ApiConfig> configs) async {
+    Contact contact,
+    List<ApiConfig> configs,
+  ) async {
     ApiConfig? config;
     if (contact.apiConfigId != null) {
       config = configs.where((c) => c.id == contact.apiConfigId).firstOrNull;
@@ -422,7 +453,8 @@ ${msg.content}
       timeContext = '现在是晚上';
     }
 
-    final systemPrompt = '''${contact.systemPrompt}
+    final systemPrompt =
+        '''${contact.systemPrompt}
 
 你现在要主动给对方发一条消息。$timeContext。
 请你$selectedType。
@@ -450,13 +482,15 @@ ${msg.content}
 
       if (reply.trim().isEmpty) return;
 
-      await _messageDao.insert(Message(
-        id: '',
-        contactId: contact.id,
-        role: MessageRole.assistant,
-        content: reply.trim(),
-        createdAt: DateTime.now(),
-      ));
+      await _messageDao.insert(
+        Message(
+          id: '',
+          contactId: contact.id,
+          role: MessageRole.assistant,
+          content: reply.trim(),
+          createdAt: DateTime.now(),
+        ),
+      );
 
       await _contactDao.updateLastMessage(
         contact.id,
@@ -483,8 +517,5 @@ class ScheduledMessage {
   final String content;
   final DateTime scheduledAt;
 
-  const ScheduledMessage({
-    required this.content,
-    required this.scheduledAt,
-  });
+  const ScheduledMessage({required this.content, required this.scheduledAt});
 }

@@ -9,17 +9,19 @@ class ReviewPolicy {
   final PlatformConfig _config;
 
   ReviewPolicy([PlatformConfig? config])
-      : _config = config ?? PlatformConfig.current;
+    : _config = config ?? PlatformConfig.current;
 
   ReviewAction review(MemoryCard card) {
     // Reject trivial content
     if (card.importance < 0.3) return ReviewAction.reject;
 
     // Reject if LLM explicitly marked for rejection
-    if (card.tags.contains('suggested_action:reject')) return ReviewAction.reject;
+    if (card.tags.contains('suggested_action:reject'))
+      return ReviewAction.reject;
 
     // Pending if LLM explicitly marked
-    if (card.tags.contains('suggested_action:pending')) return ReviewAction.pending;
+    if (card.tags.contains('suggested_action:pending'))
+      return ReviewAction.pending;
 
     // Pending high-risk types
     if (_highRiskTypes.contains(card.cardType)) return ReviewAction.pending;
@@ -50,8 +52,22 @@ class ReviewPolicy {
     return ReviewAction.pending;
   }
 
-  static const _highRiskTypes = {'boundary', 'preference', 'relationship', 'world_state', 'character_state'};
-  static const _lowRiskTypes = {'fact', 'event', 'roleplay_rule', 'speech_style', 'persona_rule', 'speech_habit', 'misc'};
+  static const _highRiskTypes = {
+    'boundary',
+    'preference',
+    'relationship',
+    'world_state',
+    'character_state',
+  };
+  static const _lowRiskTypes = {
+    'fact',
+    'event',
+    'roleplay_rule',
+    'speech_style',
+    'persona_rule',
+    'speech_habit',
+    'misc',
+  };
 }
 
 enum ReviewAction { approve, pending, reject }

@@ -29,18 +29,18 @@ class ApiConfigNotifier extends AsyncNotifier<List<ApiConfig>> {
   Future<void> remove(String id) async {
     final service = ref.read(chatServiceProvider);
     await service.deleteApiConfig(id);
-    state = AsyncData(
-      state.value?.where((c) => c.id != id).toList() ?? [],
-    );
+    state = AsyncData(state.value?.where((c) => c.id != id).toList() ?? []);
   }
 
   Future<void> refresh() async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(
-        () => ref.read(chatServiceProvider).getApiConfigs());
+      () => ref.read(chatServiceProvider).getApiConfigs(),
+    );
   }
 }
 
 final apiConfigProvider =
     AsyncNotifierProvider<ApiConfigNotifier, List<ApiConfig>>(
-        ApiConfigNotifier.new);
+      ApiConfigNotifier.new,
+    );

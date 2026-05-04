@@ -50,8 +50,7 @@ class ProfilePage extends ConsumerWidget {
                   color: const Color(0xFF576B95),
                   title: '角色管理',
                   subtitle: contactsAsync.when(
-                    data: (contacts) =>
-                        '${contacts.length} 个 AI 角色',
+                    data: (contacts) => '${contacts.length} 个 AI 角色',
                     loading: () => '加载中...',
                     error: (error, stackTrace) => '加载失败',
                   ),
@@ -72,9 +71,8 @@ class ProfilePage extends ConsumerWidget {
                   color: WeChatColors.primary,
                   title: '通用设置',
                   subtitle: settingsAsync.when(
-                    data: (s) => s.globalPromptEnabled
-                        ? '通用提示词已启用'
-                        : '通用提示词未启用',
+                    data: (s) =>
+                        s.globalPromptEnabled ? '通用提示词已启用' : '通用提示词未启用',
                     loading: () => '',
                     error: (error, stackTrace) => '',
                   ),
@@ -125,10 +123,13 @@ class ProfilePage extends ConsumerWidget {
                     future: PackageInfo.fromPlatform(),
                     builder: (context, snapshot) {
                       if (snapshot.hasData) {
-                        return Text('v${snapshot.data!.version}',
-                            style: TextStyle(
-                                fontSize: 12,
-                                color: WeChatColors.textSecondary));
+                        return Text(
+                          'v${snapshot.data!.version}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: WeChatColors.textSecondary,
+                          ),
+                        );
                       }
                       return const SizedBox.shrink();
                     },
@@ -144,7 +145,11 @@ class ProfilePage extends ConsumerWidget {
     );
   }
 
-  Widget _buildUserCard(List apiConfigs, AsyncValue contactsAsync, WidgetRef ref) {
+  Widget _buildUserCard(
+    List apiConfigs,
+    AsyncValue contactsAsync,
+    WidgetRef ref,
+  ) {
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
@@ -168,16 +173,19 @@ class ProfilePage extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('SoulTalk',
-                    style: TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.w600)),
+                const Text(
+                  'SoulTalk',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                ),
                 const SizedBox(height: 4),
                 Text(
                   apiConfigs.isEmpty
                       ? '请先配置 API'
                       : '已连接 ${apiConfigs.length} 个 API',
                   style: const TextStyle(
-                      color: WeChatColors.textSecondary, fontSize: 13),
+                    color: WeChatColors.textSecondary,
+                    fontSize: 13,
+                  ),
                 ),
               ],
             ),
@@ -190,11 +198,14 @@ class ProfilePage extends ConsumerWidget {
   Widget _buildSectionHeader(String title) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-      child: Text(title,
-          style: const TextStyle(
-              fontSize: 13,
-              color: WeChatColors.textSecondary,
-              fontWeight: FontWeight.w500)),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 13,
+          color: WeChatColors.textSecondary,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
     );
   }
 
@@ -218,12 +229,16 @@ class ProfilePage extends ConsumerWidget {
         child: Icon(icon, color: color, size: 20),
       ),
       title: Text(title, style: const TextStyle(fontSize: 15)),
-      subtitle: subtitleWidget ??
+      subtitle:
+          subtitleWidget ??
           (subtitle.isNotEmpty
-              ? Text(subtitle,
+              ? Text(
+                  subtitle,
                   style: TextStyle(
-                      fontSize: 12,
-                      color: warning ? Colors.orange : WeChatColors.textSecondary))
+                    fontSize: 12,
+                    color: warning ? Colors.orange : WeChatColors.textSecondary,
+                  ),
+                )
               : null),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
@@ -231,8 +246,7 @@ class ProfilePage extends ConsumerWidget {
           if (warning)
             const Padding(
               padding: EdgeInsets.only(right: 4),
-              child:
-                  Icon(Icons.warning_amber, color: Colors.orange, size: 18),
+              child: Icon(Icons.warning_amber, color: Colors.orange, size: 18),
             ),
           const Icon(Icons.chevron_right, color: WeChatColors.textHint),
         ],
@@ -249,12 +263,16 @@ class ProfilePage extends ConsumerWidget {
         content: const Text('将重新打开新手引导页面，不会影响已有数据。'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('取消')),
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('取消'),
+          ),
           TextButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('开始',
-                  style: TextStyle(color: WeChatColors.primary))),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text(
+              '开始',
+              style: TextStyle(color: WeChatColors.primary),
+            ),
+          ),
         ],
       ),
     );
@@ -280,8 +298,11 @@ class ProfilePage extends ConsumerWidget {
           color: WeChatColors.primary,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: const Icon(Icons.chat_bubble_rounded,
-            color: Colors.white, size: 28),
+        child: const Icon(
+          Icons.chat_bubble_rounded,
+          color: Colors.white,
+          size: 28,
+        ),
       ),
       applicationLegalese:
           'SoulTalk - AI 驱动的微信风格社交应用\n支持 OpenAI、Anthropic 等多种 LLM',
@@ -313,12 +334,16 @@ class _AiStatusPanel extends StatelessWidget {
             padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
             child: Row(
               children: [
-                Icon(Icons.monitor_heart_outlined,
-                    color: WeChatColors.primary, size: 20),
+                Icon(
+                  Icons.monitor_heart_outlined,
+                  color: WeChatColors.primary,
+                  size: 20,
+                ),
                 SizedBox(width: 8),
-                Text('AI 状态诊断',
-                    style: TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w600)),
+                Text(
+                  'AI 状态诊断',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                ),
               ],
             ),
           ),
@@ -326,8 +351,7 @@ class _AiStatusPanel extends StatelessWidget {
           contactsAsync.when(
             loading: () => const Padding(
               padding: EdgeInsets.all(16),
-              child:
-                  Center(child: CircularProgressIndicator(strokeWidth: 2)),
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
             ),
             error: (e, _) => Padding(
               padding: const EdgeInsets.all(16),
@@ -353,20 +377,23 @@ class _AiStatusPanel extends StatelessWidget {
               }
 
               final total = contactList.length;
-              final proactiveEnabled =
-                  contactList.where((c) => c.proactiveEnabled == true).length;
+              final proactiveEnabled = contactList
+                  .where((c) => c.proactiveEnabled == true)
+                  .length;
               final withPrompt = contactList
-                  .where((c) =>
-                      (c.systemPrompt as String).isNotEmpty)
+                  .where((c) => (c.systemPrompt as String).isNotEmpty)
                   .length;
               final withApi = contactList
                   .where((c) => c.apiConfigId != null)
                   .length;
-              final readyCount = contactList.where((c) =>
-                  c.proactiveEnabled == true &&
-                  (c.systemPrompt as String).isNotEmpty).length;
-              final progress =
-                  total > 0 ? readyCount / total : 0.0;
+              final readyCount = contactList
+                  .where(
+                    (c) =>
+                        c.proactiveEnabled == true &&
+                        (c.systemPrompt as String).isNotEmpty,
+                  )
+                  .length;
+              final progress = total > 0 ? readyCount / total : 0.0;
 
               return Padding(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
@@ -374,8 +401,7 @@ class _AiStatusPanel extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        const Text('自动行为就绪',
-                            style: TextStyle(fontSize: 13)),
+                        const Text('自动行为就绪', style: TextStyle(fontSize: 13)),
                         const SizedBox(width: 12),
                         Expanded(
                           child: ClipRRect(
@@ -384,16 +410,20 @@ class _AiStatusPanel extends StatelessWidget {
                               value: progress,
                               backgroundColor: const Color(0xFFE0E0E0),
                               valueColor: const AlwaysStoppedAnimation(
-                                  WeChatColors.primary),
+                                WeChatColors.primary,
+                              ),
                               minHeight: 8,
                             ),
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text('$readyCount/$total',
-                            style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500)),
+                        Text(
+                          '$readyCount/$total',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -419,9 +449,7 @@ class _AiStatusPanel extends StatelessWidget {
                     const SizedBox(height: 6),
                     _StatusRow(
                       icon: Icons.api,
-                      color: withApi > 0
-                          ? WeChatColors.primary
-                          : Colors.orange,
+                      color: withApi > 0 ? WeChatColors.primary : Colors.orange,
                       label: 'API 绑定',
                       detail: '$withApi/$total 已绑定',
                     ),
@@ -455,13 +483,18 @@ class _StatusRow extends StatelessWidget {
       children: [
         Icon(icon, size: 16, color: color),
         const SizedBox(width: 8),
-        Text(label,
-            style: const TextStyle(
-                fontSize: 13, color: WeChatColors.textPrimary)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 13, color: WeChatColors.textPrimary),
+        ),
         const Spacer(),
-        Text(detail,
-            style: const TextStyle(
-                fontSize: 12, color: WeChatColors.textSecondary)),
+        Text(
+          detail,
+          style: const TextStyle(
+            fontSize: 12,
+            color: WeChatColors.textSecondary,
+          ),
+        ),
       ],
     );
   }

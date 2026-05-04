@@ -3,11 +3,7 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'api_config.freezed.dart';
 part 'api_config.g.dart';
 
-enum LlmProvider {
-  openai,
-  anthropic,
-  custom,
-}
+enum LlmProvider { openai, anthropic, custom }
 
 @freezed
 class ApiConfig with _$ApiConfig {

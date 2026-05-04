@@ -14,12 +14,18 @@ class BackupNotifier extends StateNotifier<ExportState> {
 
   BackupNotifier() : super(const ExportState());
 
-  Future<String?> exportData(Set<BackupSection> sections, String targetDir,
-      {String? password}) async {
+  Future<String?> exportData(
+    Set<BackupSection> sections,
+    String targetDir, {
+    String? password,
+  }) async {
     state = const ExportState(isExporting: true);
     try {
       final path = await _service.exportToZip(
-          sections: sections, targetDir: targetDir, password: password);
+        sections: sections,
+        targetDir: targetDir,
+        password: password,
+      );
       state = ExportState(exportPath: path);
       return path;
     } catch (e) {
@@ -29,12 +35,17 @@ class BackupNotifier extends StateNotifier<ExportState> {
   }
 
   Future<bool> importData(
-      String zipPath, Set<BackupSection> sections,
-      {String? password}) async {
+    String zipPath,
+    Set<BackupSection> sections, {
+    String? password,
+  }) async {
     state = const ExportState(isExporting: true);
     try {
       final result = await _service.importFromZip(
-          zipPath: zipPath, sections: sections, password: password);
+        zipPath: zipPath,
+        sections: sections,
+        password: password,
+      );
       state = const ExportState();
       return result;
     } catch (e) {
@@ -46,5 +57,6 @@ class BackupNotifier extends StateNotifier<ExportState> {
   void reset() => state = const ExportState();
 }
 
-final backupProvider =
-    StateNotifierProvider<BackupNotifier, ExportState>((ref) => BackupNotifier());
+final backupProvider = StateNotifierProvider<BackupNotifier, ExportState>(
+  (ref) => BackupNotifier(),
+);

@@ -4,11 +4,14 @@ import '../models/api_config.dart';
 import '../models/balance_info.dart';
 import '../services/api/balance_service.dart';
 
-final balanceServiceProvider = Provider<BalanceService>((ref) => BalanceService());
+final balanceServiceProvider = Provider<BalanceService>(
+  (ref) => BalanceService(),
+);
 
 final balanceProvider =
     AsyncNotifierProviderFamily<BalanceNotifier, BalanceInfo?, String>(
-        BalanceNotifier.new);
+      BalanceNotifier.new,
+    );
 
 /// Per-api-config balance state.
 class BalanceNotifier extends FamilyAsyncNotifier<BalanceInfo?, String> {
@@ -22,10 +25,9 @@ class BalanceNotifier extends FamilyAsyncNotifier<BalanceInfo?, String> {
   Future<void> refresh(ApiConfig config) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
-      return ref.read(balanceServiceProvider).queryBalance(
-            config.baseUrl,
-            config.apiKey,
-          );
+      return ref
+          .read(balanceServiceProvider)
+          .queryBalance(config.baseUrl, config.apiKey);
     });
   }
 

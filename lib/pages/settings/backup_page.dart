@@ -91,9 +91,13 @@ class _BackupPageState extends ConsumerState<BackupPage>
             children: BackupSection.values.map((section) {
               return CheckboxListTile(
                 title: Text(section.label),
-                subtitle: Text(section.folderName,
-                    style: const TextStyle(
-                        fontSize: 12, color: WeChatColors.textHint)),
+                subtitle: Text(
+                  section.folderName,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: WeChatColors.textHint,
+                  ),
+                ),
                 value: _exportSections.contains(section),
                 activeColor: WeChatColors.primary,
                 onChanged: (v) {
@@ -148,12 +152,16 @@ class _BackupPageState extends ConsumerState<BackupPage>
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white))
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
                   : const Icon(Icons.archive_outlined),
               label: Text(state.isExporting ? '导出中...' : '导出'),
               style: ElevatedButton.styleFrom(
-                  backgroundColor: WeChatColors.primary,
-                  foregroundColor: Colors.white),
+                backgroundColor: WeChatColors.primary,
+                foregroundColor: Colors.white,
+              ),
               onPressed: _exportSections.isEmpty || state.isExporting
                   ? null
                   : () async {
@@ -164,8 +172,7 @@ class _BackupPageState extends ConsumerState<BackupPage>
                         );
                         return;
                       }
-                      final dir =
-                          await FilePicker.platform.getDirectoryPath(
+                      final dir = await FilePicker.platform.getDirectoryPath(
                         dialogTitle: '选择导出目录',
                       );
                       if (dir == null) return;
@@ -182,10 +189,12 @@ class _BackupPageState extends ConsumerState<BackupPage>
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
-                                '导出成功${_exportEncrypt ? "（已加密）" : ""}'),
+                              '导出成功${_exportEncrypt ? "（已加密）" : ""}',
+                            ),
                             action: SnackBarAction(
-                                label: '分享',
-                                onPressed: () => _shareFile(path)),
+                              label: '分享',
+                              onPressed: () => _shareFile(path),
+                            ),
                           ),
                         );
                       }
@@ -196,8 +205,10 @@ class _BackupPageState extends ConsumerState<BackupPage>
         if (state.error != null)
           Padding(
             padding: const EdgeInsets.all(16),
-            child:
-                Text(state.error!, style: const TextStyle(color: Colors.red)),
+            child: Text(
+              state.error!,
+              style: const TextStyle(color: Colors.red),
+            ),
           ),
         const SizedBox(height: 8),
         Padding(
@@ -224,9 +235,11 @@ class _BackupPageState extends ConsumerState<BackupPage>
             width: double.infinity,
             child: OutlinedButton.icon(
               icon: const Icon(Icons.folder_open),
-              label: Text(_importPath != null
-                  ? '${_importPath!.split('/').last}${_importIsEncrypted ? "（已加密）" : ""}'
-                  : '点击选择 ZIP 或加密备份文件'),
+              label: Text(
+                _importPath != null
+                    ? '${_importPath!.split('/').last}${_importIsEncrypted ? "（已加密）" : ""}'
+                    : '点击选择 ZIP 或加密备份文件',
+              ),
               onPressed: state.isExporting ? null : () => _pickBackupFile(),
             ),
           ),
@@ -282,12 +295,16 @@ class _BackupPageState extends ConsumerState<BackupPage>
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white))
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
                     : const Icon(Icons.restore_outlined),
                 label: Text(state.isExporting ? '导入中...' : '导入选中内容'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                      _importSections.isEmpty ? Colors.grey : Colors.orange,
+                  backgroundColor: _importSections.isEmpty
+                      ? Colors.grey
+                      : Colors.orange,
                   foregroundColor: Colors.white,
                 ),
                 onPressed: _importSections.isEmpty || state.isExporting
@@ -305,8 +322,8 @@ class _BackupPageState extends ConsumerState<BackupPage>
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                                content: Text(
-                                    result ? '导入成功' : '导入失败，请检查密码是否正确')),
+                              content: Text(result ? '导入成功' : '导入失败，请检查密码是否正确'),
+                            ),
                           );
                         }
                       },
@@ -317,8 +334,10 @@ class _BackupPageState extends ConsumerState<BackupPage>
         if (state.error != null)
           Padding(
             padding: const EdgeInsets.all(16),
-            child:
-                Text(state.error!, style: const TextStyle(color: Colors.red)),
+            child: Text(
+              state.error!,
+              style: const TextStyle(color: Colors.red),
+            ),
           ),
       ],
     );
@@ -337,13 +356,14 @@ class _BackupPageState extends ConsumerState<BackupPage>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('支持 WebDAV 和 S3 兼容存储',
-                  style: TextStyle(fontSize: 14)),
+              const Text('支持 WebDAV 和 S3 兼容存储', style: TextStyle(fontSize: 14)),
               const SizedBox(height: 4),
               const Text(
                 '可连接自建存储（如 Alist、NextCloud）或云服务（如阿里云 OSS、AWS S3）',
-                style:
-                    TextStyle(fontSize: 12, color: WeChatColors.textSecondary),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: WeChatColors.textSecondary,
+                ),
               ),
               const SizedBox(height: 12),
               SizedBox(
@@ -369,28 +389,36 @@ class _BackupPageState extends ConsumerState<BackupPage>
           child: Column(
             children: [
               ListTile(
-                leading: const Icon(Icons.cloud_upload_outlined,
-                    color: WeChatColors.primary),
+                leading: const Icon(
+                  Icons.cloud_upload_outlined,
+                  color: WeChatColors.primary,
+                ),
                 title: const Text('上传当前数据到云端'),
                 subtitle: const Text('将所有数据压缩加密后上传'),
                 trailing: _cloudLoading
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child:
-                            CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.chevron_right,
-                        color: WeChatColors.textHint),
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(
+                        Icons.chevron_right,
+                        color: WeChatColors.textHint,
+                      ),
                 onTap: _cloudLoading ? null : _uploadToCloud,
               ),
               const Divider(height: 0, indent: 16),
               ListTile(
-                leading: const Icon(Icons.cloud_download_outlined,
-                    color: Colors.blue),
+                leading: const Icon(
+                  Icons.cloud_download_outlined,
+                  color: Colors.blue,
+                ),
                 title: const Text('从云端下载备份'),
                 subtitle: const Text('查看云端备份列表并下载恢复'),
-                trailing: const Icon(Icons.chevron_right,
-                    color: WeChatColors.textHint),
+                trailing: const Icon(
+                  Icons.chevron_right,
+                  color: WeChatColors.textHint,
+                ),
                 onTap: _cloudLoading ? null : _downloadFromCloud,
               ),
             ],
@@ -400,13 +428,16 @@ class _BackupPageState extends ConsumerState<BackupPage>
           const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(_cloudStatus!,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    fontSize: 13,
-                    color: _cloudStatus!.contains('成功')
-                        ? WeChatColors.primary
-                        : Colors.red)),
+            child: Text(
+              _cloudStatus!,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: _cloudStatus!.contains('成功')
+                    ? WeChatColors.primary
+                    : Colors.red,
+              ),
+            ),
           ),
         ],
         const SizedBox(height: 8),
@@ -414,12 +445,13 @@ class _BackupPageState extends ConsumerState<BackupPage>
         Container(
           color: Colors.white,
           child: ListTile(
-            leading: const Icon(Icons.schedule,
-                color: Colors.orange),
+            leading: const Icon(Icons.schedule, color: Colors.orange),
             title: const Text('自动备份设置'),
             subtitle: const Text('定时自动备份到云端'),
-            trailing: const Icon(Icons.chevron_right,
-                color: WeChatColors.textHint),
+            trailing: const Icon(
+              Icons.chevron_right,
+              color: WeChatColors.textHint,
+            ),
             onTap: () => context.push('/settings/general'),
           ),
         ),
@@ -440,11 +472,14 @@ class _BackupPageState extends ConsumerState<BackupPage>
   Widget _buildSectionHeader(String title) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-      child: Text(title,
-          style: const TextStyle(
-              fontSize: 13,
-              color: WeChatColors.textSecondary,
-              fontWeight: FontWeight.w500)),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 13,
+          color: WeChatColors.textSecondary,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
     );
   }
 
@@ -496,15 +531,18 @@ class _BackupPageState extends ConsumerState<BackupPage>
       final password = prefs.getString('auto_backup_webdav_password') ?? '';
       if (url.isEmpty) return null;
       return WebDavStorage(
-          WebDavConfig(url: url, username: username, password: password));
+        WebDavConfig(url: url, username: username, password: password),
+      );
     } else if (cloudType == 's3') {
-      return S3Storage(S3Config(
-        endpoint: prefs.getString('auto_backup_s3_endpoint') ?? '',
-        region: prefs.getString('auto_backup_s3_region') ?? 'us-east-1',
-        accessKey: prefs.getString('auto_backup_s3_access_key') ?? '',
-        secretKey: prefs.getString('auto_backup_s3_secret_key') ?? '',
-        bucket: prefs.getString('auto_backup_s3_bucket') ?? '',
-      ));
+      return S3Storage(
+        S3Config(
+          endpoint: prefs.getString('auto_backup_s3_endpoint') ?? '',
+          region: prefs.getString('auto_backup_s3_region') ?? 'us-east-1',
+          accessKey: prefs.getString('auto_backup_s3_access_key') ?? '',
+          secretKey: prefs.getString('auto_backup_s3_secret_key') ?? '',
+          bucket: prefs.getString('auto_backup_s3_bucket') ?? '',
+        ),
+      );
     }
     return null;
   }
@@ -677,10 +715,8 @@ class _CloudConfigSheetState extends State<_CloudConfigSheet> {
   Future<void> _loadConfig() async {
     final prefs = await SharedPreferences.getInstance();
     _webdavUrlCtrl.text = prefs.getString('auto_backup_webdav_url') ?? '';
-    _webdavUserCtrl.text =
-        prefs.getString('auto_backup_webdav_username') ?? '';
-    _webdavPassCtrl.text =
-        prefs.getString('auto_backup_webdav_password') ?? '';
+    _webdavUserCtrl.text = prefs.getString('auto_backup_webdav_username') ?? '';
+    _webdavPassCtrl.text = prefs.getString('auto_backup_webdav_password') ?? '';
     _s3EndpointCtrl.text = prefs.getString('auto_backup_s3_endpoint') ?? '';
     _s3AccessKeyCtrl.text = prefs.getString('auto_backup_s3_access_key') ?? '';
     _s3SecretKeyCtrl.text = prefs.getString('auto_backup_s3_secret_key') ?? '';
@@ -714,16 +750,21 @@ class _CloudConfigSheetState extends State<_CloudConfigSheet> {
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  const Text('云存储配置',
-                      style: TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w600)),
+                  const Text(
+                    '云存储配置',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
                   const Spacer(),
                   TextButton(
-                      onPressed: _save,
-                      child: const Text('保存配置',
-                          style: TextStyle(
-                              color: WeChatColors.primary,
-                              fontWeight: FontWeight.w600))),
+                    onPressed: _save,
+                    child: const Text(
+                      '保存配置',
+                      style: TextStyle(
+                        color: WeChatColors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -733,15 +774,19 @@ class _CloudConfigSheetState extends State<_CloudConfigSheet> {
                 controller: scrollCtrl,
                 padding: const EdgeInsets.all(16),
                 children: [
-                  const Text('存储类型',
-                      style: TextStyle(
-                          fontSize: 13,
-                          color: WeChatColors.textSecondary,
-                          fontWeight: FontWeight.w500)),
+                  const Text(
+                    '存储类型',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: WeChatColors.textSecondary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text('支持自建 Alist、NextCloud（WebDAV）及 S3 兼容（阿里云 OSS 等）',
-                      style: TextStyle(
-                          fontSize: 11, color: Colors.grey[500])),
+                  Text(
+                    '支持自建 Alist、NextCloud（WebDAV）及 S3 兼容（阿里云 OSS 等）',
+                    style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                  ),
                   const SizedBox(height: 8),
                   SegmentedButton<String>(
                     segments: const [
@@ -754,28 +799,44 @@ class _CloudConfigSheetState extends State<_CloudConfigSheet> {
                   ),
                   const SizedBox(height: 16),
                   if (_cloudType == 'webdav') ...[
-                    _buildField('服务器地址', _webdavUrlCtrl,
-                        hint: 'https://your-alist.com/dav'),
+                    _buildField(
+                      '服务器地址',
+                      _webdavUrlCtrl,
+                      hint: 'https://your-alist.com/dav',
+                    ),
                     const SizedBox(height: 12),
                     _buildField('用户名', _webdavUserCtrl, hint: 'admin'),
                     const SizedBox(height: 12),
-                    _buildField('密码', _webdavPassCtrl,
-                        hint: '••••••••', obscure: true),
+                    _buildField(
+                      '密码',
+                      _webdavPassCtrl,
+                      hint: '••••••••',
+                      obscure: true,
+                    ),
                   ],
                   if (_cloudType == 's3') ...[
-                    _buildField('Endpoint', _s3EndpointCtrl,
-                        hint: 'https://oss-cn-hangzhou.aliyuncs.com'),
+                    _buildField(
+                      'Endpoint',
+                      _s3EndpointCtrl,
+                      hint: 'https://oss-cn-hangzhou.aliyuncs.com',
+                    ),
                     const SizedBox(height: 12),
                     _buildField('Region', _s3RegionCtrl, hint: 'cn-hangzhou'),
                     const SizedBox(height: 12),
-                    _buildField('Access Key', _s3AccessKeyCtrl,
-                        hint: 'LTAI...'),
+                    _buildField(
+                      'Access Key',
+                      _s3AccessKeyCtrl,
+                      hint: 'LTAI...',
+                    ),
                     const SizedBox(height: 12),
-                    _buildField('Secret Key', _s3SecretKeyCtrl,
-                        hint: '••••••••', obscure: true),
+                    _buildField(
+                      'Secret Key',
+                      _s3SecretKeyCtrl,
+                      hint: '••••••••',
+                      obscure: true,
+                    ),
                     const SizedBox(height: 12),
-                    _buildField('Bucket', _s3BucketCtrl,
-                        hint: 'my-backups'),
+                    _buildField('Bucket', _s3BucketCtrl, hint: 'my-backups'),
                   ],
                   const SizedBox(height: 16),
                   SizedBox(
@@ -786,8 +847,8 @@ class _CloudConfigSheetState extends State<_CloudConfigSheet> {
                           ? const SizedBox(
                               width: 16,
                               height: 16,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2))
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
                           : const Icon(Icons.wifi_find, size: 18),
                       label: Text(_testing ? '测试中...' : '测试连接'),
                       onPressed: _testing ? null : _testConnection,
@@ -815,8 +876,12 @@ class _CloudConfigSheetState extends State<_CloudConfigSheet> {
     );
   }
 
-  Widget _buildField(String label, TextEditingController ctrl,
-      {String? hint, bool obscure = false}) {
+  Widget _buildField(
+    String label,
+    TextEditingController ctrl, {
+    String? hint,
+    bool obscure = false,
+  }) {
     return TextField(
       controller: ctrl,
       obscureText: obscure,
@@ -825,8 +890,10 @@ class _CloudConfigSheetState extends State<_CloudConfigSheet> {
         hintText: hint,
         labelStyle: const TextStyle(fontSize: 13),
         border: const OutlineInputBorder(),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 10,
+        ),
         isDense: true,
       ),
     );
@@ -838,17 +905,18 @@ class _CloudConfigSheetState extends State<_CloudConfigSheet> {
     if (_cloudType == 'webdav') {
       await prefs.setString('auto_backup_webdav_url', _webdavUrlCtrl.text);
       await prefs.setString(
-          'auto_backup_webdav_username', _webdavUserCtrl.text);
+        'auto_backup_webdav_username',
+        _webdavUserCtrl.text,
+      );
       await prefs.setString(
-          'auto_backup_webdav_password', _webdavPassCtrl.text);
+        'auto_backup_webdav_password',
+        _webdavPassCtrl.text,
+      );
     } else {
-      await prefs.setString(
-          'auto_backup_s3_endpoint', _s3EndpointCtrl.text);
+      await prefs.setString('auto_backup_s3_endpoint', _s3EndpointCtrl.text);
       await prefs.setString('auto_backup_s3_region', _s3RegionCtrl.text);
-      await prefs.setString(
-          'auto_backup_s3_access_key', _s3AccessKeyCtrl.text);
-      await prefs.setString(
-          'auto_backup_s3_secret_key', _s3SecretKeyCtrl.text);
+      await prefs.setString('auto_backup_s3_access_key', _s3AccessKeyCtrl.text);
+      await prefs.setString('auto_backup_s3_secret_key', _s3SecretKeyCtrl.text);
       await prefs.setString('auto_backup_s3_bucket', _s3BucketCtrl.text);
     }
     if (mounted) Navigator.of(context).pop();
@@ -862,18 +930,22 @@ class _CloudConfigSheetState extends State<_CloudConfigSheet> {
 
     try {
       final storage = _cloudType == 'webdav'
-          ? WebDavStorage(WebDavConfig(
-              url: _webdavUrlCtrl.text,
-              username: _webdavUserCtrl.text,
-              password: _webdavPassCtrl.text,
-            ))
-          : S3Storage(S3Config(
-              endpoint: _s3EndpointCtrl.text,
-              region: _s3RegionCtrl.text,
-              accessKey: _s3AccessKeyCtrl.text,
-              secretKey: _s3SecretKeyCtrl.text,
-              bucket: _s3BucketCtrl.text,
-            ));
+          ? WebDavStorage(
+              WebDavConfig(
+                url: _webdavUrlCtrl.text,
+                username: _webdavUserCtrl.text,
+                password: _webdavPassCtrl.text,
+              ),
+            )
+          : S3Storage(
+              S3Config(
+                endpoint: _s3EndpointCtrl.text,
+                region: _s3RegionCtrl.text,
+                accessKey: _s3AccessKeyCtrl.text,
+                secretKey: _s3SecretKeyCtrl.text,
+                bucket: _s3BucketCtrl.text,
+              ),
+            );
 
       final ok = await storage.testConnection();
       setState(() {
@@ -945,20 +1017,23 @@ class _PasswordDialogState extends State<_PasswordDialog> {
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('取消')),
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
         ElevatedButton(
           onPressed: () {
             if (_encrypt) {
               final p = _passCtrl.text.trim();
               if (p.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('请输入密码')));
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('请输入密码')));
                 return;
               }
               if (p != _confirmCtrl.text.trim()) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('两次密码不一致')));
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('两次密码不一致')));
                 return;
               }
               Navigator.of(context).pop(p);

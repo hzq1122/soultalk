@@ -15,8 +15,11 @@ class RegexScriptDao {
 
   Future<List<RegexScript>> getEnabled() async {
     final db = await _db.database;
-    final rows = await db.query('regex_scripts',
-        where: 'disabled = 0', orderBy: 'script_name ASC');
+    final rows = await db.query(
+      'regex_scripts',
+      where: 'disabled = 0',
+      orderBy: 'script_name ASC',
+    );
     return rows.map(RegexScript.fromDbMap).toList();
   }
 

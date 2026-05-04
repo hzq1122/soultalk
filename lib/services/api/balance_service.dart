@@ -8,7 +8,13 @@ import '../../models/balance_info.dart';
 class BalanceService {
   final Dio _dio;
 
-  BalanceService() : _dio = Dio(BaseOptions(connectTimeout: const Duration(seconds: 10), receiveTimeout: const Duration(seconds: 10)));
+  BalanceService()
+    : _dio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 10),
+        ),
+      );
 
   /// Detect provider from [baseUrl] and query the appropriate balance endpoint.
   Future<BalanceInfo> queryBalance(String baseUrl, String apiKey) async {
@@ -46,10 +52,12 @@ class BalanceService {
     try {
       final resp = await _dio.get(
         'https://api.deepseek.com/user/balance',
-        options: Options(headers: {
-          'Authorization': 'Bearer $apiKey',
-          'Accept': 'application/json',
-        }),
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $apiKey',
+            'Accept': 'application/json',
+          },
+        ),
       );
       final data = resp.data as Map<String, dynamic>;
       final infos = (data['balance_infos'] as List?) ?? [];
@@ -76,17 +84,23 @@ class BalanceService {
     try {
       final resp = await _dio.get(
         'https://api.stepfun.com/v1/accounts',
-        options: Options(headers: {
-          'Authorization': 'Bearer $apiKey',
-          'Accept': 'application/json',
-        }),
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $apiKey',
+            'Accept': 'application/json',
+          },
+        ),
       );
       final data = resp.data as Map<String, dynamic>;
       final accounts = (data['accounts'] as List?) ?? [];
       if (accounts.isEmpty) {
         return BalanceInfo(provider: 'StepFun', checkedAt: DateTime.now());
       }
-      final total = accounts.fold<double>(0, (sum, a) => sum + (_toDouble((a as Map<String, dynamic>)['balance']) ?? 0));
+      final total = accounts.fold<double>(
+        0,
+        (sum, a) =>
+            sum + (_toDouble((a as Map<String, dynamic>)['balance']) ?? 0),
+      );
       return BalanceInfo(
         total: total,
         unit: 'CNY',
@@ -108,10 +122,12 @@ class BalanceService {
           : 'https://api.siliconflow.com';
       final resp = await _dio.get(
         '$baseUrl/v1/user/info',
-        options: Options(headers: {
-          'Authorization': 'Bearer $apiKey',
-          'Accept': 'application/json',
-        }),
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $apiKey',
+            'Accept': 'application/json',
+          },
+        ),
       );
       final data = resp.data as Map<String, dynamic>;
       final userData = data['data'] as Map<String, dynamic>?;
@@ -137,10 +153,12 @@ class BalanceService {
     try {
       final resp = await _dio.get(
         'https://openrouter.ai/api/v1/credits',
-        options: Options(headers: {
-          'Authorization': 'Bearer $apiKey',
-          'Accept': 'application/json',
-        }),
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $apiKey',
+            'Accept': 'application/json',
+          },
+        ),
       );
       final data = resp.data as Map<String, dynamic>;
       final credits = data['data'] as Map<String, dynamic>?;
@@ -169,10 +187,12 @@ class BalanceService {
     try {
       final resp = await _dio.get(
         'https://api.novita.ai/v3/user/balance',
-        options: Options(headers: {
-          'Authorization': 'Bearer $apiKey',
-          'Accept': 'application/json',
-        }),
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $apiKey',
+            'Accept': 'application/json',
+          },
+        ),
       );
       final data = resp.data as Map<String, dynamic>;
       final raw = _toDouble(data['balance']);

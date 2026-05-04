@@ -50,10 +50,16 @@ class CardExtractor {
       final scope = match.group(5) ?? 'local';
       final tagsStr = match.group(6);
       final tags = tagsStr != null
-          ? tagsStr.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty).toList()
+          ? tagsStr
+                .split(',')
+                .map((t) => t.trim())
+                .where((t) => t.isNotEmpty)
+                .toList()
           : <String>[];
       if (content.isNotEmpty) {
-        candidates.add(_Candidate(content, cardType, importance, confidence, scope, tags));
+        candidates.add(
+          _Candidate(content, cardType, importance, confidence, scope, tags),
+        );
       }
     }
     return candidates;
@@ -67,5 +73,12 @@ class _Candidate {
   final double confidence;
   final String scope;
   final List<String> tags;
-  const _Candidate(this.content, this.cardType, this.importance, this.confidence, this.scope, this.tags);
+  const _Candidate(
+    this.content,
+    this.cardType,
+    this.importance,
+    this.confidence,
+    this.scope,
+    this.tags,
+  );
 }

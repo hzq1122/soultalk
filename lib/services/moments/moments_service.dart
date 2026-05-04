@@ -45,21 +45,24 @@ class MomentsService {
     }
   }
 
-  Future<void> addComment(
-      String momentId, MomentComment comment) async {
+  Future<void> addComment(String momentId, MomentComment comment) async {
     init();
     await _momentDao.addComment(momentId, comment);
   }
 
   Future<String?> generateAiReply(
-      String momentId, String userComment, Contact contact) async {
+    String momentId,
+    String userComment,
+    Contact contact,
+  ) async {
     init();
     final configs = await _apiConfigDao.getAll();
     if (configs.isEmpty) return null;
 
     var config = configs.first;
     if (contact.apiConfigId != null) {
-      config = configs.where((c) => c.id == contact.apiConfigId).firstOrNull ??
+      config =
+          configs.where((c) => c.id == contact.apiConfigId).firstOrNull ??
           config;
     }
 
@@ -109,11 +112,11 @@ class MomentsService {
     }
   }
 
-  Future<void> _generateMomentForContact(
-      Contact contact, List configs) async {
+  Future<void> _generateMomentForContact(Contact contact, List configs) async {
     var config = configs.first;
     if (contact.apiConfigId != null) {
-      config = configs.where((c) => c.id == contact.apiConfigId).firstOrNull ??
+      config =
+          configs.where((c) => c.id == contact.apiConfigId).firstOrNull ??
           config;
     }
 
@@ -127,7 +130,8 @@ class MomentsService {
     ];
     final selectedType = momentTypes[_random.nextInt(momentTypes.length)];
 
-    final systemPrompt = '''${contact.systemPrompt}
+    final systemPrompt =
+        '''${contact.systemPrompt}
 
 你现在要发一条朋友圈动态。
 请你$selectedType。
@@ -155,12 +159,14 @@ class MomentsService {
 
       if (content.trim().isEmpty) return;
 
-      await _momentDao.insert(Moment(
-        id: '',
-        contactId: contact.id,
-        content: content.trim(),
-        createdAt: DateTime.now(),
-      ));
+      await _momentDao.insert(
+        Moment(
+          id: '',
+          contactId: contact.id,
+          content: content.trim(),
+          createdAt: DateTime.now(),
+        ),
+      );
     } catch (_) {}
   }
 }

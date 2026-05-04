@@ -7,12 +7,14 @@ class MemoryCard {
   final String id;
   final String contactId;
   final String content;
-  final String cardType; // fact, event, preference, boundary, relationship, character_state, world_state, roleplay_rule, speech_style, misc
+  final String
+  cardType; // fact, event, preference, boundary, relationship, character_state, world_state, roleplay_rule, speech_style, misc
   final double importance; // 0.0-1.0
   final double confidence; // 0.0-1.0
   final String scope; // local, shared, global
   final List<String> tags;
-  final String status; // active, archived, deprecated, superseded, pending, rejected
+  final String
+  status; // active, archived, deprecated, superseded, pending, rejected
   final DateTime createdAt;
   final DateTime? reviewedAt;
 
@@ -81,13 +83,15 @@ class MemoryCard {
       importance: (map['importance'] as num?)?.toDouble() ?? 0.5,
       confidence: (map['confidence'] as num?)?.toDouble() ?? 0.5,
       scope: map['scope'] as String? ?? 'local',
-      tags: (map['tags'] as String? ?? '').split(',').where((t) => t.isNotEmpty).toList(),
+      tags: (map['tags'] as String? ?? '')
+          .split(',')
+          .where((t) => t.isNotEmpty)
+          .toList(),
       status: map['status'] as String? ?? 'active',
       createdAt:
           DateTime.tryParse(map['created_at'] as String? ?? '') ??
           DateTime.now(),
-      reviewedAt:
-          DateTime.tryParse(map['reviewed_at'] as String? ?? ''),
+      reviewedAt: DateTime.tryParse(map['reviewed_at'] as String? ?? ''),
     );
   }
 

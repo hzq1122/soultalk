@@ -26,8 +26,8 @@ class WeChatColors {
   static const Color divider = Color(0xFFE5E5E5);
 
   /// 消息气泡
-  static const Color bubbleSent = Color(0xFF95EC69);    // 发送（绿色）
-  static const Color bubbleReceived = Color(0xFFFFFFFF);  // 接收（白色）
+  static const Color bubbleSent = Color(0xFF95EC69); // 发送（绿色）
+  static const Color bubbleReceived = Color(0xFFFFFFFF); // 接收（白色）
 
   /// 未读角标
   static const Color unreadBadge = Color(0xFFFF3B30);

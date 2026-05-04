@@ -19,22 +19,21 @@ class ChatPreset {
     String? name,
     bool? enabled,
     List<PresetSegment>? segments,
-  }) =>
-      ChatPreset(
-        id: id,
-        name: name ?? this.name,
-        enabled: enabled ?? this.enabled,
-        segments: segments ?? this.segments,
-        createdAt: createdAt,
-      );
+  }) => ChatPreset(
+    id: id,
+    name: name ?? this.name,
+    enabled: enabled ?? this.enabled,
+    segments: segments ?? this.segments,
+    createdAt: createdAt,
+  );
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'enabled': enabled,
-        'segments': segments.map((s) => s.toJson()).toList(),
-        'createdAt': createdAt?.toIso8601String(),
-      };
+    'id': id,
+    'name': name,
+    'enabled': enabled,
+    'segments': segments.map((s) => s.toJson()).toList(),
+    'createdAt': createdAt?.toIso8601String(),
+  };
 
   factory ChatPreset.fromJson(Map<String, dynamic> json) {
     final segmentsRaw = json['segments'] as List? ?? [];
@@ -71,19 +70,16 @@ class ChatPreset {
   }
 
   Map<String, dynamic> toDbRow() => {
-        'id': id,
-        'name': name,
-        'enabled': enabled ? 1 : 0,
-        'segments': jsonEncode(segments.map((s) => s.toJson()).toList()),
-        'created_at': (createdAt ?? DateTime.now()).toIso8601String(),
-      };
+    'id': id,
+    'name': name,
+    'enabled': enabled ? 1 : 0,
+    'segments': jsonEncode(segments.map((s) => s.toJson()).toList()),
+    'created_at': (createdAt ?? DateTime.now()).toIso8601String(),
+  };
 
   String buildPromptText() {
     if (!enabled) return '';
-    return segments
-        .where((s) => s.enabled)
-        .map((s) => s.content)
-        .join('\n\n');
+    return segments.where((s) => s.enabled).map((s) => s.content).join('\n\n');
   }
 }
 
@@ -105,25 +101,24 @@ class PresetSegment {
     String? role,
     String? content,
     bool? enabled,
-  }) =>
-      PresetSegment(
-        label: label ?? this.label,
-        role: role ?? this.role,
-        content: content ?? this.content,
-        enabled: enabled ?? this.enabled,
-      );
+  }) => PresetSegment(
+    label: label ?? this.label,
+    role: role ?? this.role,
+    content: content ?? this.content,
+    enabled: enabled ?? this.enabled,
+  );
 
   Map<String, dynamic> toJson() => {
-        'label': label,
-        'role': role,
-        'content': content,
-        'enabled': enabled,
-      };
+    'label': label,
+    'role': role,
+    'content': content,
+    'enabled': enabled,
+  };
 
   factory PresetSegment.fromJson(Map<String, dynamic> json) => PresetSegment(
-        label: json['label'] as String? ?? '',
-        role: json['role'] as String? ?? 'system',
-        content: json['content'] as String? ?? '',
-        enabled: json['enabled'] as bool? ?? true,
-      );
+    label: json['label'] as String? ?? '',
+    role: json['role'] as String? ?? 'system',
+    content: json['content'] as String? ?? '',
+    enabled: json['enabled'] as bool? ?? true,
+  );
 }

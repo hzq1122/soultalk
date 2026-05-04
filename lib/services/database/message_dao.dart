@@ -13,41 +13,44 @@ class MessageDao {
   Future<Database> get _database => _db.database;
 
   Map<String, dynamic> _toMap(Message msg) => {
-        'id': msg.id,
-        'contact_id': msg.contactId,
-        'role': msg.role.name,
-        'content': msg.content,
-        'type': msg.type.name,
-        'is_streaming': msg.isStreaming ? 1 : 0,
-        'token_count': msg.tokenCount,
-        'metadata': msg.metadata != null ? jsonEncode(msg.metadata) : null,
-        'created_at': msg.createdAt?.toIso8601String(),
-      };
+    'id': msg.id,
+    'contact_id': msg.contactId,
+    'role': msg.role.name,
+    'content': msg.content,
+    'type': msg.type.name,
+    'is_streaming': msg.isStreaming ? 1 : 0,
+    'token_count': msg.tokenCount,
+    'metadata': msg.metadata != null ? jsonEncode(msg.metadata) : null,
+    'created_at': msg.createdAt?.toIso8601String(),
+  };
 
   Message _fromMap(Map<String, dynamic> map) => Message(
-        id: map['id'] as String,
-        contactId: map['contact_id'] as String,
-        role: MessageRole.values.firstWhere(
-          (r) => r.name == map['role'],
-          orElse: () => MessageRole.user,
-        ),
-        content: map['content'] as String,
-        type: MessageType.values.firstWhere(
-          (t) => t.name == map['type'],
-          orElse: () => MessageType.text,
-        ),
-        isStreaming: (map['is_streaming'] as int) == 1,
-        tokenCount: map['token_count'] as int? ?? 0,
-        metadata: map['metadata'] != null
-            ? (jsonDecode(map['metadata'] as String) as Map<String, dynamic>)
-            : null,
-        createdAt: map['created_at'] != null
-            ? DateTime.tryParse(map['created_at'] as String)
-            : null,
-      );
+    id: map['id'] as String,
+    contactId: map['contact_id'] as String,
+    role: MessageRole.values.firstWhere(
+      (r) => r.name == map['role'],
+      orElse: () => MessageRole.user,
+    ),
+    content: map['content'] as String,
+    type: MessageType.values.firstWhere(
+      (t) => t.name == map['type'],
+      orElse: () => MessageType.text,
+    ),
+    isStreaming: (map['is_streaming'] as int) == 1,
+    tokenCount: map['token_count'] as int? ?? 0,
+    metadata: map['metadata'] != null
+        ? (jsonDecode(map['metadata'] as String) as Map<String, dynamic>)
+        : null,
+    createdAt: map['created_at'] != null
+        ? DateTime.tryParse(map['created_at'] as String)
+        : null,
+  );
 
-  Future<List<Message>> getByContact(String contactId,
-      {int? limit, int? offset}) async {
+  Future<List<Message>> getByContact(
+    String contactId, {
+    int? limit,
+    int? offset,
+  }) async {
     final db = await _database;
     final rows = await db.query(
       'messages',
@@ -85,8 +88,12 @@ class MessageDao {
   }
 
   /// 更新消息内容（用于流式更新）
-  Future<void> updateContent(String id, String content,
-      {bool isStreaming = false, int tokenCount = 0}) async {
+  Future<void> updateContent(
+    String id,
+    String content, {
+    bool isStreaming = false,
+    int tokenCount = 0,
+  }) async {
     final db = await _database;
     await db.update(
       'messages',
@@ -102,14 +109,26 @@ class MessageDao {
 
   Future<void> updateType(String id, String type) async {
     final db = await _database;
-    await db.update('messages', {'type': type},
-        where: 'id = ?', whereArgs: [id]);
+    await db.update(
+      'messages',
+      {'type': type},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
-  Future<void> updateTypeAndContent(String id, String type, String content) async {
+  Future<void> updateTypeAndContent(
+    String id,
+    String type,
+    String content,
+  ) async {
     final db = await _database;
-    await db.update('messages', {'type': type, 'content': content},
-        where: 'id = ?', whereArgs: [id]);
+    await db.update(
+      'messages',
+      {'type': type, 'content': content},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   Future<void> delete(String id) async {
@@ -119,15 +138,19 @@ class MessageDao {
 
   Future<void> deleteByContact(String contactId) async {
     final db = await _database;
-    await db.delete('messages',
-        where: 'contact_id = ?', whereArgs: [contactId]);
+    await db.delete(
+      'messages',
+      where: 'contact_id = ?',
+      whereArgs: [contactId],
+    );
   }
 
   Future<int> countByContact(String contactId) async {
     final db = await _database;
     final result = await db.rawQuery(
-        'SELECT COUNT(*) as cnt FROM messages WHERE contact_id = ?',
-        [contactId]);
+      'SELECT COUNT(*) as cnt FROM messages WHERE contact_id = ?',
+      [contactId],
+    );
     return (result.first['cnt'] as int?) ?? 0;
   }
 }

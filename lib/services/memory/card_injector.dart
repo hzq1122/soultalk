@@ -17,7 +17,9 @@ class CardInjector {
     buffer.writeln('[相关记忆]');
 
     for (final card in activeCards) {
-      final tagSuffix = card.tags.isNotEmpty ? ' [${card.tags.join(', ')}]' : '';
+      final tagSuffix = card.tags.isNotEmpty
+          ? ' [${card.tags.join(', ')}]'
+          : '';
       buffer.writeln('- ${card.content}$tagSuffix');
     }
 
@@ -29,7 +31,10 @@ class CardInjector {
         break;
       }
     }
-    result.insert(insertIdx, {'role': 'system', 'content': buffer.toString().trim()});
+    result.insert(insertIdx, {
+      'role': 'system',
+      'content': buffer.toString().trim(),
+    });
     return result;
   }
 }

@@ -87,8 +87,12 @@ class DatabaseService {
       )
     ''');
 
-    await db.execute('CREATE INDEX idx_messages_contact_id ON messages(contact_id)');
-    await db.execute('CREATE INDEX idx_messages_created_at ON messages(created_at)');
+    await db.execute(
+      'CREATE INDEX idx_messages_contact_id ON messages(contact_id)',
+    );
+    await db.execute(
+      'CREATE INDEX idx_messages_created_at ON messages(created_at)',
+    );
 
     await db.execute('''
       CREATE TABLE moments (
@@ -102,8 +106,12 @@ class DatabaseService {
         FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
       )
     ''');
-    await db.execute('CREATE INDEX idx_moments_contact_id ON moments(contact_id)');
-    await db.execute('CREATE INDEX idx_moments_created_at ON moments(created_at)');
+    await db.execute(
+      'CREATE INDEX idx_moments_contact_id ON moments(contact_id)',
+    );
+    await db.execute(
+      'CREATE INDEX idx_moments_created_at ON moments(created_at)',
+    );
 
     await db.execute('''
       CREATE TABLE chat_presets (
@@ -154,7 +162,9 @@ class DatabaseService {
         FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
       )
     ''');
-    await db.execute('CREATE INDEX idx_memory_entries_contact_id ON memory_entries(contact_id)');
+    await db.execute(
+      'CREATE INDEX idx_memory_entries_contact_id ON memory_entries(contact_id)',
+    );
 
     await db.execute('''
       CREATE TABLE wallet_transactions (
@@ -167,7 +177,9 @@ class DatabaseService {
         created_at TEXT NOT NULL
       )
     ''');
-    await db.execute('CREATE INDEX idx_wallet_tx_created_at ON wallet_transactions(created_at)');
+    await db.execute(
+      'CREATE INDEX idx_wallet_tx_created_at ON wallet_transactions(created_at)',
+    );
 
     await db.execute('''
       CREATE TABLE IF NOT EXISTS memory_states (
@@ -182,8 +194,12 @@ class DatabaseService {
         FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
       )
     ''');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_memory_states_contact ON memory_states(contact_id)');
-    await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_memory_states_slot ON memory_states(contact_id, slot_name)');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_memory_states_contact ON memory_states(contact_id)',
+    );
+    await db.execute(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_memory_states_slot ON memory_states(contact_id, slot_name)',
+    );
 
     await db.execute('''
       CREATE TABLE IF NOT EXISTS memory_cards (
@@ -201,20 +217,27 @@ class DatabaseService {
         FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
       )
     ''');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_memory_cards_contact ON memory_cards(contact_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_memory_cards_status ON memory_cards(status)');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_memory_cards_contact ON memory_cards(contact_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_memory_cards_status ON memory_cards(status)',
+    );
   }
 
   Future<void> _onOpen(Database db) async {
     // 重置应用崩溃/强退后遗留的 is_streaming=1 消息
-    await db.update('messages', {'is_streaming': 0},
-        where: 'is_streaming = 1');
+    await db.update('messages', {'is_streaming': 0}, where: 'is_streaming = 1');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
-      await db.execute('ALTER TABLE contacts ADD COLUMN proactive_enabled INTEGER NOT NULL DEFAULT 1');
-      await db.execute('ALTER TABLE contacts ADD COLUMN last_proactive_at TEXT');
+      await db.execute(
+        'ALTER TABLE contacts ADD COLUMN proactive_enabled INTEGER NOT NULL DEFAULT 1',
+      );
+      await db.execute(
+        'ALTER TABLE contacts ADD COLUMN last_proactive_at TEXT',
+      );
       await db.execute('ALTER TABLE messages ADD COLUMN metadata TEXT');
       await db.execute('''
         CREATE TABLE IF NOT EXISTS moments (
@@ -228,8 +251,12 @@ class DatabaseService {
           FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
         )
       ''');
-      await db.execute('CREATE INDEX IF NOT EXISTS idx_moments_contact_id ON moments(contact_id)');
-      await db.execute('CREATE INDEX IF NOT EXISTS idx_moments_created_at ON moments(created_at)');
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_moments_contact_id ON moments(contact_id)',
+      );
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_moments_created_at ON moments(created_at)',
+      );
     }
     if (oldVersion < 3) {
       await db.execute('''
@@ -280,7 +307,9 @@ class DatabaseService {
           FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
         )
       ''');
-      await db.execute('CREATE INDEX IF NOT EXISTS idx_memory_entries_contact_id ON memory_entries(contact_id)');
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_memory_entries_contact_id ON memory_entries(contact_id)',
+      );
     }
     if (oldVersion < 5) {
       await db.execute('''
@@ -294,7 +323,9 @@ class DatabaseService {
           created_at TEXT NOT NULL
         )
       ''');
-      await db.execute('CREATE INDEX IF NOT EXISTS idx_wallet_tx_created_at ON wallet_transactions(created_at)');
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_wallet_tx_created_at ON wallet_transactions(created_at)',
+      );
     }
     if (oldVersion < 6) {
       await db.execute('''
@@ -310,8 +341,12 @@ class DatabaseService {
           FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
         )
       ''');
-      await db.execute('CREATE INDEX IF NOT EXISTS idx_memory_states_contact ON memory_states(contact_id)');
-      await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_memory_states_slot ON memory_states(contact_id, slot_name)');
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_memory_states_contact ON memory_states(contact_id)',
+      );
+      await db.execute(
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_memory_states_slot ON memory_states(contact_id, slot_name)',
+      );
 
       await db.execute('''
         CREATE TABLE IF NOT EXISTS memory_cards (
@@ -329,8 +364,12 @@ class DatabaseService {
           FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
         )
       ''');
-      await db.execute('CREATE INDEX IF NOT EXISTS idx_memory_cards_contact ON memory_cards(contact_id)');
-      await db.execute('CREATE INDEX IF NOT EXISTS idx_memory_cards_status ON memory_cards(status)');
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_memory_cards_contact ON memory_cards(contact_id)',
+      );
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_memory_cards_status ON memory_cards(status)',
+      );
     }
     if (oldVersion < 7) {
       await db.execute('''
@@ -346,8 +385,12 @@ class DatabaseService {
           FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
         )
       ''');
-      await db.execute('CREATE INDEX IF NOT EXISTS idx_memory_states_contact ON memory_states(contact_id)');
-      await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_memory_states_slot ON memory_states(contact_id, slot_name)');
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_memory_states_contact ON memory_states(contact_id)',
+      );
+      await db.execute(
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_memory_states_slot ON memory_states(contact_id, slot_name)',
+      );
 
       await db.execute('''
         CREATE TABLE IF NOT EXISTS memory_cards (
@@ -365,8 +408,12 @@ class DatabaseService {
           FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
         )
       ''');
-      await db.execute('CREATE INDEX IF NOT EXISTS idx_memory_cards_contact ON memory_cards(contact_id)');
-      await db.execute('CREATE INDEX IF NOT EXISTS idx_memory_cards_status ON memory_cards(status)');
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_memory_cards_contact ON memory_cards(contact_id)',
+      );
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_memory_cards_status ON memory_cards(status)',
+      );
     }
   }
 

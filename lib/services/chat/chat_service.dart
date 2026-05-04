@@ -176,7 +176,12 @@ class ChatService {
         contactId: contact.id,
         userText: processedUserText,
         messages: contextMessages
-            .map((m) => {'role': m.role == MessageRole.user ? 'user' : 'assistant', 'content': m.content})
+            .map(
+              (m) => {
+                'role': m.role == MessageRole.user ? 'user' : 'assistant',
+                'content': m.content,
+              },
+            )
             .toList(),
       );
       if (memoryResult.stateText != null || memoryResult.cardText != null) {

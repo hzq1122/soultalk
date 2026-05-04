@@ -11,40 +11,28 @@ void main() {
     });
 
     test('mode always returns true', () {
-      final decision = gate.decide(
-        userText: 'hello',
-        mode: 'always',
-      );
+      final decision = gate.decide(userText: 'hello', mode: 'always');
 
       expect(decision.shouldRetrieve, isTrue);
       expect(decision.reason, 'mode_always');
     });
 
     test('mode never returns false', () {
-      final decision = gate.decide(
-        userText: 'hello',
-        mode: 'never',
-      );
+      final decision = gate.decide(userText: 'hello', mode: 'never');
 
       expect(decision.shouldRetrieve, isFalse);
       expect(decision.reason, 'mode_never');
     });
 
     test('new session triggers retrieval', () {
-      final decision = gate.decide(
-        userText: 'hello world',
-        turnIndex: null,
-      );
+      final decision = gate.decide(userText: 'hello world', turnIndex: null);
 
       expect(decision.shouldRetrieve, isTrue);
       expect(decision.reasons, contains('new_session'));
     });
 
     test('turn 0 triggers retrieval as new session', () {
-      final decision = gate.decide(
-        userText: 'hello world',
-        turnIndex: 0,
-      );
+      final decision = gate.decide(userText: 'hello world', turnIndex: 0);
 
       expect(decision.shouldRetrieve, isTrue);
     });
@@ -60,20 +48,14 @@ void main() {
     });
 
     test('periodic retrieval every N turns', () {
-      final decision = gate.decide(
-        userText: 'hello world',
-        turnIndex: 6,
-      );
+      final decision = gate.decide(userText: 'hello world', turnIndex: 6);
 
       expect(decision.shouldRetrieve, isTrue);
       expect(decision.reasons.any((r) => r.contains('periodic')), isTrue);
     });
 
     test('short text is skipped', () {
-      final decision = gate.decide(
-        userText: 'hi',
-        turnIndex: 5,
-      );
+      final decision = gate.decide(userText: 'hi', turnIndex: 5);
 
       expect(decision.shouldRetrieve, isFalse);
       expect(decision.reason, 'short_text');

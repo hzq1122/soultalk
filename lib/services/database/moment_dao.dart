@@ -13,30 +13,30 @@ class MomentDao {
   Future<Database> get _database => _db.database;
 
   Map<String, dynamic> _toMap(Moment moment) => {
-        'id': moment.id,
-        'contact_id': moment.contactId,
-        'content': moment.content,
-        'image_url': moment.imageUrl,
-        'likes': jsonEncode(moment.likes),
-        'comments': jsonEncode(
-            moment.comments.map((c) => c.toJson()).toList()),
-        'created_at': moment.createdAt?.toIso8601String(),
-      };
+    'id': moment.id,
+    'contact_id': moment.contactId,
+    'content': moment.content,
+    'image_url': moment.imageUrl,
+    'likes': jsonEncode(moment.likes),
+    'comments': jsonEncode(moment.comments.map((c) => c.toJson()).toList()),
+    'created_at': moment.createdAt?.toIso8601String(),
+  };
 
   Moment _fromMap(Map<String, dynamic> map) => Moment(
-        id: map['id'] as String,
-        contactId: map['contact_id'] as String,
-        content: map['content'] as String,
-        imageUrl: map['image_url'] as String?,
-        likes: List<String>.from(
-            jsonDecode(map['likes'] as String? ?? '[]') as List),
-        comments: (jsonDecode(map['comments'] as String? ?? '[]') as List)
-            .map((c) => MomentComment.fromJson(c as Map<String, dynamic>))
-            .toList(),
-        createdAt: map['created_at'] != null
-            ? DateTime.tryParse(map['created_at'] as String)
-            : null,
-      );
+    id: map['id'] as String,
+    contactId: map['contact_id'] as String,
+    content: map['content'] as String,
+    imageUrl: map['image_url'] as String?,
+    likes: List<String>.from(
+      jsonDecode(map['likes'] as String? ?? '[]') as List,
+    ),
+    comments: (jsonDecode(map['comments'] as String? ?? '[]') as List)
+        .map((c) => MomentComment.fromJson(c as Map<String, dynamic>))
+        .toList(),
+    createdAt: map['created_at'] != null
+        ? DateTime.tryParse(map['created_at'] as String)
+        : null,
+  );
 
   Future<List<Moment>> getAll({int? limit, int? offset}) async {
     final db = await _database;
@@ -87,8 +87,11 @@ class MomentDao {
 
   Future<void> addLike(String momentId, String userId) async {
     final db = await _database;
-    final rows =
-        await db.query('moments', where: 'id = ?', whereArgs: [momentId]);
+    final rows = await db.query(
+      'moments',
+      where: 'id = ?',
+      whereArgs: [momentId],
+    );
     if (rows.isEmpty) return;
     final moment = _fromMap(rows.first);
     if (moment.likes.contains(userId)) return;
@@ -103,8 +106,11 @@ class MomentDao {
 
   Future<void> removeLike(String momentId, String userId) async {
     final db = await _database;
-    final rows =
-        await db.query('moments', where: 'id = ?', whereArgs: [momentId]);
+    final rows = await db.query(
+      'moments',
+      where: 'id = ?',
+      whereArgs: [momentId],
+    );
     if (rows.isEmpty) return;
     final moment = _fromMap(rows.first);
     final newLikes = moment.likes.where((l) => l != userId).toList();
@@ -118,8 +124,11 @@ class MomentDao {
 
   Future<void> addComment(String momentId, MomentComment comment) async {
     final db = await _database;
-    final rows =
-        await db.query('moments', where: 'id = ?', whereArgs: [momentId]);
+    final rows = await db.query(
+      'moments',
+      where: 'id = ?',
+      whereArgs: [momentId],
+    );
     if (rows.isEmpty) return;
     final moment = _fromMap(rows.first);
     final newComments = [...moment.comments, comment];
@@ -138,7 +147,6 @@ class MomentDao {
 
   Future<void> deleteByContact(String contactId) async {
     final db = await _database;
-    await db.delete('moments',
-        where: 'contact_id = ?', whereArgs: [contactId]);
+    await db.delete('moments', where: 'contact_id = ?', whereArgs: [contactId]);
   }
 }

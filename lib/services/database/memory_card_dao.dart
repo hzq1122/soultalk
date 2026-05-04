@@ -9,10 +9,12 @@ class MemoryCardDao {
 
   Future<List<MemoryCard>> getActiveByContact(String contactId) async {
     final db = await _db.database;
-    final rows = await db.query('memory_cards',
-        where: 'contact_id = ? AND status = ?',
-        whereArgs: [contactId, 'active'],
-        orderBy: 'importance DESC, confidence DESC');
+    final rows = await db.query(
+      'memory_cards',
+      where: 'contact_id = ? AND status = ?',
+      whereArgs: [contactId, 'active'],
+      orderBy: 'importance DESC, confidence DESC',
+    );
     return rows.map(MemoryCard.fromDbMap).toList();
   }
 
@@ -22,15 +24,19 @@ class MemoryCardDao {
   ) async {
     if (keywords.isEmpty) return [];
     final db = await _db.database;
-    final conditions = keywords.map((_) => '(content LIKE ? OR tags LIKE ?)').join(' OR ');
+    final conditions = keywords
+        .map((_) => '(content LIKE ? OR tags LIKE ?)')
+        .join(' OR ');
     final args = <dynamic>[contactId, 'active'];
     for (final kw in keywords) {
       args.addAll(['%$kw%', '%$kw%']);
     }
-    final rows = await db.query('memory_cards',
-        where: 'contact_id = ? AND status = ? AND ($conditions)',
-        whereArgs: args,
-        orderBy: 'importance DESC, confidence DESC');
+    final rows = await db.query(
+      'memory_cards',
+      where: 'contact_id = ? AND status = ? AND ($conditions)',
+      whereArgs: args,
+      orderBy: 'importance DESC, confidence DESC',
+    );
     return rows.map(MemoryCard.fromDbMap).toList();
   }
 

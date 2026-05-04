@@ -15,20 +15,26 @@ class DiscoverPage extends StatelessWidget {
       ),
       body: ListView(
         children: [
-          const _DiscoverSection(items: [
-            _DiscoverItem(
+          const _DiscoverSection(
+            items: [
+              _DiscoverItem(
                 icon: Icons.public,
                 label: '朋友圈',
                 color: Color(0xFF07C160),
-                route: '/discover/moments'),
-          ]),
-          const _DiscoverSection(items: [
-            _DiscoverItem(
+                route: '/discover/moments',
+              ),
+            ],
+          ),
+          const _DiscoverSection(
+            items: [
+              _DiscoverItem(
                 icon: Icons.delivery_dining,
                 label: '点外卖',
                 color: Color(0xFFFF6B35),
-                route: '/delivery'),
-          ]),
+                route: '/delivery',
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -89,8 +95,7 @@ class _DiscoverItem extends StatelessWidget {
         child: Icon(icon, color: Colors.white, size: 18),
       ),
       title: Text(label),
-      trailing:
-          const Icon(Icons.chevron_right, color: WeChatColors.textHint),
+      trailing: const Icon(Icons.chevron_right, color: WeChatColors.textHint),
       onTap: () => context.push(route),
     );
   }

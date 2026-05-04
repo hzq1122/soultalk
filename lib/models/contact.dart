@@ -8,9 +8,9 @@ class Contact with _$Contact {
   const factory Contact({
     required String id,
     required String name,
-    String? avatar,           // 本地文件路径或 null（使用首字母头像）
+    String? avatar, // 本地文件路径或 null（使用首字母头像）
     @Default('') String description,
-    String? apiConfigId,      // 绑定的 API 配置 ID
+    String? apiConfigId, // 绑定的 API 配置 ID
     @Default('') String systemPrompt,
     String? characterCardJson, // SillyTavern 角色卡 JSON 字符串
     @Default([]) List<String> tags,

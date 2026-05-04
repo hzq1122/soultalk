@@ -29,8 +29,7 @@ final memoryServiceProvider = Provider<MemoryService>((ref) {
   );
 });
 
-class MemoryNotifier
-    extends FamilyAsyncNotifier<List<MemoryEntry>, String> {
+class MemoryNotifier extends FamilyAsyncNotifier<List<MemoryEntry>, String> {
   @override
   Future<List<MemoryEntry>> build(String contactId) async {
     return ref.read(memoryEntryDaoProvider).getByContact(contactId);
@@ -38,12 +37,8 @@ class MemoryNotifier
 
   Future<void> extractMemories(ApiConfig apiConfig) async {
     final service = ref.read(memoryServiceProvider);
-    await service.extractMemories(
-      contactId: arg,
-      apiConfig: apiConfig,
-    );
-    state = AsyncData(
-        await ref.read(memoryEntryDaoProvider).getByContact(arg));
+    await service.extractMemories(contactId: arg, apiConfig: apiConfig);
+    state = AsyncData(await ref.read(memoryEntryDaoProvider).getByContact(arg));
   }
 
   Future<void> deleteEntry(String entryId) async {
@@ -61,13 +56,15 @@ class MemoryNotifier
   Future<void> refresh() async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(
-        () => ref.read(memoryEntryDaoProvider).getByContact(arg));
+      () => ref.read(memoryEntryDaoProvider).getByContact(arg),
+    );
   }
 }
 
 final memoryProvider =
     AsyncNotifierProviderFamily<MemoryNotifier, List<MemoryEntry>, String>(
-        MemoryNotifier.new);
+      MemoryNotifier.new,
+    );
 
 // ── State board provider ───────────────────────────────────────────
 
@@ -81,18 +78,19 @@ class MemoryStateNotifier
   Future<void> refresh() async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(
-        () => ref.read(memoryStateDaoProvider).getByContact(arg));
+      () => ref.read(memoryStateDaoProvider).getByContact(arg),
+    );
   }
 }
 
 final memoryStateProvider =
     AsyncNotifierProviderFamily<MemoryStateNotifier, List<MemoryState>, String>(
-        MemoryStateNotifier.new);
+      MemoryStateNotifier.new,
+    );
 
 // ── Memory card provider ───────────────────────────────────────────
 
-class MemoryCardNotifier
-    extends FamilyAsyncNotifier<List<MemoryCard>, String> {
+class MemoryCardNotifier extends FamilyAsyncNotifier<List<MemoryCard>, String> {
   @override
   Future<List<MemoryCard>> build(String contactId) async {
     return ref.read(memoryCardDaoProvider).getActiveByContact(contactId);
@@ -101,10 +99,12 @@ class MemoryCardNotifier
   Future<void> refresh() async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(
-        () => ref.read(memoryCardDaoProvider).getActiveByContact(arg));
+      () => ref.read(memoryCardDaoProvider).getActiveByContact(arg),
+    );
   }
 }
 
 final memoryCardProvider =
     AsyncNotifierProviderFamily<MemoryCardNotifier, List<MemoryCard>, String>(
-        MemoryCardNotifier.new);
+      MemoryCardNotifier.new,
+    );

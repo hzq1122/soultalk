@@ -3,18 +3,14 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'message.freezed.dart';
 part 'message.g.dart';
 
-enum MessageRole {
-  user,
-  assistant,
-  system,
-}
+enum MessageRole { user, assistant, system }
 
 enum MessageType {
   text,
   image,
-  transfer,   // 虚拟转账
-  delivery,   // 虚拟外卖
-  system,     // 系统消息
+  transfer, // 虚拟转账
+  delivery, // 虚拟外卖
+  system, // 系统消息
 }
 
 @freezed

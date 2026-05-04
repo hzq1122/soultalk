@@ -41,8 +41,10 @@ class _MomentsPageState extends ConsumerState<MomentsPage> {
               ),
             ],
             flexibleSpace: FlexibleSpaceBar(
-              title: const Text('朋友圈',
-                  style: TextStyle(color: WeChatColors.textPrimary)),
+              title: const Text(
+                '朋友圈',
+                style: TextStyle(color: WeChatColors.textPrimary),
+              ),
               background: Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
@@ -62,15 +64,21 @@ class _MomentsPageState extends ConsumerState<MomentsPage> {
                         CircleAvatar(
                           radius: 30,
                           backgroundColor: WeChatColors.primary,
-                          child: Icon(Icons.person,
-                              color: Colors.white, size: 30),
+                          child: Icon(
+                            Icons.person,
+                            color: Colors.white,
+                            size: 30,
+                          ),
                         ),
                         SizedBox(height: 4),
-                        Text('SoulTalk 用户',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500)),
+                        Text(
+                          'SoulTalk 用户',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -82,9 +90,8 @@ class _MomentsPageState extends ConsumerState<MomentsPage> {
             loading: () => const SliverFillRemaining(
               child: Center(child: CircularProgressIndicator()),
             ),
-            error: (e, _) => SliverFillRemaining(
-              child: Center(child: Text('加载失败: $e')),
-            ),
+            error: (e, _) =>
+                SliverFillRemaining(child: Center(child: Text('加载失败: $e'))),
             data: (moments) {
               if (moments.isEmpty) {
                 return SliverFillRemaining(
@@ -92,12 +99,16 @@ class _MomentsPageState extends ConsumerState<MomentsPage> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.photo_library_outlined,
-                            size: 64, color: WeChatColors.textHint),
+                        const Icon(
+                          Icons.photo_library_outlined,
+                          size: 64,
+                          color: WeChatColors.textHint,
+                        ),
                         const SizedBox(height: 12),
-                        const Text('朋友圈暂无动态',
-                            style: TextStyle(
-                                color: WeChatColors.textSecondary)),
+                        const Text(
+                          '朋友圈暂无动态',
+                          style: TextStyle(color: WeChatColors.textSecondary),
+                        ),
                         const SizedBox(height: 16),
                         ElevatedButton(
                           onPressed: _generateMoments,
@@ -109,27 +120,22 @@ class _MomentsPageState extends ConsumerState<MomentsPage> {
                 );
               }
 
-              final contacts =
-                  contactsAsync.value ?? <Contact>[];
+              final contacts = contactsAsync.value ?? <Contact>[];
               return SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final moment = moments[index];
-                    final contact = contacts
-                        .where((c) => c.id == moment.contactId)
-                        .firstOrNull;
-                    return _MomentCard(
-                      moment: moment,
-                      contact: contact,
-                      onLike: () => ref
-                          .read(momentsProvider.notifier)
-                          .toggleLike(moment.id),
-                      onComment: (text) =>
-                          _onComment(moment, contact, text),
-                    );
-                  },
-                  childCount: moments.length,
-                ),
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final moment = moments[index];
+                  final contact = contacts
+                      .where((c) => c.id == moment.contactId)
+                      .firstOrNull;
+                  return _MomentCard(
+                    moment: moment,
+                    contact: contact,
+                    onLike: () => ref
+                        .read(momentsProvider.notifier)
+                        .toggleLike(moment.id),
+                    onComment: (text) => _onComment(moment, contact, text),
+                  );
+                }, childCount: moments.length),
               );
             },
           ),
@@ -139,28 +145,25 @@ class _MomentsPageState extends ConsumerState<MomentsPage> {
   }
 
   Future<void> _generateMoments() async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('正在生成朋友圈动态...')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('正在生成朋友圈动态...')));
     await ref.read(momentsProvider.notifier).generateMoments();
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('新动态已生成')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('新动态已生成')));
     }
   }
 
-  Future<void> _onComment(
-      Moment moment, Contact? contact, String text) async {
+  Future<void> _onComment(Moment moment, Contact? contact, String text) async {
     final userComment = MomentComment(
       authorId: 'user',
       authorName: 'SoulTalk 用户',
       content: text,
       createdAt: DateTime.now(),
     );
-    await ref
-        .read(momentsProvider.notifier)
-        .addComment(moment.id, userComment);
+    await ref.read(momentsProvider.notifier).addComment(moment.id, userComment);
 
     if (contact != null) {
       final reply = await ref
@@ -229,7 +232,9 @@ class _MomentCard extends StatelessWidget {
                     Text(
                       moment.content,
                       style: const TextStyle(
-                          fontSize: 15, color: WeChatColors.textPrimary),
+                        fontSize: 15,
+                        color: WeChatColors.textPrimary,
+                      ),
                     ),
                   ],
                 ),
@@ -244,7 +249,9 @@ class _MomentCard extends StatelessWidget {
               Text(
                 _formatTime(moment.createdAt ?? DateTime.now()),
                 style: const TextStyle(
-                    fontSize: 12, color: WeChatColors.textHint),
+                  fontSize: 12,
+                  color: WeChatColors.textHint,
+                ),
               ),
               const Spacer(),
               _ActionMenu(
@@ -271,8 +278,11 @@ class _MomentCard extends StatelessWidget {
                   if (moment.likes.isNotEmpty) ...[
                     Row(
                       children: [
-                        const Icon(Icons.favorite,
-                            size: 14, color: Color(0xFF576B95)),
+                        const Icon(
+                          Icons.favorite,
+                          size: 14,
+                          color: Color(0xFF576B95),
+                        ),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
@@ -280,41 +290,48 @@ class _MomentCard extends StatelessWidget {
                                 .map((l) => l == 'user' ? 'SoulTalk 用户' : l)
                                 .join(', '),
                             style: const TextStyle(
-                                fontSize: 12, color: Color(0xFF576B95)),
+                              fontSize: 12,
+                              color: Color(0xFF576B95),
+                            ),
                           ),
                         ),
                       ],
                     ),
-                    if (moment.comments.isNotEmpty)
-                      const Divider(height: 12),
+                    if (moment.comments.isNotEmpty) const Divider(height: 12),
                   ],
-                  ...moment.comments.map((c) => Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: RichText(
-                          text: TextSpan(
-                            style: const TextStyle(
-                                fontSize: 13, color: WeChatColors.textPrimary),
-                            children: [
-                              TextSpan(
-                                text: c.authorName,
-                                style: const TextStyle(
-                                    color: Color(0xFF576B95),
-                                    fontWeight: FontWeight.w500),
-                              ),
-                              if (c.replyToName != null) ...[
-                                const TextSpan(text: ' 回复 '),
-                                TextSpan(
-                                  text: c.replyToName!,
-                                  style: const TextStyle(
-                                      color: Color(0xFF576B95),
-                                      fontWeight: FontWeight.w500),
-                                ),
-                              ],
-                              TextSpan(text: ': ${c.content}'),
-                            ],
+                  ...moment.comments.map(
+                    (c) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: RichText(
+                        text: TextSpan(
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: WeChatColors.textPrimary,
                           ),
+                          children: [
+                            TextSpan(
+                              text: c.authorName,
+                              style: const TextStyle(
+                                color: Color(0xFF576B95),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            if (c.replyToName != null) ...[
+                              const TextSpan(text: ' 回复 '),
+                              TextSpan(
+                                text: c.replyToName!,
+                                style: const TextStyle(
+                                  color: Color(0xFF576B95),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                            TextSpan(text: ': ${c.content}'),
+                          ],
                         ),
-                      )),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -347,8 +364,10 @@ class _MomentCard extends StatelessWidget {
                   decoration: const InputDecoration(
                     hintText: '评论...',
                     border: OutlineInputBorder(),
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                   ),
                 ),
               ),
@@ -446,10 +465,15 @@ class _ActionMenuState extends State<_ActionMenu> {
               setState(() => _showActions = false);
               widget.onComment();
             },
-            icon:
-                const Icon(Icons.chat_bubble_outline, color: Colors.white, size: 14),
-            label: const Text('评论',
-                style: TextStyle(color: Colors.white, fontSize: 12)),
+            icon: const Icon(
+              Icons.chat_bubble_outline,
+              color: Colors.white,
+              size: 14,
+            ),
+            label: const Text(
+              '评论',
+              style: TextStyle(color: Colors.white, fontSize: 12),
+            ),
           ),
         ],
       ),

@@ -42,7 +42,10 @@ class StateFiller {
 
   List<_StateUpdate> _parseStateUpdates(String response) {
     final updates = <_StateUpdate>[];
-    final regex = RegExp(r'\[STATE:(\w+)\]\s*(.+?)(?:\s*\(confidence:\s*([\d.]+)\))?(?=\n|$)', multiLine: true);
+    final regex = RegExp(
+      r'\[STATE:(\w+)\]\s*(.+?)(?:\s*\(confidence:\s*([\d.]+)\))?(?=\n|$)',
+      multiLine: true,
+    );
     for (final match in regex.allMatches(response)) {
       final key = match.group(1) ?? '';
       final value = (match.group(2) ?? '').trim();

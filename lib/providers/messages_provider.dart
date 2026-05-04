@@ -29,7 +29,8 @@ class MessagesNotifier extends FamilyAsyncNotifier<List<Message>, String> {
   Future<void> loadMore() async {
     if (!_hasMore) return;
     final all = await ref.read(chatServiceProvider).getMessages(arg);
-    final startIdx = (all.length - _kPageSize - (_offset + 1) * _kPageSize).clamp(0, all.length);
+    final startIdx = (all.length - _kPageSize - (_offset + 1) * _kPageSize)
+        .clamp(0, all.length);
     final endIdx = all.length - _kPageSize - _offset * _kPageSize;
     if (endIdx <= 0 || startIdx >= endIdx) {
       _hasMore = false;
@@ -47,7 +48,11 @@ class MessagesNotifier extends FamilyAsyncNotifier<List<Message>, String> {
     state = AsyncData([...current, message]);
   }
 
-  void updateLastMessage(String id, String content, {bool isStreaming = false}) {
+  void updateLastMessage(
+    String id,
+    String content, {
+    bool isStreaming = false,
+  }) {
     final list = state.value ?? [];
     final idx = list.indexWhere((m) => m.id == id);
     if (idx >= 0) {
@@ -72,10 +77,9 @@ class MessagesNotifier extends FamilyAsyncNotifier<List<Message>, String> {
     final idx = list.indexWhere((m) => m.id == messageId);
     if (idx >= 0) {
       final original = list[idx];
-      await ref.read(chatServiceProvider).retractMessage(
-            messageId,
-            '[用户撤回了一条消息：${original.content}]',
-          );
+      await ref
+          .read(chatServiceProvider)
+          .retractMessage(messageId, '[用户撤回了一条消息：${original.content}]');
       final newList = List<Message>.from(list);
       newList[idx] = newList[idx].copyWith(
         type: MessageType.system,
@@ -96,14 +100,18 @@ class MessagesNotifier extends FamilyAsyncNotifier<List<Message>, String> {
     _offset = 0;
     _hasMore = true;
     state = await AsyncValue.guard(
-        () => ref.read(chatServiceProvider).getMessages(arg));
+      () => ref.read(chatServiceProvider).getMessages(arg),
+    );
   }
 }
 
 final messagesProvider =
     AsyncNotifierProviderFamily<MessagesNotifier, List<Message>, String>(
-        MessagesNotifier.new);
+      MessagesNotifier.new,
+    );
 
 // ─── 当前发送状态 ─────────────────────────────────────────────────────────────
 
-final isSendingProvider = StateProvider.family<bool, String>((ref, contactId) => false);
+final isSendingProvider = StateProvider.family<bool, String>(
+  (ref, contactId) => false,
+);
