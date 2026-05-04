@@ -71,7 +71,11 @@ class QRCodePage extends ConsumerWidget {
     );
   }
 
-  Widget _buildQRCode(BuildContext context, PcConnectState state, WidgetRef ref) {
+  Widget _buildQRCode(
+    BuildContext context,
+    PcConnectState state,
+    WidgetRef ref,
+  ) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -136,10 +140,7 @@ class QRCodePage extends ConsumerWidget {
           const SizedBox(width: 8),
           Text(
             '二维码有效期 2 分钟，请尽快扫描',
-            style: TextStyle(
-              color: Colors.blue.shade700,
-              fontSize: 12,
-            ),
+            style: TextStyle(color: Colors.blue.shade700, fontSize: 12),
           ),
         ],
       ),
@@ -186,30 +187,29 @@ class QRCodePage extends ConsumerWidget {
               child: Center(
                 child: Text(
                   '暂无设备连接',
-                  style: TextStyle(
-                    color: WeChatColors.textHint,
-                    fontSize: 13,
-                  ),
+                  style: TextStyle(color: WeChatColors.textHint, fontSize: 13),
                 ),
               ),
             )
           else
-            ...state.connectedDevices.map((device) => ListTile(
-                  leading: const Icon(Icons.computer, color: Colors.blue),
-                  title: Text(device.name),
-                  subtitle: Text(
-                    '最后活跃: ${_formatTime(device.lastActiveAt)}',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.link_off, color: Colors.red),
-                    onPressed: () {
-                      ref
-                          .read(pcConnectProvider.notifier)
-                          .disconnectDevice(device.deviceId);
-                    },
-                  ),
-                )),
+            ...state.connectedDevices.map(
+              (device) => ListTile(
+                leading: const Icon(Icons.computer, color: Colors.blue),
+                title: Text(device.name),
+                subtitle: Text(
+                  '最后活跃: ${_formatTime(device.lastActiveAt)}',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                trailing: IconButton(
+                  icon: const Icon(Icons.link_off, color: Colors.red),
+                  onPressed: () {
+                    ref
+                        .read(pcConnectProvider.notifier)
+                        .disconnectDevice(device.deviceId);
+                  },
+                ),
+              ),
+            ),
         ],
       ),
     );

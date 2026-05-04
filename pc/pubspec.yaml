@@ -29,8 +29,8 @@ dependencies:
   # 加密存储
   flutter_secure_storage: ^9.2.4
 
-  # 二维码扫描
-  mobile_scanner: ^5.2.3
+  # 加密 / 哈希 (用于同步校验)
+  crypto: ^3.0.5
 
   # UUID
   uuid: ^4.5.1

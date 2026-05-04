@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 /// PC 端 WebSocket 客户端，连接手机端
 class WebSocketClient {
   WebSocketChannel? _channel;
+  // ignore: unused_field — kept for future use
   StreamSubscription? _subscription;
   Timer? _heartbeatTimer;
   Timer? _reconnectTimer;
@@ -21,15 +22,15 @@ class WebSocketClient {
 
   final StreamController<Map<String, dynamic>> _eventController =
       StreamController<Map<String, dynamic>>.broadcast();
-  final StreamController<ConnectionState> _stateController =
-      StreamController<ConnectionState>.broadcast();
+  final StreamController<WsConnectionState> _stateController =
+      StreamController<WsConnectionState>.broadcast();
 
   Stream<Map<String, dynamic>> get events => _eventController.stream;
-  Stream<ConnectionState> get stateStream => _stateController.stream;
+  Stream<WsConnectionState> get stateStream => _stateController.stream;
 
   bool get isConnected => _channel != null && _isAuthenticated;
   String? get deviceId => _deviceId;
-  ConnectionState _currentState = ConnectionState.disconnected;
+  WsConnectionState _currentState = WsConnectionState.disconnected;
 
   /// 连接到手机端 WebSocket 服务器
   Future<void> connect(String url) async {
@@ -38,7 +39,7 @@ class WebSocketClient {
     }
 
     _serverUrl = url;
-    _currentState = ConnectionState.connecting;
+    _currentState = WsConnectionState.connecting;
     _stateController.add(_currentState);
 
     try {
@@ -71,17 +72,13 @@ class WebSocketClient {
 
     _isAuthenticated = false;
     _deviceId = null;
-    _currentState = ConnectionState.disconnected;
+    _currentState = WsConnectionState.disconnected;
     _stateController.add(_currentState);
   }
 
   /// 请求同步消息
   void requestSync({String? since, int limit = 20}) {
-    _sendMessage({
-      'type': 'sync',
-      'since': since,
-      'limit': limit,
-    });
+    _sendMessage({'type': 'sync', 'since': since, 'limit': limit});
   }
 
   /// 发送新消息
@@ -96,18 +93,12 @@ class WebSocketClient {
 
   /// 发送冲突解决方案
   void sendConflictResolution(List<Map<String, dynamic>> resolutions) {
-    _sendMessage({
-      'type': 'conflict_resolved',
-      'resolutions': resolutions,
-    });
+    _sendMessage({'type': 'conflict_resolved', 'resolutions': resolutions});
   }
 
   /// 发送同步检查
   void sendSyncCheck(String lastSyncTime) {
-    _sendMessage({
-      'type': 'sync_check',
-      'lastSyncTime': lastSyncTime,
-    });
+    _sendMessage({'type': 'sync_check', 'lastSyncTime': lastSyncTime});
   }
 
   void _sendAuth() {
@@ -161,7 +152,7 @@ class WebSocketClient {
     _deviceId = message['deviceId'] as String?;
     _isAuthenticated = true;
     _reconnectAttempts = 0;
-    _currentState = ConnectionState.connected;
+    _currentState = WsConnectionState.connected;
     _stateController.add(_currentState);
 
     _startHeartbeat();
@@ -170,7 +161,7 @@ class WebSocketClient {
 
   void _handleAuthError(Map<String, dynamic> message) {
     _isAuthenticated = false;
-    _currentState = ConnectionState.authFailed;
+    _currentState = WsConnectionState.authFailed;
     _stateController.add(_currentState);
     _eventController.add(message);
   }
@@ -180,18 +171,19 @@ class WebSocketClient {
     _channel = null;
     _isAuthenticated = false;
 
-    if (_currentState == ConnectionState.connected) {
-      _currentState = ConnectionState.disconnected;
+    if (_currentState == WsConnectionState.connected) {
+      _currentState = WsConnectionState.disconnected;
       _stateController.add(_currentState);
       _tryReconnect();
     }
   }
 
   void _onError(dynamic error) {
-    _eventController.add({
-      'type': 'error',
-      'message': error.toString(),
-    });
+    if (_currentState != WsConnectionState.connected) {
+      _currentState = WsConnectionState.failed;
+      _stateController.add(_currentState);
+    }
+    _eventController.add({'type': 'error', 'message': error.toString()});
   }
 
   void _startHeartbeat() {
@@ -203,13 +195,13 @@ class WebSocketClient {
 
   void _tryReconnect() {
     if (_reconnectAttempts >= _maxReconnectAttempts) {
-      _currentState = ConnectionState.failed;
+      _currentState = WsConnectionState.failed;
       _stateController.add(_currentState);
       return;
     }
 
     _reconnectAttempts++;
-    _currentState = ConnectionState.reconnecting;
+    _currentState = WsConnectionState.reconnecting;
     _stateController.add(_currentState);
 
     _reconnectTimer?.cancel();
@@ -227,8 +219,8 @@ class WebSocketClient {
   }
 }
 
-/// 连接状态
-enum ConnectionState {
+/// WebSocket 连接状态
+enum WsConnectionState {
   disconnected,
   connecting,
   connected,

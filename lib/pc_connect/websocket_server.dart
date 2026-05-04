@@ -47,7 +47,8 @@ class WebSocketServer {
 
     // 生成随机端口
     final port =
-        _minPort + (DateTime.now().millisecondsSinceEpoch % (_maxPort - _minPort));
+        _minPort +
+        (DateTime.now().millisecondsSinceEpoch % (_maxPort - _minPort));
 
     // 生成 JWT 密钥
     _jwtSecret = _generateSecret();
@@ -61,10 +62,7 @@ class WebSocketServer {
 
     _startIdleTimer();
 
-    _eventController.add({
-      'type': 'server_started',
-      'port': port,
-    });
+    _eventController.add({'type': 'server_started', 'port': port});
 
     return port;
   }
@@ -103,18 +101,18 @@ class WebSocketServer {
 
   void _refreshToken() {
     _jwtSecret = _generateSecret();
-    final jwt = JWT(
-      {
-        'iat': DateTime.now().millisecondsSinceEpoch ~/ 1000,
-        'exp': DateTime.now().add(_tokenTtl).millisecondsSinceEpoch ~/ 1000,
-      },
-    );
+    final jwt = JWT({
+      'iat': DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      'exp': DateTime.now().add(_tokenTtl).millisecondsSinceEpoch ~/ 1000,
+    });
     _currentToken = jwt.sign(SecretKey(_jwtSecret!));
   }
 
   String _generateSecret() {
-    final random =
-        List.generate(32, (_) => DateTime.now().microsecondsSinceEpoch % 256);
+    final random = List.generate(
+      32,
+      (_) => DateTime.now().microsecondsSinceEpoch % 256,
+    );
     return base64Url.encode(random);
   }
 
@@ -227,10 +225,7 @@ class WebSocketServer {
 
     _connectionManager.addDevice(deviceId, webSocket);
 
-    _eventController.add({
-      'type': 'device_connected',
-      'deviceId': deviceId,
-    });
+    _eventController.add({'type': 'device_connected', 'deviceId': deviceId});
   }
 
   void _handleMessage(String deviceId, String rawMessage) {
@@ -304,7 +299,9 @@ class WebSocketServer {
   }
 
   Future<void> _handleSync(
-      String deviceId, Map<String, dynamic> message) async {
+    String deviceId,
+    Map<String, dynamic> message,
+  ) async {
     final since = message['since'] as String?;
     final limit = message['limit'] as int? ?? 20;
 
@@ -320,7 +317,9 @@ class WebSocketServer {
   }
 
   Future<void> _handleSyncCheck(
-      String deviceId, Map<String, dynamic> message) async {
+    String deviceId,
+    Map<String, dynamic> message,
+  ) async {
     final lastSyncTime = message['lastSyncTime'] as String?;
     if (lastSyncTime == null) return;
 
@@ -347,23 +346,20 @@ class WebSocketServer {
       }
     }
 
-    _eventController.add({
-      'type': 'new_message',
-      'message': message,
-    });
+    _eventController.add({'type': 'new_message', 'message': message});
   }
 
   Future<void> _handleConflictResolved(
-      String deviceId, Map<String, dynamic> message) async {
+    String deviceId,
+    Map<String, dynamic> message,
+  ) async {
     final resolutions = message['resolutions'] as List<dynamic>?;
     if (resolutions == null) return;
 
     await _syncHandler.applyResolutions(resolutions);
 
     // 通知 PC 同步就绪
-    _connectionManager.sendMessage(deviceId, {
-      'type': 'sync_ready',
-    });
+    _connectionManager.sendMessage(deviceId, {'type': 'sync_ready'});
   }
 
   void _handleDisconnect(String deviceId, Map<String, dynamic> message) {

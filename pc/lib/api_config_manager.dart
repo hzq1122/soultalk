@@ -28,11 +28,15 @@ class ApiConfigManager {
     return _localConfigs.where((c) => c.id == _activeConfigId).firstOrNull;
   }
 
-  /// 初始化
+  /// 初始化（platform storage 不可用时降级为空配置）
   Future<void> init() async {
-    await _loadMode();
-    await _loadLocalConfigs();
-    await _loadActiveConfigId();
+    try {
+      await _loadMode();
+      await _loadLocalConfigs();
+      await _loadActiveConfigId();
+    } catch (_) {
+      // flutter_secure_storage 在测试环境或某些平台不可用
+    }
   }
 
   /// 切换模式
@@ -67,7 +71,9 @@ class ApiConfigManager {
     await _saveLocalConfigs();
 
     if (_activeConfigId == id) {
-      _activeConfigId = _localConfigs.isNotEmpty ? _localConfigs.first.id : null;
+      _activeConfigId = _localConfigs.isNotEmpty
+          ? _localConfigs.first.id
+          : null;
       await _saveActiveConfigId();
     }
   }
@@ -90,9 +96,10 @@ class ApiConfigManager {
     _remoteConfigs.clear();
   }
 
-  /// 清除所有配置（收到 clear_api 指令时调用）
+  /// 收到 clear_api 指令时调用，清除远程配置和激活状态
   void clearAllRemoteConfigs() {
     _remoteConfigs.clear();
+    _activeConfigId = null;
   }
 
   Future<void> _loadMode() async {

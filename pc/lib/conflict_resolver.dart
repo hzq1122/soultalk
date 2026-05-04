@@ -27,12 +27,14 @@ class ConflictResolver {
       }).toList();
 
       if (conflictingMobile.isNotEmpty) {
-        conflicts.add(MessageConflict(
-          contactId: contactId,
-          mobileMessage: conflictingMobile.first,
-          pcMessage: pcMsg,
-          timestamp: timestamp,
-        ));
+        conflicts.add(
+          MessageConflict(
+            contactId: contactId,
+            mobileMessage: conflictingMobile.first,
+            pcMessage: pcMsg,
+            timestamp: timestamp,
+          ),
+        );
       }
     }
 
@@ -97,8 +99,4 @@ class MessageConflict {
 }
 
 /// 冲突解决方案
-enum ConflictResolution {
-  keepMobile,
-  keepPC,
-  manualEdit,
-}
+enum ConflictResolution { keepMobile, keepPC, manualEdit }

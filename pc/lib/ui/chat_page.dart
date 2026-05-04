@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/connection_provider.dart';
+import '../websocket_client.dart';
 import '../theme/desktop_theme.dart';
 
 class ChatPage extends ConsumerStatefulWidget {
@@ -50,16 +51,20 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       body: Column(
         children: [
           // 连接状态提示
-          if (connState.connectionState != ConnectionState.connected)
+          if (connState.connectionState != WsConnectionState.connected)
             Container(
               padding: const EdgeInsets.all(8),
               color: Colors.orange.shade100,
               child: Row(
                 children: [
-                  const Icon(Icons.warning_amber, size: 16, color: Colors.orange),
+                  const Icon(
+                    Icons.warning_amber,
+                    size: 16,
+                    color: Colors.orange,
+                  ),
                   const SizedBox(width: 8),
                   Text(
-                    connState.connectionState == ConnectionState.reconnecting
+                    connState.connectionState == WsConnectionState.reconnecting
                         ? '正在重连...'
                         : '未连接到手机',
                     style: const TextStyle(fontSize: 12, color: Colors.orange),
@@ -94,7 +99,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           ),
 
           // 输入框
-          if (connState.connectionState == ConnectionState.connected)
+          if (connState.connectionState == WsConnectionState.connected)
             _buildInputBar(ref),
         ],
       ),
@@ -126,10 +131,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             ),
           ),
           const SizedBox(width: 12),
-          ElevatedButton(
-            onPressed: () => _send(ref),
-            child: const Text('发送'),
-          ),
+          ElevatedButton(onPressed: () => _send(ref), child: const Text('发送')),
         ],
       ),
     );
@@ -139,10 +141,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final content = _messageController.text.trim();
     if (content.isEmpty) return;
 
-    ref.read(pcConnectionProvider.notifier).sendMessage(
-          widget.contactId,
-          content,
-        );
+    ref
+        .read(pcConnectionProvider.notifier)
+        .sendMessage(widget.contactId, content);
     _messageController.clear();
 
     // 滚动到底部
@@ -182,9 +183,7 @@ class _MessageBubble extends StatelessWidget {
         decoration: BoxDecoration(
           color: isFromPC ? DesktopTheme.primary : Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: isFromPC
-              ? null
-              : Border.all(color: DesktopTheme.divider),
+          border: isFromPC ? null : Border.all(color: DesktopTheme.divider),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -203,7 +202,7 @@ class _MessageBubble extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 10,
                   color: isFromPC
-                      ? Colors.white.withOpacity(0.7)
+                      ? Colors.white.withValues(alpha: 0.7)
                       : DesktopTheme.textHint,
                 ),
               ),

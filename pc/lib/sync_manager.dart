@@ -101,8 +101,8 @@ class SyncManager {
       _messagesController.add(_messages);
     }
 
-    _lastSyncTime = data['serverTime'] as String? ??
-        DateTime.now().toIso8601String();
+    _lastSyncTime =
+        data['serverTime'] as String? ?? DateTime.now().toIso8601String();
     _stateController.add(SyncState.idle);
   }
 
@@ -120,7 +120,8 @@ class SyncManager {
 
   void _handleNewMessage(Map<String, dynamic> event) {
     final message = {
-      'id': event['id']?.toString() ??
+      'id':
+          event['id']?.toString() ??
           DateTime.now().millisecondsSinceEpoch.toString(),
       'contactId': event['contactId'],
       'content': event['content'],
@@ -171,9 +172,4 @@ class SyncManager {
   }
 }
 
-enum SyncState {
-  idle,
-  syncing,
-  conflict,
-  error,
-}
+enum SyncState { idle, syncing, conflict, error }

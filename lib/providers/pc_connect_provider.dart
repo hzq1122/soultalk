@@ -198,5 +198,5 @@ class PcConnectNotifier extends StateNotifier<PcConnectState> {
 
 final pcConnectProvider =
     StateNotifierProvider<PcConnectNotifier, PcConnectState>((ref) {
-  return PcConnectNotifier();
-});
+      return PcConnectNotifier();
+    });

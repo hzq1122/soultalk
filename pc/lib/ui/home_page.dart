@@ -51,10 +51,10 @@ class HomePage extends ConsumerWidget {
   }
 
   Widget _buildConnectionStatus(PCConnectionState state) {
-    final isConnected = state.connectionState == ConnectionState.connected;
+    final isConnected = state.connectionState == WsConnectionState.connected;
     final isConnecting =
-        state.connectionState == ConnectionState.connecting ||
-            state.connectionState == ConnectionState.reconnecting;
+        state.connectionState == WsConnectionState.connecting ||
+        state.connectionState == WsConnectionState.reconnecting;
 
     return Card(
       child: Padding(
@@ -68,11 +68,17 @@ class HomePage extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              isConnected ? '已连接' : isConnecting ? '连接中...' : '未连接',
+              isConnected
+                  ? '已连接'
+                  : isConnecting
+                  ? '连接中...'
+                  : '未连接',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: isConnected ? DesktopTheme.primary : DesktopTheme.textSecondary,
+                color: isConnected
+                    ? DesktopTheme.primary
+                    : DesktopTheme.textSecondary,
               ),
             ),
             if (isConnected && state.deviceId != null) ...[
@@ -96,7 +102,7 @@ class HomePage extends ConsumerWidget {
     WidgetRef ref,
     PCConnectionState state,
   ) {
-    final isConnected = state.connectionState == ConnectionState.connected;
+    final isConnected = state.connectionState == WsConnectionState.connected;
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -115,13 +121,15 @@ class HomePage extends ConsumerWidget {
           ),
         ] else ...[
           ElevatedButton.icon(
-            onPressed: () => ref.read(pcConnectionProvider.notifier).requestSync(),
+            onPressed: () =>
+                ref.read(pcConnectionProvider.notifier).requestSync(),
             icon: const Icon(Icons.sync),
             label: const Text('同步消息'),
           ),
           const SizedBox(width: 16),
           OutlinedButton.icon(
-            onPressed: () => ref.read(pcConnectionProvider.notifier).disconnect(),
+            onPressed: () =>
+                ref.read(pcConnectionProvider.notifier).disconnect(),
             icon: const Icon(Icons.link_off),
             label: const Text('断开连接'),
             style: OutlinedButton.styleFrom(
@@ -137,9 +145,9 @@ class HomePage extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: DesktopTheme.error.withOpacity(0.1),
+        color: DesktopTheme.error.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: DesktopTheme.error.withOpacity(0.3)),
+        border: Border.all(color: DesktopTheme.error.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -170,10 +178,7 @@ class HomePage extends ConsumerWidget {
               children: [
                 const Text(
                   '最近消息',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 Text(
                   '共 ${state.messages.length} 条',
@@ -185,27 +190,27 @@ class HomePage extends ConsumerWidget {
               ],
             ),
             const Divider(),
-            ...messages.map((msg) => ListTile(
-                  dense: true,
-                  title: Text(
-                    msg['content'] as String? ?? '',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  subtitle: Text(
-                    msg['timestamp'] as String? ?? '',
-                    style: const TextStyle(fontSize: 11),
-                  ),
-                  leading: Icon(
-                    msg['fromPC'] == true
-                        ? Icons.computer
-                        : Icons.phone_android,
-                    size: 20,
-                    color: msg['fromPC'] == true
-                        ? DesktopTheme.primary
-                        : DesktopTheme.textSecondary,
-                  ),
-                )),
+            ...messages.map(
+              (msg) => ListTile(
+                dense: true,
+                title: Text(
+                  msg['content'] as String? ?? '',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Text(
+                  msg['timestamp'] as String? ?? '',
+                  style: const TextStyle(fontSize: 11),
+                ),
+                leading: Icon(
+                  msg['fromPC'] == true ? Icons.computer : Icons.phone_android,
+                  size: 20,
+                  color: msg['fromPC'] == true
+                      ? DesktopTheme.primary
+                      : DesktopTheme.textSecondary,
+                ),
+              ),
+            ),
           ],
         ),
       ),

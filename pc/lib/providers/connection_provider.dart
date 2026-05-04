@@ -8,7 +8,7 @@ import '../api_config_manager.dart';
 
 /// 连接状态
 class PCConnectionState {
-  final ConnectionState connectionState;
+  final WsConnectionState connectionState;
   final String? deviceId;
   final String? serverUrl;
   final List<Map<String, dynamic>> messages;
@@ -17,7 +17,7 @@ class PCConnectionState {
   final String? error;
 
   const PCConnectionState({
-    this.connectionState = ConnectionState.disconnected,
+    this.connectionState = WsConnectionState.disconnected,
     this.deviceId,
     this.serverUrl,
     this.messages = const [],
@@ -27,7 +27,7 @@ class PCConnectionState {
   });
 
   PCConnectionState copyWith({
-    ConnectionState? connectionState,
+    WsConnectionState? connectionState,
     String? deviceId,
     String? serverUrl,
     List<Map<String, dynamic>>? messages,
@@ -96,7 +96,7 @@ class PCConnectionNotifier extends StateNotifier<PCConnectionState> {
     _syncManager?.dispose();
     _syncManager = null;
     state = state.copyWith(
-      connectionState: ConnectionState.disconnected,
+      connectionState: WsConnectionState.disconnected,
       deviceId: null,
       messages: [],
     );
@@ -159,9 +159,7 @@ class PCConnectionNotifier extends StateNotifier<PCConnectionState> {
 
       case 'clear_api':
         _configManager.clearAllRemoteConfigs();
-        state = state.copyWith(
-          activeApiConfig: _configManager.activeConfig,
-        );
+        state = state.copyWith(activeApiConfig: _configManager.activeConfig);
         break;
 
       case 'error':
@@ -183,5 +181,5 @@ class PCConnectionNotifier extends StateNotifier<PCConnectionState> {
 
 final pcConnectionProvider =
     StateNotifierProvider<PCConnectionNotifier, PCConnectionState>((ref) {
-  return PCConnectionNotifier();
-});
+      return PCConnectionNotifier();
+    });

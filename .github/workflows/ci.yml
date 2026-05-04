@@ -3,12 +3,13 @@ name: CI
 on:
   push:
     branches: [main]
-    tags: ['v*']
+    tags: ['*']
   pull_request:
     branches: [main]
 
 permissions:
   contents: write
+  actions: read
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
@@ -29,11 +30,17 @@ jobs:
           channel: stable
           flutter-version: '3.41.x'
 
-      - name: Install dependencies
+      - name: Install dependencies (root)
         run: flutter pub get
 
-      - name: Run dart analyze
+      - name: Install dependencies (pc)
+        run: cd pc && flutter pub get
+
+      - name: Run dart analyze (root)
         run: dart analyze . --fatal-infos
+
+      - name: Run dart analyze (pc)
+        run: cd pc && dart analyze . --fatal-infos
 
   # ── Tests ────────────────────────────────────────────────────────
   test:
@@ -50,11 +57,17 @@ jobs:
           channel: stable
           flutter-version: '3.41.x'
 
-      - name: Install dependencies
+      - name: Install dependencies (root)
         run: flutter pub get
 
-      - name: Run tests
+      - name: Install dependencies (pc)
+        run: cd pc && flutter pub get
+
+      - name: Run tests (root)
         run: flutter test --coverage
+
+      - name: Run tests (pc)
+        run: cd pc && flutter test
 
       - name: Upload coverage
         if: success()
@@ -78,17 +91,45 @@ jobs:
           channel: stable
           flutter-version: '3.41.x'
 
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Check formatting
+      - name: Check formatting (root)
         run: dart format --set-exit-if-changed .
+
+      - name: Check formatting (pc)
+        run: cd pc && dart format --set-exit-if-changed .
+
+  # ── Determine Version from Tag ───────────────────────────────────
+  version-info:
+    name: Version Info
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
+      is-release: ${{ steps.version.outputs.IS_RELEASE }}
+
+    steps:
+      - name: Parse tag
+        id: version
+        run: |
+          TAG="${{ github.ref_name }}"
+          if [[ "$TAG" == v* ]]; then
+            VERSION="${TAG#v}"
+            IS_RELEASE="true"
+          else
+            VERSION="$TAG"
+            IS_RELEASE="false"
+            # 非 v-tag 不更新 pubspec.yaml 版本号，避免非法 semver
+            echo "Non-release tag, version remains as-is in pubspec.yaml"
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "IS_RELEASE=$IS_RELEASE" >> $GITHUB_OUTPUT
+          echo "Tag=$TAG → Version=$VERSION, Release=$IS_RELEASE"
 
   # ── Android APK Build ────────────────────────────────────────────
   build-android:
     name: Android APK
     runs-on: ubuntu-latest
-    needs: [analyze, test]
+    needs: [analyze, test, format, version-info]
+    if: startsWith(github.ref, 'refs/tags/')
 
     steps:
       - name: Checkout code
@@ -106,10 +147,10 @@ jobs:
           channel: stable
           flutter-version: '3.41.x'
 
-      - name: Update version from tag
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Update version from tag (v-tags only)
+        if: needs.version-info.outputs.is-release == 'true'
         run: |
-          VERSION=${GITHUB_REF_NAME#v}
+          VERSION="${{ needs.version-info.outputs.version }}"
           sed -i "s/^version: .*/version: $VERSION/" pubspec.yaml
           echo "Version set to $VERSION from tag"
 
@@ -124,11 +165,12 @@ jobs:
           name: android-apk
           path: build/app/outputs/flutter-apk/*.apk
 
-  # ── Windows x64 Build ────────────────────────────────────────────
-  build-windows:
-    name: Windows x64
+  # ── PC Windows Build (pc 子项目) ────────────────────────────────
+  build-pc-windows:
+    name: PC Windows x64
     runs-on: windows-latest
-    needs: [analyze, test]
+    needs: [analyze, test, format, version-info]
+    if: startsWith(github.ref, 'refs/tags/')
 
     steps:
       - name: Checkout code
@@ -143,38 +185,38 @@ jobs:
       - name: Enable Windows desktop
         run: flutter config --enable-windows-desktop
 
-      - name: Update version from tag
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Update version from tag (v-tags only)
+        if: needs.version-info.outputs.is-release == 'true'
         shell: bash
         run: |
-          VERSION=${GITHUB_REF_NAME#v}
-          sed -i "s/^version: .*/version: $VERSION/" pubspec.yaml
+          VERSION="${{ needs.version-info.outputs.version }}"
+          sed -i "s/^version: .*/version: $VERSION/" pc/pubspec.yaml
           echo "Version set to $VERSION from tag"
 
-      - name: Build Windows
+      - name: Build PC Windows
         run: |
+          cd pc
           flutter pub get
           flutter build windows --release
 
-      - name: Package Windows build
+      - name: Package PC build
         shell: pwsh
         run: |
-          $version = "${{ github.ref_name }}" -replace '^v',''
-          if ($version -eq 'main') { $version = 'dev' }
-          $zipName = "soultalk-windows-x64-v$version.zip"
-          Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath $zipName
+          $version = "${{ needs.version-info.outputs.version }}"
+          $zipName = "soultalk-pc-windows-x64-v$version.zip"
+          Compress-Archive -Path pc\build\windows\x64\runner\Release\* -DestinationPath $zipName
           echo "zip_name=$zipName" >> $env:GITHUB_ENV
 
-      - name: Upload Windows artifact
+      - name: Upload PC artifact
         uses: actions/upload-artifact@v5
         with:
-          name: windows-x64
-          path: soultalk-windows-x64-*.zip
+          name: pc-windows-x64
+          path: soultalk-pc-windows-x64-*.zip
 
-  # ── Release (tag push only) ──────────────────────────────────────
+  # ── Release (v-tag only) ─────────────────────────────────────────
   release:
     name: Create GitHub Release
-    needs: [build-android, build-windows]
+    needs: [build-android, build-pc-windows, version-info]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
 
@@ -192,7 +234,7 @@ jobs:
         with:
           artifacts: |
             artifacts/android-apk/*.apk
-            artifacts/windows-x64/*.zip
+            artifacts/pc-windows-x64/*.zip
           tag: ${{ github.ref_name }}
           name: SoulTalk ${{ github.ref_name }}
           token: ${{ secrets.GITHUB_TOKEN }}

@@ -12,14 +12,8 @@ final appRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: '/',
   routes: [
-    GoRoute(
-      path: '/',
-      builder: (context, state) => const HomePage(),
-    ),
-    GoRoute(
-      path: '/scan',
-      builder: (context, state) => const ScanPage(),
-    ),
+    GoRoute(path: '/', builder: (context, state) => const HomePage()),
+    GoRoute(path: '/scan', builder: (context, state) => const ScanPage()),
     GoRoute(
       path: '/chat/:contactId',
       builder: (context, state) {

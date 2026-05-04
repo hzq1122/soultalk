@@ -52,9 +52,7 @@ class ConnectionManager {
     try {
       connection.channel.sink.add(jsonEncode(message));
       _connections[deviceId] = _DeviceConnection(
-        device: connection.device.copyWith(
-          lastActiveAt: DateTime.now(),
-        ),
+        device: connection.device.copyWith(lastActiveAt: DateTime.now()),
         channel: connection.channel,
       );
       return true;
@@ -94,8 +92,5 @@ class _DeviceConnection {
   final PcDevice device;
   final WebSocketChannel channel;
 
-  _DeviceConnection({
-    required this.device,
-    required this.channel,
-  });
+  _DeviceConnection({required this.device, required this.channel});
 }

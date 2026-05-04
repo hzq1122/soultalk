@@ -12,8 +12,8 @@ class PcDevice {
     DateTime? connectedAt,
     DateTime? lastActiveAt,
     this.ip,
-  })  : connectedAt = connectedAt ?? DateTime.now(),
-        lastActiveAt = lastActiveAt ?? DateTime.now();
+  }) : connectedAt = connectedAt ?? DateTime.now(),
+       lastActiveAt = lastActiveAt ?? DateTime.now();
 
   PcDevice copyWith({
     String? deviceId,

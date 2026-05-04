@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../providers/connection_provider.dart';
+import '../websocket_client.dart';
 import '../theme/desktop_theme.dart';
 
 class ScanPage extends ConsumerStatefulWidget {
@@ -14,18 +14,13 @@ class ScanPage extends ConsumerStatefulWidget {
 }
 
 class _ScanPageState extends ConsumerState<ScanPage> {
-  MobileScannerController? _controller;
-  bool _isScanning = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = MobileScannerController();
-  }
+  final TextEditingController _uriController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  bool _isConnecting = false;
 
   @override
   void dispose() {
-    _controller?.dispose();
+    _uriController.dispose();
     super.dispose();
   }
 
@@ -35,14 +30,20 @@ class _ScanPageState extends ConsumerState<ScanPage> {
 
     // 连接成功后跳转
     ref.listen(pcConnectionProvider, (prev, next) {
-      if (next.connectionState == ConnectionState.connected) {
+      if (next.connectionState == WsConnectionState.connected) {
         context.go('/');
+      }
+      if (next.connectionState == WsConnectionState.authFailed ||
+          next.connectionState == WsConnectionState.failed) {
+        setState(() {
+          _isConnecting = false;
+        });
       }
     });
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('扫描二维码'),
+        title: const Text('连接手机'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go('/'),
@@ -50,70 +51,113 @@ class _ScanPageState extends ConsumerState<ScanPage> {
       ),
       body: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
+          constraints: const BoxConstraints(maxWidth: 500),
           child: Card(
             margin: const EdgeInsets.all(24),
             child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  const Text(
-                    '扫描手机端二维码',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+              padding: const EdgeInsets.all(32),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.phonelink,
+                      size: 64,
+                      color: DesktopTheme.primary,
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    '在手机端打开「连接电脑」页面，扫描显示的二维码',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: DesktopTheme.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: _buildScanner(),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  if (connState.connectionState == ConnectionState.connecting)
-                    const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircularProgressIndicator(strokeWidth: 2),
-                        SizedBox(width: 12),
-                        Text('连接中...'),
-                      ],
-                    ),
-                  if (connState.error != null)
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: DesktopTheme.error.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
+                    const SizedBox(height: 24),
+                    const Text(
+                      '连接到手机',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
                       ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.error_outline,
-                              color: DesktopTheme.error, size: 20),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              connState.error!,
-                              style: const TextStyle(
-                                color: DesktopTheme.error,
-                                fontSize: 13,
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      '在手机端打开「我 → 连接电脑」，\n将显示的连接地址粘贴到下方',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: DesktopTheme.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    TextFormField(
+                      controller: _uriController,
+                      decoration: const InputDecoration(
+                        labelText: '连接地址',
+                        hintText: 'ws://192.168.1.100:12345/ws?token=xxx',
+                        prefixIcon: Icon(Icons.link),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return '请输入连接地址';
+                        }
+                        if (!value.trim().startsWith('ws://')) {
+                          return '连接地址必须以 ws:// 开头';
+                        }
+                        return null;
+                      },
+                      maxLines: 2,
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _isConnecting ? null : _connect,
+                        icon: _isConnecting
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.link),
+                        label: Text(_isConnecting ? '连接中...' : '连接'),
+                      ),
+                    ),
+                    if (connState.error != null) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: DesktopTheme.error.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: DesktopTheme.error.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.error_outline,
+                              color: DesktopTheme.error,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                connState.error!,
+                                style: const TextStyle(
+                                  color: DesktopTheme.error,
+                                  fontSize: 13,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                ],
+                    ],
+                    const SizedBox(height: 24),
+                    const Divider(),
+                    const SizedBox(height: 16),
+                    _buildHelpSection(),
+                  ],
+                ),
               ),
             ),
           ),
@@ -122,62 +166,71 @@ class _ScanPageState extends ConsumerState<ScanPage> {
     );
   }
 
-  Widget _buildScanner() {
-    if (!_isScanning) {
-      return const Center(
-        child: Text('扫码已暂停'),
-      );
-    }
-
-    try {
-      return MobileScanner(
-        controller: _controller,
-        onDetect: _onDetect,
-      );
-    } catch (e) {
-      // 移动扫描器不可用时显示提示
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.qr_code_scanner, size: 64, color: DesktopTheme.textHint),
-            const SizedBox(height: 16),
-            const Text(
-              '摄像头不可用',
-              style: TextStyle(color: DesktopTheme.textSecondary),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              '请使用手动输入方式连接',
-              style: TextStyle(fontSize: 12, color: DesktopTheme.textHint),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () => context.go('/'),
-              child: const Text('返回'),
-            ),
-          ],
+  Widget _buildHelpSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '连接步骤',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: DesktopTheme.textSecondary,
+          ),
         ),
-      );
-    }
+        const SizedBox(height: 12),
+        _buildStep(1, '在手机端打开「我 → 连接电脑」'),
+        _buildStep(2, '开启「允许电脑连接」开关'),
+        _buildStep(3, '复制显示的连接地址'),
+        _buildStep(4, '粘贴到上方输入框并点击连接'),
+        const SizedBox(height: 16),
+        const Text(
+          '提示：连接地址有效期为 2 分钟，过期请在手机端刷新',
+          style: TextStyle(fontSize: 12, color: DesktopTheme.textHint),
+        ),
+      ],
+    );
   }
 
-  void _onDetect(BarcodeCapture capture) {
-    if (!_isScanning) return;
+  Widget _buildStep(int number, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 24,
+            height: 24,
+            decoration: const BoxDecoration(
+              color: DesktopTheme.primary,
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                '$number',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: Text(text, style: const TextStyle(fontSize: 13))),
+        ],
+      ),
+    );
+  }
 
-    final barcode = capture.barcodes.firstOrNull;
-    if (barcode == null) return;
-
-    final url = barcode.rawValue;
-    if (url == null || !url.startsWith('ws://')) {
-      return;
-    }
+  void _connect() {
+    if (!_formKey.currentState!.validate()) return;
 
     setState(() {
-      _isScanning = false;
+      _isConnecting = true;
     });
 
-    // 连接
+    final url = _uriController.text.trim();
     ref.read(pcConnectionProvider.notifier).connect(url);
   }
 }

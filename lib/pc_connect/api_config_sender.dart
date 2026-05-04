@@ -35,19 +35,12 @@ class ApiConfigSender {
     String deviceId,
     ConnectionManager connectionManager,
   ) {
-    connectionManager.sendMessage(deviceId, {
-      'type': 'api_config_disabled',
-    });
+    connectionManager.sendMessage(deviceId, {'type': 'api_config_disabled'});
   }
 
   /// 清除 PC 端的 API 配置
-  void clearRemoteConfig(
-    String deviceId,
-    ConnectionManager connectionManager,
-  ) {
-    connectionManager.sendMessage(deviceId, {
-      'type': 'clear_api',
-    });
+  void clearRemoteConfig(String deviceId, ConnectionManager connectionManager) {
+    connectionManager.sendMessage(deviceId, {'type': 'clear_api'});
   }
 
   Future<List<Map<String, dynamic>>> _getEnabledConfigs() async {

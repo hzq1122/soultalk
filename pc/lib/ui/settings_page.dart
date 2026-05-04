@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/connection_provider.dart';
+import '../websocket_client.dart';
 import '../api_config_manager.dart';
 import '../theme/desktop_theme.dart';
 
@@ -39,9 +40,7 @@ class SettingsPage extends ConsumerWidget {
                 _buildConnectionCard(context, ref, connState),
               ]),
               const SizedBox(height: 24),
-              _buildSection('关于', [
-                _buildAboutCard(context),
-              ]),
+              _buildSection('关于', [_buildAboutCard(context)]),
             ],
           ),
         ),
@@ -75,32 +74,28 @@ class SettingsPage extends ConsumerWidget {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            RadioListTile<ApiConfigMode>(
-              title: const Text('跟随手机'),
-              subtitle: const Text('使用手机端下发的 API 配置'),
-              value: ApiConfigMode.followPhone,
-              groupValue: state.apiMode,
-              onChanged: (value) {
-                if (value != null) {
-                  _showModeSwitchDialog(context, ref, value);
-                }
-              },
-            ),
-            const Divider(),
-            RadioListTile<ApiConfigMode>(
-              title: const Text('独立配置'),
-              subtitle: const Text('使用本地存储的 API 配置'),
-              value: ApiConfigMode.independent,
-              groupValue: state.apiMode,
-              onChanged: (value) {
-                if (value != null) {
-                  _showModeSwitchDialog(context, ref, value);
-                }
-              },
-            ),
-          ],
+        child: RadioGroup<ApiConfigMode>(
+          groupValue: state.apiMode,
+          onChanged: (value) {
+            if (value != null) {
+              _showModeSwitchDialog(context, ref, value);
+            }
+          },
+          child: Column(
+            children: [
+              RadioListTile<ApiConfigMode>(
+                title: const Text('跟随手机'),
+                subtitle: const Text('使用手机端下发的 API 配置'),
+                value: ApiConfigMode.followPhone,
+              ),
+              const Divider(),
+              RadioListTile<ApiConfigMode>(
+                title: const Text('独立配置'),
+                subtitle: const Text('使用本地存储的 API 配置'),
+                value: ApiConfigMode.independent,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -119,10 +114,7 @@ class SettingsPage extends ConsumerWidget {
           children: [
             const Text(
               '本地配置仅在「独立配置」模式下使用',
-              style: TextStyle(
-                fontSize: 12,
-                color: DesktopTheme.textHint,
-              ),
+              style: TextStyle(fontSize: 12, color: DesktopTheme.textHint),
             ),
             const SizedBox(height: 12),
             ElevatedButton.icon(
@@ -148,15 +140,15 @@ class SettingsPage extends ConsumerWidget {
           children: [
             ListTile(
               leading: Icon(
-                state.connectionState == ConnectionState.connected
+                state.connectionState == WsConnectionState.connected
                     ? Icons.check_circle
                     : Icons.error_outline,
-                color: state.connectionState == ConnectionState.connected
+                color: state.connectionState == WsConnectionState.connected
                     ? DesktopTheme.primary
                     : DesktopTheme.error,
               ),
               title: Text(
-                state.connectionState == ConnectionState.connected
+                state.connectionState == WsConnectionState.connected
                     ? '已连接'
                     : '未连接',
               ),
@@ -164,7 +156,7 @@ class SettingsPage extends ConsumerWidget {
                   ? Text('设备 ID: ${state.deviceId}')
                   : null,
             ),
-            if (state.connectionState == ConnectionState.connected)
+            if (state.connectionState == WsConnectionState.connected)
               ElevatedButton(
                 onPressed: () =>
                     ref.read(pcConnectionProvider.notifier).disconnect(),
@@ -255,7 +247,7 @@ class SettingsPage extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: provider,
+              initialValue: provider,
               decoration: const InputDecoration(labelText: '提供商'),
               items: const [
                 DropdownMenuItem(value: 'openai', child: Text('OpenAI')),
