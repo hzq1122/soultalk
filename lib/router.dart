@@ -16,6 +16,7 @@ import '../pages/memory/memory_page.dart';
 import '../pages/settings/update_page.dart';
 import '../pages/settings/backup_page.dart';
 import '../pages/onboarding/onboarding_page.dart';
+import 'pc_connect/qrcode_page.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -118,6 +119,11 @@ final appRouter = GoRouter(
         final contact = state.extra as Contact?;
         return MemoryPage(contactId: contactId, contact: contact);
       },
+    ),
+    GoRoute(
+      path: '/pc-connect',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const QRCodePage(),
     ),
   ],
 );
