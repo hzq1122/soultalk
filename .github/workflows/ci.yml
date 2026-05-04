@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  # ── Static Analysis ──────────────────────────────────────────────
+  analyze:
+    name: Dart Analyze
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.41.x'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run dart analyze
+        run: dart analyze . --fatal-infos
+
+  # ── Tests ────────────────────────────────────────────────────────
+  test:
+    name: Flutter Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.41.x'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run tests
+        run: flutter test --coverage
+
+      - name: Upload coverage
+        if: success()
+        uses: actions/upload-artifact@v5
+        with:
+          name: coverage
+          path: coverage/lcov.info
+
+  # ── Format Check ─────────────────────────────────────────────────
+  format:
+    name: Dart Format
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.41.x'
+
+      - name: Check formatting
+        run: dart format --set-exit-if-changed .
