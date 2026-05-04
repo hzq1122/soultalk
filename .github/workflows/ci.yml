@@ -3,11 +3,12 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
@@ -105,6 +106,13 @@ jobs:
           channel: stable
           flutter-version: '3.41.x'
 
+      - name: Update version from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          sed -i "s/^version: .*/version: $VERSION/" pubspec.yaml
+          echo "Version set to $VERSION from tag"
+
       - name: Build APK
         run: |
           flutter pub get
@@ -135,6 +143,14 @@ jobs:
       - name: Enable Windows desktop
         run: flutter config --enable-windows-desktop
 
+      - name: Update version from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          sed -i "s/^version: .*/version: $VERSION/" pubspec.yaml
+          echo "Version set to $VERSION from tag"
+
       - name: Build Windows
         run: |
           flutter pub get
@@ -143,7 +159,9 @@ jobs:
       - name: Package Windows build
         shell: pwsh
         run: |
-          $zipName = "soultalk-windows-x64.zip"
+          $version = "${{ github.ref_name }}" -replace '^v',''
+          if ($version -eq 'main') { $version = 'dev' }
+          $zipName = "soultalk-windows-x64-v$version.zip"
           Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath $zipName
           echo "zip_name=$zipName" >> $env:GITHUB_ENV
 
@@ -151,4 +169,32 @@ jobs:
         uses: actions/upload-artifact@v5
         with:
           name: windows-x64
-          path: soultalk-windows-x64.zip
+          path: soultalk-windows-x64-*.zip
+
+  # ── Release (tag push only) ──────────────────────────────────────
+  release:
+    name: Create GitHub Release
+    needs: [build-android, build-windows]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v5
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: |
+            artifacts/android-apk/*.apk
+            artifacts/windows-x64/*.zip
+          tag: ${{ github.ref_name }}
+          name: SoulTalk ${{ github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          allowUpdates: true
+          generateReleaseNotes: true
