@@ -12,7 +12,6 @@ import 'connection_manager.dart';
 import 'sync_handler.dart';
 import 'api_config_sender.dart';
 
-
 /// WebSocket 服务端，用于手机端与 PC 端通信
 class WebSocketServer {
   static const int _minPort = 49152;
@@ -47,7 +46,8 @@ class WebSocketServer {
     }
 
     // 生成随机端口
-    final port = _minPort + (DateTime.now().millisecondsSinceEpoch % (_maxPort - _minPort));
+    final port =
+        _minPort + (DateTime.now().millisecondsSinceEpoch % (_maxPort - _minPort));
 
     // 生成 JWT 密钥
     _jwtSecret = _generateSecret();
@@ -113,7 +113,8 @@ class WebSocketServer {
   }
 
   String _generateSecret() {
-    final random = List.generate(32, (_) => DateTime.now().microsecondsSinceEpoch % 256);
+    final random =
+        List.generate(32, (_) => DateTime.now().microsecondsSinceEpoch % 256);
     return base64Url.encode(random);
   }
 
@@ -133,12 +134,75 @@ class WebSocketServer {
           }
 
           // 检查是否内网 IP
-          // 【推测】shelf 的 request 没有直接获取 remoteIp 的方法
-          // 实际实现需要通过 HttpServer 获取连接信息
+          final clientIp = _getClientIp(request);
+          if (clientIp != null && !_isPrivateIp(clientIp)) {
+            return shelf.Response.forbidden('Only LAN connections allowed');
+          }
         }
         return innerHandler(request);
       };
     };
+  }
+
+  /// 获取客户端 IP 地址
+  String? _getClientIp(shelf.Request request) {
+    // 优先检查 X-Forwarded-For 头（代理场景）
+    final forwardedFor = request.headers['x-forwarded-for'];
+    if (forwardedFor != null) {
+      // 取第一个 IP（最初的客户端 IP）
+      return forwardedFor.split(',').first.trim();
+    }
+
+    // 检查 X-Real-IP 头
+    final realIp = request.headers['x-real-ip'];
+    if (realIp != null) {
+      return realIp;
+    }
+
+    // 【推测】shelf 的 Request 没有直接获取 remoteAddr 的方法
+    // 需要通过 HttpServer 的 connectionInfo 获取
+    // 这里返回 null，由调用方处理
+    return null;
+  }
+
+  /// 检查是否为内网 IP 地址
+  bool _isPrivateIp(String ip) {
+    try {
+      final addr = InternetAddress(ip);
+      // IPv4 内网地址范围
+      if (addr.type == InternetAddressType.IPv4) {
+        final parts = ip.split('.').map(int.parse).toList();
+        if (parts.length != 4) return false;
+
+        // 10.0.0.0/8
+        if (parts[0] == 10) return true;
+        // 172.16.0.0/12
+        if (parts[0] == 172 && parts[1] >= 16 && parts[1] <= 31) return true;
+        // 192.168.0.0/16
+        if (parts[0] == 192 && parts[1] == 168) return true;
+        // 127.0.0.0/8 (localhost)
+        if (parts[0] == 127) return true;
+
+        return false;
+      }
+
+      // IPv6 内网地址
+      if (addr.type == InternetAddressType.IPv6) {
+        // ::1 (localhost)
+        if (ip == '::1') return true;
+        // fe80::/10 (link-local)
+        if (ip.startsWith('fe80:')) return true;
+        // fc00::/7 (unique local)
+        if (ip.startsWith('fc') || ip.startsWith('fd')) return true;
+
+        return false;
+      }
+
+      return false;
+    } catch (e) {
+      // IP 解析失败，默认拒绝
+      return false;
+    }
   }
 
   void _handleConnection(WebSocketChannel webSocket, String? protocol) {
@@ -239,7 +303,8 @@ class WebSocketServer {
     });
   }
 
-  Future<void> _handleSync(String deviceId, Map<String, dynamic> message) async {
+  Future<void> _handleSync(
+      String deviceId, Map<String, dynamic> message) async {
     final since = message['since'] as String?;
     final limit = message['limit'] as int? ?? 20;
 
@@ -254,7 +319,8 @@ class WebSocketServer {
     });
   }
 
-  Future<void> _handleSyncCheck(String deviceId, Map<String, dynamic> message) async {
+  Future<void> _handleSyncCheck(
+      String deviceId, Map<String, dynamic> message) async {
     final lastSyncTime = message['lastSyncTime'] as String?;
     if (lastSyncTime == null) return;
 
@@ -287,7 +353,8 @@ class WebSocketServer {
     });
   }
 
-  Future<void> _handleConflictResolved(String deviceId, Map<String, dynamic> message) async {
+  Future<void> _handleConflictResolved(
+      String deviceId, Map<String, dynamic> message) async {
     final resolutions = message['resolutions'] as List<dynamic>?;
     if (resolutions == null) return;
 

@@ -1,0 +1,139 @@
+name: PC Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['pc-v*']
+  pull_request:
+    branches: [main]
+    paths:
+      - 'pc/**'
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  # ── Static Analysis ──────────────────────────────────────────────
+  analyze:
+    name: Dart Analyze
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pc
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.41.x'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run dart analyze
+        run: dart analyze . --fatal-infos
+
+  # ── Tests ────────────────────────────────────────────────────────
+  test:
+    name: Flutter Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pc
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.41.x'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run tests
+        run: flutter test
+
+  # ── Windows x64 Build ────────────────────────────────────────────
+  build-windows:
+    name: Windows x64
+    runs-on: windows-latest
+    needs: [analyze, test]
+    defaults:
+      run:
+        working-directory: pc
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.41.x'
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Update version from tag
+        if: startsWith(github.ref, 'refs/tags/pc-v')
+        shell: bash
+        run: |
+          VERSION=${GITHUB_REF_NAME#pc-v}
+          sed -i "s/^version: .*/version: $VERSION/" pubspec.yaml
+          echo "Version set to $VERSION from tag"
+
+      - name: Build Windows
+        run: |
+          flutter pub get
+          flutter build windows --release
+
+      - name: Package Windows build
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}" -replace '^pc-v',''
+          if ($version -eq 'main') { $version = 'dev' }
+          $zipName = "soultalk-pc-windows-x64-v$version.zip"
+          Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath $zipName
+          echo "zip_name=$zipName" >> $env:GITHUB_ENV
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: pc-windows-x64
+          path: pc/soultalk-pc-windows-x64-*.zip
+
+  # ── Release (tag push only) ──────────────────────────────────────
+  release:
+    name: Create GitHub Release
+    needs: [build-windows]
+    if: startsWith(github.ref, 'refs/tags/pc-v')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v5
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: |
+            artifacts/pc-windows-x64/*.zip
+          tag: ${{ github.ref_name }}
+          name: SoulTalk PC ${{ github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          allowUpdates: true
+          generateReleaseNotes: true
