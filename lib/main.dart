@@ -78,7 +78,7 @@ class _SoulTalkAppState extends ConsumerState<SoulTalkApp> with WidgetsBindingOb
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider).value;
     final isDark = settings?.darkMode ?? false;
 
