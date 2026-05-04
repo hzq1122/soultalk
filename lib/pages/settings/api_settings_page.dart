@@ -271,12 +271,15 @@ class _ConfigTile extends StatelessWidget {
 
   String _formatBalance(BalanceInfo b) {
     final parts = <String>[];
-    if (b.remaining != null)
+    if (b.remaining != null) {
       parts.add('剩余: ${b.remaining!.toStringAsFixed(2)} ${b.unit ?? ''}');
-    if (b.total != null)
+    }
+    if (b.total != null) {
       parts.add('总额: ${b.total!.toStringAsFixed(2)} ${b.unit ?? ''}');
-    if (b.used != null)
+    }
+    if (b.used != null) {
       parts.add('已用: ${b.used!.toStringAsFixed(2)} ${b.unit ?? ''}');
+    }
     return parts.join(' · ');
   }
 

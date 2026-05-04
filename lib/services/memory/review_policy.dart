@@ -16,12 +16,14 @@ class ReviewPolicy {
     if (card.importance < 0.3) return ReviewAction.reject;
 
     // Reject if LLM explicitly marked for rejection
-    if (card.tags.contains('suggested_action:reject'))
+    if (card.tags.contains('suggested_action:reject')) {
       return ReviewAction.reject;
+    }
 
     // Pending if LLM explicitly marked
-    if (card.tags.contains('suggested_action:pending'))
+    if (card.tags.contains('suggested_action:pending')) {
       return ReviewAction.pending;
+    }
 
     // Pending high-risk types
     if (_highRiskTypes.contains(card.cardType)) return ReviewAction.pending;
