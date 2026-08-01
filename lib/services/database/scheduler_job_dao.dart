@@ -156,6 +156,19 @@ class SchedulerJobDao {
     await updateStatus(id, 'failed', lastError: error);
   }
 
+  /// 将遗留的 running 任务重置为 pending（进程崩溃/强退恢复），
+  /// 使其在下一个 tick 被重新调度。
+  Future<int> resetRunningToPending() async {
+    final db = await _database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    return db.update(
+      'scheduler_jobs',
+      {'status': 'pending', 'run_after': now, 'updated_at': now},
+      where: 'status = ?',
+      whereArgs: ['running'],
+    );
+  }
+
   Future<void> disable(String id) async {
     await updateStatus(id, 'disabled');
   }

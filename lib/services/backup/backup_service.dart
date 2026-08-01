@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -310,145 +311,179 @@ class BackupService {
 
       final db = await _dbService.database;
 
-      for (final section in sections) {
-        final folder = section.folderName;
-        switch (section) {
-          case BackupSection.apiConfigs:
-            addRows(
-              section,
-              await _restoreRows(
-                db,
-                archive,
-                '$folder/api_configs.json',
-                'api_configs',
-              ),
-            );
-          case BackupSection.contacts:
-            addRows(
-              section,
-              await _restoreRows(
-                db,
-                archive,
-                '$folder/contacts.json',
-                'contacts',
-              ),
-            );
-          case BackupSection.messages:
-            for (final file in archive.files) {
-              if (!file.isFile ||
-                  !file.name.startsWith('$folder/') ||
-                  !file.name.endsWith('.json')) {
-                continue;
-              }
-              addRows(
-                section,
-                await _restoreRows(db, archive, file.name, 'messages'),
-              );
-            }
-          case BackupSection.moments:
-            addRows(
-              section,
-              await _restoreRows(
-                db,
-                archive,
-                '$folder/moments.json',
-                'moments',
-              ),
-            );
-          case BackupSection.settings:
-            final file = archive.findFile('$folder/settings.json');
-            if (file != null) {
-              final settings =
-                  jsonDecode(_contentString(file)) as Map<String, dynamic>;
-              final prefs = await SharedPreferences.getInstance();
-              var count = 0;
-              for (final entry in settings.entries) {
-                final v = entry.value;
-                if (v is int) {
-                  await prefs.setInt(entry.key, v);
-                  count++;
-                } else if (v is double) {
-                  await prefs.setDouble(entry.key, v);
-                  count++;
-                } else if (v is bool) {
-                  await prefs.setBool(entry.key, v);
-                  count++;
-                } else if (v is String) {
-                  await prefs.setString(entry.key, v);
-                  count++;
+      // ── DB 表恢复 ──────────────────────────────────────────────
+      // 按外键依赖顺序（contacts 必须先于 messages/moments/memory），
+      // 且包在单个事务中：中途失败自动回滚，不留半恢复状态。
+      const dbRestoreOrder = [
+        BackupSection.apiConfigs,
+        BackupSection.contacts,
+        BackupSection.presets,
+        BackupSection.regexScripts,
+        BackupSection.memoryEntries,
+        BackupSection.moments,
+        BackupSection.messages,
+      ];
+      final dbSections = sections.where(dbRestoreOrder.contains).toList();
+      dbSections.sort((a, b) {
+        final ia = dbRestoreOrder.indexOf(a);
+        final ib = dbRestoreOrder.indexOf(b);
+        return ia.compareTo(ib);
+      });
+
+      if (dbSections.isNotEmpty) {
+        await db.transaction((txn) async {
+          for (final section in dbSections) {
+            final folder = section.folderName;
+            switch (section) {
+              case BackupSection.apiConfigs:
+                addRows(
+                  section,
+                  await _restoreRows(
+                    txn,
+                    archive,
+                    '$folder/api_configs.json',
+                    'api_configs',
+                  ),
+                );
+              case BackupSection.contacts:
+                addRows(
+                  section,
+                  await _restoreRows(
+                    txn,
+                    archive,
+                    '$folder/contacts.json',
+                    'contacts',
+                  ),
+                );
+              case BackupSection.messages:
+                for (final file in archive.files) {
+                  if (!file.isFile ||
+                      !file.name.startsWith('$folder/') ||
+                      !file.name.endsWith('.json')) {
+                    continue;
+                  }
+                  addRows(
+                    section,
+                    await _restoreRows(txn, archive, file.name, 'messages'),
+                  );
                 }
-              }
-              addRows(section, count);
+              case BackupSection.moments:
+                addRows(
+                  section,
+                  await _restoreRows(
+                    txn,
+                    archive,
+                    '$folder/moments.json',
+                    'moments',
+                  ),
+                );
+              case BackupSection.presets:
+                addRows(
+                  section,
+                  await _restoreRows(
+                    txn,
+                    archive,
+                    '$folder/presets.json',
+                    'chat_presets',
+                  ),
+                );
+              case BackupSection.regexScripts:
+                addRows(
+                  section,
+                  await _restoreRows(
+                    txn,
+                    archive,
+                    '$folder/regex_scripts.json',
+                    'regex_scripts',
+                  ),
+                );
+              case BackupSection.memoryEntries:
+                addRows(
+                  section,
+                  await _restoreRows(
+                    txn,
+                    archive,
+                    '$folder/memory_entries.json',
+                    'memory_entries',
+                  ),
+                );
+                addRows(
+                  section,
+                  await _restoreRows(
+                    txn,
+                    archive,
+                    '$folder/memory_states.json',
+                    'memory_states',
+                  ),
+                );
+                addRows(
+                  section,
+                  await _restoreRows(
+                    txn,
+                    archive,
+                    '$folder/memory_cards.json',
+                    'memory_cards',
+                  ),
+                );
+              case BackupSection.settings:
+              case BackupSection.compatFiles:
+              case BackupSection.attachments:
+                break; // 非 DB 表，事务外处理
             }
-          case BackupSection.presets:
-            addRows(
-              section,
-              await _restoreRows(
-                db,
-                archive,
-                '$folder/presets.json',
-                'chat_presets',
-              ),
-            );
-          case BackupSection.regexScripts:
-            addRows(
-              section,
-              await _restoreRows(
-                db,
-                archive,
-                '$folder/regex_scripts.json',
-                'regex_scripts',
-              ),
-            );
-          case BackupSection.memoryEntries:
-            addRows(
-              section,
-              await _restoreRows(
-                db,
-                archive,
-                '$folder/memory_entries.json',
-                'memory_entries',
-              ),
-            );
-            addRows(
-              section,
-              await _restoreRows(
-                db,
-                archive,
-                '$folder/memory_states.json',
-                'memory_states',
-              ),
-            );
-            addRows(
-              section,
-              await _restoreRows(
-                db,
-                archive,
-                '$folder/memory_cards.json',
-                'memory_cards',
-              ),
-            );
-          case BackupSection.compatFiles:
-            final paths = await _createAppPaths();
-            addFiles(
-              section,
-              await _restoreArchiveDirectory(
-                archive,
-                'st_compat',
-                paths.stCompat,
-              ),
-            );
-          case BackupSection.attachments:
-            final paths = await _createAppPaths();
-            addFiles(
-              section,
-              await _restoreArchiveDirectory(
-                archive,
-                'soultalk/attachments',
-                paths.attachments,
-              ),
-            );
+          }
+        });
+      }
+
+      // ── Settings（SharedPreferences，非 DB）──
+      if (sections.contains(BackupSection.settings)) {
+        final file = archive.findFile('settings/settings.json');
+        if (file != null) {
+          final settings =
+              jsonDecode(_contentString(file)) as Map<String, dynamic>;
+          final prefs = await SharedPreferences.getInstance();
+          var count = 0;
+          for (final entry in settings.entries) {
+            final v = entry.value;
+            if (v is int) {
+              await prefs.setInt(entry.key, v);
+              count++;
+            } else if (v is double) {
+              await prefs.setDouble(entry.key, v);
+              count++;
+            } else if (v is bool) {
+              await prefs.setBool(entry.key, v);
+              count++;
+            } else if (v is String) {
+              await prefs.setString(entry.key, v);
+              count++;
+            }
+          }
+          addRows(BackupSection.settings, count);
         }
+      }
+
+      // ── 文件恢复（st_compat / attachments）──
+      if (sections.contains(BackupSection.compatFiles)) {
+        final paths = await _createAppPaths();
+        addFiles(
+          BackupSection.compatFiles,
+          await _restoreArchiveDirectory(
+            archive,
+            'st_compat',
+            paths.stCompat,
+          ),
+        );
+      }
+      if (sections.contains(BackupSection.attachments)) {
+        final paths = await _createAppPaths();
+        addFiles(
+          BackupSection.attachments,
+          await _restoreArchiveDirectory(
+            archive,
+            'soultalk/attachments',
+            paths.attachments,
+          ),
+        );
       }
 
       if (sections.contains(BackupSection.compatFiles) ||
@@ -557,7 +592,7 @@ class BackupService {
   }
 
   Future<int> _restoreRows(
-    Database db,
+    DatabaseExecutor db,
     Archive archive,
     String archivePath,
     String table,
@@ -618,6 +653,30 @@ class BackupService {
       sections: BackupSection.values.toSet(),
       targetDir: dir.path,
     );
+    await _pruneRestorePoints(dir);
+  }
+
+  /// 恢复点只保留最近 [keep] 个，避免磁盘无限膨胀。
+  Future<void> _pruneRestorePoints(Directory dir, {int keep = 3}) async {
+    try {
+      final files = <File>[];
+      await for (final entity in dir.list()) {
+        if (entity is File && entity.path.endsWith('.zip')) {
+          files.add(entity);
+        }
+      }
+      files.sort((a, b) => b.path.compareTo(a.path));
+      for (final file in files.skip(keep)) {
+        await file.delete();
+      }
+    } catch (error) {
+      // 清理失败不影响恢复流程
+      developer.log(
+        'Failed to prune restore points',
+        name: 'BackupService',
+        error: error,
+      );
+    }
   }
 
   Future<void> _rebuildRestoredIndexes() async {

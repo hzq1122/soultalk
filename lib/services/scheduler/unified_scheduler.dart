@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 
 import '../database/database_service.dart';
 import '../database/scheduler_job_dao.dart';
@@ -27,8 +28,23 @@ class UnifiedScheduler {
   }) {
     _timer?.cancel();
     _configure(handlers: handlers, policy: policy);
+    // 恢复上次进程崩溃/强退时遗留的 running 任务
+    unawaited(_recoverStaleJobs());
     _timer = Timer.periodic(_policy.tickInterval, (_) => unawaited(tick()));
     unawaited(tick());
+  }
+
+  Future<void> _recoverStaleJobs() async {
+    try {
+      await _jobDao.resetRunningToPending();
+    } catch (error) {
+      // 恢复失败不影响调度器启动
+      developer.log(
+        'Failed to recover stale scheduler jobs',
+        name: 'UnifiedScheduler',
+        error: error,
+      );
+    }
   }
 
   void startWithoutTimerForTesting({
@@ -121,6 +137,10 @@ class UnifiedScheduler {
   ) async {
     await _runLogDao.finish(logId, status: 'failed', error: error);
     final retryCount = job.retryCount + 1;
+    if (retryCount > _policy.maxRetries) {
+      await _jobDao.markFailed(job.id, error);
+      return;
+    }
     await _jobDao.reschedule(
       job.id,
       runAfter: _policy.retryRunAfterMillis(retryCount - 1, DateTime.now()),

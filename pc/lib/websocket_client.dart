@@ -68,17 +68,20 @@ class WebSocketClient {
 
     final channel = _channel;
     _channel = null;
+    // 先置状态与 URL，防止 sink.close() 触发的 onDone 回调
+    // 在状态更新前执行 _tryReconnect()
+    _isAuthenticated = false;
+    _deviceId = null;
+    _currentState = WsConnectionState.disconnected;
+    _serverUrl = null;
+    _emitState();
+
     if (channel != null) {
       if (!_disposed) {
         _sendMessage({'type': 'disconnect'});
       }
       await channel.sink.close();
     }
-
-    _isAuthenticated = false;
-    _deviceId = null;
-    _currentState = WsConnectionState.disconnected;
-    _emitState();
   }
 
   /// 请求同步消息

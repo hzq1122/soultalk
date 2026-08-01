@@ -72,9 +72,18 @@ class AttachmentService {
     final safeName = pathSanitizer.fileName(originalName);
     final relativePath = 'soultalk/attachments/$safeChatId/$id-$safeName';
     final target = File(p.join(paths.root.path, relativePath));
-    final bytes = await source.readAsBytes();
 
-    await atomicFileWriter.writeAsBytes(target, bytes);
+    // 流式计算 sha256 与大小，不把大文件整体载入内存
+    final digest = await sha256.bind(source.openRead()).first;
+    final size = await source.length();
+
+    try {
+      await atomicFileWriter.writeFromStream(target, source.openRead());
+    } catch (_) {
+      // 写入失败时清理可能残留的临时/目标文件
+      if (await target.exists()) await target.delete();
+      rethrow;
+    }
 
     final record = AttachmentIndexRecord(
       id: id,
@@ -83,11 +92,17 @@ class AttachmentService {
       originalName: originalName,
       mimeType: mimeType,
       relativePath: relativePath,
-      sha256: sha256.convert(bytes).toString(),
-      size: bytes.length,
+      sha256: digest.toString(),
+      size: size,
       createdAt: DateTime.now().millisecondsSinceEpoch,
     );
-    await attachmentIndexDao.upsert(record);
+    try {
+      await attachmentIndexDao.upsert(record);
+    } catch (_) {
+      // 索引写入失败时删除已复制的文件，避免留下孤儿文件
+      if (await target.exists()) await target.delete();
+      rethrow;
+    }
     return record;
   }
 

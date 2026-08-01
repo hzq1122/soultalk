@@ -157,23 +157,29 @@ class WebSocketServer {
   }
 
   /// 获取客户端 IP 地址
+  ///
+  /// shelf_io 在请求 context 中暴露 `shelf.io.connection_info`
+  /// （`HttpConnectionInfo`），优先从中取真实远端地址；仅在代理场景下
+  /// 回退到 X-Forwarded-For / X-Real-IP 头。
   String? _getClientIp(shelf.Request request) {
-    // 优先检查 X-Forwarded-For 头（代理场景）
+    final connectionInfo = request.context['shelf.io.connection_info'];
+    if (connectionInfo is HttpConnectionInfo) {
+      final address = connectionInfo.remoteAddress.address;
+      if (address.isNotEmpty) return address;
+    }
+
+    // 代理场景：X-Forwarded-For 取第一个 IP（最初的客户端 IP）
     final forwardedFor = request.headers['x-forwarded-for'];
     if (forwardedFor != null) {
-      // 取第一个 IP（最初的客户端 IP）
       return forwardedFor.split(',').first.trim();
     }
 
-    // 检查 X-Real-IP 头
+    // 代理场景：X-Real-IP 头
     final realIp = request.headers['x-real-ip'];
     if (realIp != null) {
       return realIp;
     }
 
-    // 【推测】shelf 的 Request 没有直接获取 remoteAddr 的方法
-    // 需要通过 HttpServer 的 connectionInfo 获取
-    // 这里返回 null，由调用方处理
     return null;
   }
 

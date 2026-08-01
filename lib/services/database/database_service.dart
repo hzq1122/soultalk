@@ -401,5 +401,6 @@ class DatabaseService {
   Future<void> close() async {
     await _db?.close();
     _db = null;
+    _initFuture = null;
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'dart:math';
 import '../database/database_service.dart';
 import '../database/contact_dao.dart';
@@ -189,6 +190,13 @@ class MomentsService {
         payload: {'momentId': moment.id, 'content': moment.content},
         contactId: contact.id,
       );
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      developer.log(
+        'Failed to generate moment',
+        name: 'MomentsService',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
 }

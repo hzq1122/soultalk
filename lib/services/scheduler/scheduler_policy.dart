@@ -2,6 +2,7 @@ class SchedulerPolicy {
   final Duration tickInterval;
   final int maxDueJobsPerTick;
   final List<Duration> retryDelays;
+  final int maxRetries;
 
   const SchedulerPolicy({
     this.tickInterval = const Duration(minutes: 1),
@@ -11,6 +12,7 @@ class SchedulerPolicy {
       Duration(minutes: 5),
       Duration(minutes: 15),
     ],
+    this.maxRetries = 5,
   });
 
   int retryRunAfterMillis(int retryCount, DateTime now) {

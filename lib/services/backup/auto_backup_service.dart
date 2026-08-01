@@ -26,18 +26,14 @@ class AutoBackupService {
   factory AutoBackupService() => _instance;
   AutoBackupService._internal();
 
-  bool _running = false;
   final BackupService _backupService = BackupService();
   final SchedulerJobDao _schedulerJobDao = SchedulerJobDao(DatabaseService());
 
   Future<void> init() async {
-    _running = true;
     await syncSchedule();
   }
 
-  void dispose() {
-    _running = false;
-  }
+  void dispose() {}
 
   Future<void> syncSchedule() async {
     final prefs = await SharedPreferences.getInstance();
@@ -140,8 +136,6 @@ class AutoBackupService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('auto_backup_last_error', e.toString());
       return AutoBackupRunResult(success: false, summary: e.toString());
-    } finally {
-      if (_running) await syncSchedule();
     }
   }
 

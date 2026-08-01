@@ -272,7 +272,9 @@ class PromptAssemblyService {
     buffer.writeln(contact.name);
     buffer.writeln(contact.description);
     buffer.writeln(contact.systemPrompt);
-    for (final msg in history.take(10)) {
+    // history 为升序（旧→新），取最近 10 条用于关键词匹配
+    final startIndex = history.length > 10 ? history.length - 10 : 0;
+    for (final msg in history.sublist(startIndex)) {
       buffer.writeln(msg.content);
     }
     return buffer.toString();

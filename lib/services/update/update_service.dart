@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -151,7 +152,13 @@ class UpdateService {
     try {
       final file = File(filePath);
       if (await file.exists()) await file.delete();
-    } catch (_) {}
+    } catch (error) {
+      developer.log(
+        'Failed to delete APK file: $filePath',
+        name: 'UpdateService',
+        error: error,
+      );
+    }
   }
 
   int _compareVersions(String a, String b) {

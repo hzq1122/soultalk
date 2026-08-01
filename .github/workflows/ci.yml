@@ -213,10 +213,55 @@ jobs:
           name: pc-windows-x64
           path: soultalk-pc-windows-x64-*.zip
 
+  # ── SoulTalk 主项目 Windows 桌面编译（云编译验证）─────────────
+  build-windows-app:
+    name: App Windows x64
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.41.x'
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Build Windows debug (CI validation)
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        run: |
+          flutter pub get
+          flutter build windows --debug
+
+      - name: Build Windows release (tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          flutter pub get
+          flutter build windows --release
+
+      - name: Package release build
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        run: |
+          $zipName = "soultalk-windows-x64.zip"
+          Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath $zipName
+          echo "zip_name=$zipName" >> $env:GITHUB_ENV
+
+      - name: Upload release artifact
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-artifact@v5
+        with:
+          name: app-windows-x64
+          path: soultalk-windows-x64.zip
+
   # ── Release (v-tag only) ─────────────────────────────────────────
   release:
     name: Create GitHub Release
-    needs: [build-android, build-pc-windows, version-info]
+    needs: [build-android, build-pc-windows, build-windows-app, version-info]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
 
@@ -235,6 +280,7 @@ jobs:
           artifacts: |
             artifacts/android-apk/*.apk
             artifacts/pc-windows-x64/*.zip
+            artifacts/app-windows-x64/*.zip
           tag: ${{ github.ref_name }}
           name: SoulTalk ${{ github.ref_name }}
           token: ${{ secrets.GITHUB_TOKEN }}

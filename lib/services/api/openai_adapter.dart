@@ -82,8 +82,10 @@ class OpenAiAdapterImpl implements LlmService {
     }
 
     final lineBuffer = StringBuffer();
-    await for (final chunk in response.data!.stream) {
-      lineBuffer.write(utf8.decode(chunk, allowMalformed: true));
+    // utf8.decoder.bind 内部会缓冲跨 chunk 的不完整多字节字符，
+    // 避免对每个网络 chunk 单独解码产生 U+FFFD 乱码。
+    await for (final text in utf8.decoder.bind(response.data!.stream)) {
+      lineBuffer.write(text);
 
       final raw = lineBuffer.toString();
       final lastNl = raw.lastIndexOf('\n');

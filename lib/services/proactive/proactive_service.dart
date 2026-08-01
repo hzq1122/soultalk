@@ -434,7 +434,14 @@ ${msg.content}
       );
 
       onNewMessage?.call();
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      developer.log(
+        'Failed to send scheduled proactive message',
+        name: 'ProactiveService',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   /// 时间差异 > 1 小时的告警
@@ -562,7 +569,14 @@ ${msg.content}
           ),
         );
       }
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      developer.log(
+        'Failed to AI comment on moment',
+        name: 'ProactiveService',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   Future<void> _sendProactiveMessage(
@@ -659,7 +673,14 @@ ${msg.content}
       );
 
       onNewMessage?.call();
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      developer.log(
+        'Failed to send proactive message',
+        name: 'ProactiveService',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
 }
 

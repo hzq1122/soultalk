@@ -104,8 +104,10 @@ class AnthropicAdapterImpl implements LlmService {
     }
 
     final lineBuffer = StringBuffer();
-    await for (final chunk in response.data!.stream) {
-      lineBuffer.write(utf8.decode(chunk, allowMalformed: true));
+    // utf8.decoder.bind 内部会缓冲跨 chunk 的不完整多字节字符，
+    // 避免对每个网络 chunk 单独解码产生 U+FFFD 乱码。
+    await for (final text in utf8.decoder.bind(response.data!.stream)) {
+      lineBuffer.write(text);
 
       final raw = lineBuffer.toString();
       final lastNl = raw.lastIndexOf('\n');
@@ -128,6 +130,13 @@ class AnthropicAdapterImpl implements LlmService {
             final text = delta?['text'] as String?;
             if (text != null && text.isNotEmpty) {
               yield text;
+            }
+            // 思考模式：thinking_delta 块（官方字段 thinking，
+            // 部分兼容端点使用 thinking_delta）
+            final thinkingRaw = delta?['thinking'] ?? delta?['thinking_delta'];
+            final thinking = thinkingRaw as String?;
+            if (thinking != null && thinking.isNotEmpty) {
+              yield '\x00__R__\x00$thinking';
             }
           }
         } catch (_) {}
