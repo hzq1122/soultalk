@@ -467,11 +467,7 @@ class BackupService {
         final paths = await _createAppPaths();
         addFiles(
           BackupSection.compatFiles,
-          await _restoreArchiveDirectory(
-            archive,
-            'st_compat',
-            paths.stCompat,
-          ),
+          await _restoreArchiveDirectory(archive, 'st_compat', paths.stCompat),
         );
       }
       if (sections.contains(BackupSection.attachments)) {

@@ -21,7 +21,8 @@ class AtomicFileWriter {
     final temp = File(
       '${target.path}.tmp.${DateTime.now().microsecondsSinceEpoch}',
     );
-    final sink = temp.openWrite(flush: true);
+    // pipe 完成会自动 close 并 flush 到磁盘
+    final sink = temp.openWrite();
     try {
       await stream.pipe(sink);
     } catch (_) {
