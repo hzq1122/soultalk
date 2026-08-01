@@ -237,7 +237,10 @@ jobs:
         run: |
           flutter pub get *> pub-get.log
           flutter build windows --debug 2>&1 | Tee-Object -FilePath build-debug.log
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($LASTEXITCODE -ne 0) {
+            Get-Content build-debug.log | Select-String -Pattern "error|Error|FAILED|failed|exception|Exception|Unable|unable|not found" | Select-Object -Last 25 | ForEach-Object { Write-Output "::error::$($_.Line)" }
+            exit $LASTEXITCODE
+          }
 
       - name: Build Windows release (tag)
         if: startsWith(github.ref, 'refs/tags/')
