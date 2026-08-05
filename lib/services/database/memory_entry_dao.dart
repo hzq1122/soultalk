@@ -49,7 +49,10 @@ class MemoryEntryDao {
       if (existing.isNotEmpty) {
         await db.update(
           'memory_entries',
-          {'value': entry.value, 'updated_at': entry.updatedAt.toIso8601String()},
+          {
+            'value': entry.value,
+            'updated_at': entry.updatedAt.toIso8601String(),
+          },
           where: 'id = ?',
           whereArgs: [existing.first['id']],
         );

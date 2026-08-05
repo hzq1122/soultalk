@@ -37,9 +37,9 @@ void main() {
         },
       },
     };
-    await File('${paths.worlds.path}/tea_world.json')
-        .create(recursive: true)
-        .then((f) => f.writeAsString(jsonEncode(world)));
+    await File(
+      '${paths.worlds.path}/tea_world.json',
+    ).create(recursive: true).then((f) => f.writeAsString(jsonEncode(world)));
   }
 
   test(
@@ -47,9 +47,7 @@ void main() {
     () async {
       await writeWorldBook();
 
-      final assembled = await PromptAssemblyService(
-        paths: paths,
-      ).assemble(
+      final assembled = await PromptAssemblyService(paths: paths).assemble(
         contact: Contact(id: 'c1', name: 'Alice'),
         history: [
           Message(
@@ -87,9 +85,7 @@ void main() {
     () async {
       await writeWorldBook();
 
-      final assembled = await PromptAssemblyService(
-        paths: paths,
-      ).assemble(
+      final assembled = await PromptAssemblyService(paths: paths).assemble(
         contact: Contact(id: 'c1', name: 'Alice'),
         history: [
           Message(
@@ -106,34 +102,31 @@ void main() {
     },
   );
 
-  test('character card fields flow into system prompt of request body', () async {
-    final cardJson = jsonEncode({
-      'spec': 'chara_card_v2',
-      'data': {
-        'name': 'Alice',
-        'description': 'e2e description',
-        'personality': 'e2e personality',
-        'scenario': 'e2e scenario',
-        'post_history_instructions': 'e2e post history',
-      },
-    });
+  test(
+    'character card fields flow into system prompt of request body',
+    () async {
+      final cardJson = jsonEncode({
+        'spec': 'chara_card_v2',
+        'data': {
+          'name': 'Alice',
+          'description': 'e2e description',
+          'personality': 'e2e personality',
+          'scenario': 'e2e scenario',
+          'post_history_instructions': 'e2e post history',
+        },
+      });
 
-    final assembled = await PromptAssemblyService(
-      paths: paths,
-    ).assemble(
-      contact: Contact(
-        id: 'c1',
-        name: 'Alice',
-        characterCardJson: cardJson,
-      ),
-      history: const [],
-      userName: 'Bob',
-    );
+      final assembled = await PromptAssemblyService(paths: paths).assemble(
+        contact: Contact(id: 'c1', name: 'Alice', characterCardJson: cardJson),
+        history: const [],
+        userName: 'Bob',
+      );
 
-    final system = assembled.systemPrompt;
-    expect(system, contains('e2e description'));
-    expect(system, contains('e2e personality'));
-    expect(system, contains('e2e scenario'));
-    expect(assembled.postHistoryPrompt, contains('e2e post history'));
-  });
+      final system = assembled.systemPrompt;
+      expect(system, contains('e2e description'));
+      expect(system, contains('e2e personality'));
+      expect(system, contains('e2e scenario'));
+      expect(assembled.postHistoryPrompt, contains('e2e post history'));
+    },
+  );
 }

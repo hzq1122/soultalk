@@ -68,11 +68,10 @@ class ProactiveService {
     try {
       final dao = SchedulerJobDao(DatabaseService());
       final prefs = await SharedPreferences.getInstance();
-      final momentsIntervalMinutes = prefs.getInt('moments_interval_minutes') ?? 60;
+      final momentsIntervalMinutes =
+          prefs.getInt('moments_interval_minutes') ?? 60;
       final now = DateTime.now().millisecondsSinceEpoch;
-      const jobs = [
-        (type: 'proactive_check', intervalMillis: 5 * 60 * 1000),
-      ];
+      const jobs = [(type: 'proactive_check', intervalMillis: 5 * 60 * 1000)];
       for (final job in jobs) {
         final existing = await dao.getByTypeTarget(job.type, 'global');
         if (existing != null && existing.status == 'pending') continue;
@@ -94,7 +93,10 @@ class ProactiveService {
         );
       }
       // moments_cycle 使用用户配置的间隔
-      final existingCycle = await dao.getByTypeTarget('moments_cycle', 'global');
+      final existingCycle = await dao.getByTypeTarget(
+        'moments_cycle',
+        'global',
+      );
       if (existingCycle == null || existingCycle.status != 'pending') {
         await dao.upsert(
           SchedulerJobRecord(
@@ -103,7 +105,8 @@ class ProactiveService {
             targetId: 'global',
             runAfter: existingCycle?.status == 'pending'
                 ? existingCycle!.runAfter
-                : now + Duration(minutes: momentsIntervalMinutes).inMilliseconds,
+                : now +
+                      Duration(minutes: momentsIntervalMinutes).inMilliseconds,
             retryCount: existingCycle?.retryCount ?? 0,
             status: 'pending',
             payload: '{}',

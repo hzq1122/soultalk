@@ -11,6 +11,7 @@ class SyncExporter {
     required String table,
     List<String>? ids,
     int limit = 500,
+
     /// 游标：只导出 id > [after] 的行（keyset 分页续拉）。
     String? after,
   }) async {

@@ -146,10 +146,7 @@ class BackupService {
           // 安全：备份默认排除 api_key，恢复时保留本地现有 key。
           final apiRows = await db.query('api_configs');
           final sanitizedApiRows = apiRows
-              .map(
-                (row) =>
-                    {...row}..removeWhere((key, _) => key == 'api_key'),
-              )
+              .map((row) => {...row}..removeWhere((key, _) => key == 'api_key'))
               .toList();
           await _addJsonRowsFile(
             archive,
@@ -412,15 +409,9 @@ class BackupService {
 
       final archive = ZipDecoder().decodeBytes(bytes);
       // 解压大小上限：防止恶意 zip bomb 耗尽磁盘（解压后、写盘前检查）
-      final totalSize = archive.files.fold<int>(
-        0,
-        (sum, f) => sum + f.size,
-      );
+      final totalSize = archive.files.fold<int>(0, (sum, f) => sum + f.size);
       if (totalSize > _maxRestoreBytes) {
-        return const BackupRestoreReport(
-          success: false,
-          error: '备份文件过大，拒绝恢复',
-        );
+        return const BackupRestoreReport(success: false, error: '备份文件过大，拒绝恢复');
       }
       final manifest = _readManifest(archive);
       if (manifest == null || manifest['app'] != 'soultalk') {
@@ -843,7 +834,9 @@ class BackupService {
         final target = _safeTargetFile(targetRoot, relative);
         await target.parent.create(recursive: true);
         if (await target.exists()) {
-          final oldBackup = File(p.joinAll([backup.path, ...relative.split('/')]));
+          final oldBackup = File(
+            p.joinAll([backup.path, ...relative.split('/')]),
+          );
           await oldBackup.parent.create(recursive: true);
           await target.rename(oldBackup.path);
         }
@@ -1037,7 +1030,9 @@ class BackupService {
     }
     // 附件索引以文件系统为权威源重建（message_id 关联由消息 metadata 承载）。
     final paths = await _createAppPaths();
-    await AttachmentIndexDao(_dbService).rebuildFromDirectory(paths.attachments);
+    await AttachmentIndexDao(
+      _dbService,
+    ).rebuildFromDirectory(paths.attachments);
   }
 
   void _validateArchivePath(String archivePath) {

@@ -58,23 +58,25 @@ void main() {
     expect(after, isNot(before));
   });
 
-  test('fingerprint changes when attachments or st_compat files change',
-      () async {
-    final prefs = await SharedPreferences.getInstance();
-    final before = await service.computeFingerprint(db, prefs);
+  test(
+    'fingerprint changes when attachments or st_compat files change',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final before = await service.computeFingerprint(db, prefs);
 
-    await File('${paths.attachments.path}/chat/x.txt')
-        .create(recursive: true)
-        .then((f) => f.writeAsString('hello'));
-    final afterAttach = await service.computeFingerprint(db, prefs);
-    expect(afterAttach, isNot(before));
+      await File(
+        '${paths.attachments.path}/chat/x.txt',
+      ).create(recursive: true).then((f) => f.writeAsString('hello'));
+      final afterAttach = await service.computeFingerprint(db, prefs);
+      expect(afterAttach, isNot(before));
 
-    await File('${paths.stCompat.path}/characters/a.json')
-        .create(recursive: true)
-        .then((f) => f.writeAsString('{}'));
-    final afterCompat = await service.computeFingerprint(db, prefs);
-    expect(afterCompat, isNot(afterAttach));
-  });
+      await File(
+        '${paths.stCompat.path}/characters/a.json',
+      ).create(recursive: true).then((f) => f.writeAsString('{}'));
+      final afterCompat = await service.computeFingerprint(db, prefs);
+      expect(afterCompat, isNot(afterAttach));
+    },
+  );
 
   test('fingerprint ignores auto_backup state keys and credentials', () async {
     final prefs = await SharedPreferences.getInstance();

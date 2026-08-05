@@ -151,21 +151,17 @@ class AttachmentIndexDao {
           final originalName = name.substring(37);
           final digest = await sha256.bind(file.openRead()).first;
           final stat = await file.stat();
-          await txn.insert(
-            'attachment_index',
-            {
-              'id': id,
-              'chat_id': chatId,
-              'message_id': null,
-              'original_name': originalName,
-              'mime_type': null,
-              'relative_path': 'soultalk/attachments/$chatId/$name',
-              'sha256': digest.toString(),
-              'size': stat.size,
-              'created_at': stat.modified.millisecondsSinceEpoch,
-            },
-            conflictAlgorithm: ConflictAlgorithm.replace,
-          );
+          await txn.insert('attachment_index', {
+            'id': id,
+            'chat_id': chatId,
+            'message_id': null,
+            'original_name': originalName,
+            'mime_type': null,
+            'relative_path': 'soultalk/attachments/$chatId/$name',
+            'sha256': digest.toString(),
+            'size': stat.size,
+            'created_at': stat.modified.millisecondsSinceEpoch,
+          }, conflictAlgorithm: ConflictAlgorithm.replace);
           count++;
         }
       }

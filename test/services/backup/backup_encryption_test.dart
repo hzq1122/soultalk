@@ -21,13 +21,15 @@ void main() {
       expect(utf8.decode(decrypted), 'soultalk backup data');
     });
 
-    test('generates different ciphertext for same plaintext (random salt/nonce)',
-        () {
-      final plain = Uint8List.fromList(utf8.encode('same data'));
-      final a = BackupEncryption.encrypt(plain, 'pw');
-      final b = BackupEncryption.encrypt(plain, 'pw');
-      expect(a, isNot(equals(b)));
-    });
+    test(
+      'generates different ciphertext for same plaintext (random salt/nonce)',
+      () {
+        final plain = Uint8List.fromList(utf8.encode('same data'));
+        final a = BackupEncryption.encrypt(plain, 'pw');
+        final b = BackupEncryption.encrypt(plain, 'pw');
+        expect(a, isNot(equals(b)));
+      },
+    );
 
     test('rejects wrong password', () {
       final plain = Uint8List.fromList(utf8.encode('top secret'));
@@ -44,10 +46,7 @@ void main() {
       final tampered = Uint8List.fromList(encrypted);
       // 翻转密文中间一个字节
       tampered[tampered.length ~/ 2] ^= 0x01;
-      expect(
-        () => BackupEncryption.decrypt(tampered, 'pw'),
-        throwsA(anything),
-      );
+      expect(() => BackupEncryption.decrypt(tampered, 'pw'), throwsA(anything));
     });
 
     test('rejects truncated data', () {
@@ -88,9 +87,7 @@ void main() {
 /// 历史版本（旧 backup_encryption 实现）的 AES-128-CBC 加密：
 /// salt(32) + iv(16) + ciphertext；KDF 为 10000 次 HMAC-SHA256 迭代。
 Uint8List _legacyCbcEncrypt(Uint8List plainData, String password) {
-  final salt = Uint8List.fromList(
-    List.generate(32, (i) => (i * 7 + 3) % 256),
-  );
+  final salt = Uint8List.fromList(List.generate(32, (i) => (i * 7 + 3) % 256));
   final saltStr = String.fromCharCodes(salt);
   var key = utf8.encode('$password$saltStr');
   final passwordBytes = utf8.encode(password);
@@ -98,9 +95,7 @@ Uint8List _legacyCbcEncrypt(Uint8List plainData, String password) {
     final hmac = Hmac(sha256, key);
     key = Uint8List.fromList(hmac.convert(passwordBytes).bytes);
   }
-  final keyBytes = Uint8List.fromList(
-    sha256.convert(key).bytes.sublist(0, 16),
-  );
+  final keyBytes = Uint8List.fromList(sha256.convert(key).bytes.sublist(0, 16));
 
   final iv = enc.IV(
     Uint8List.fromList(List.generate(16, (i) => (i * 13 + 5) % 256)),

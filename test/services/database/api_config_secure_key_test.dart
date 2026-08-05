@@ -94,8 +94,7 @@ void main() {
     expect(config!.apiKey, 'sk-from-secure');
   });
 
-  test('SQLite field is fallback and gets lazily migrated to secure',
-      () async {
+  test('SQLite field is fallback and gets lazily migrated to secure', () async {
     await db.insert('api_configs', {
       'id': 'cfg-1',
       'name': 'main',

@@ -21,26 +21,28 @@ void main() {
     await db.close();
   });
 
-  test('migration v12 adds is_failed column and persists failed state',
-      () async {
-    final msg = await dao.insert(
-      Message(
-        id: '',
-        contactId: 'c-1',
-        role: MessageRole.assistant,
-        content: 'partial',
-        createdAt: DateTime.now(),
-      ),
-    );
+  test(
+    'migration v12 adds is_failed column and persists failed state',
+    () async {
+      final msg = await dao.insert(
+        Message(
+          id: '',
+          contactId: 'c-1',
+          role: MessageRole.assistant,
+          content: 'partial',
+          createdAt: DateTime.now(),
+        ),
+      );
 
-    await dao.updateFailed(msg.id, true);
+      await dao.updateFailed(msg.id, true);
 
-    final loaded = await dao.getById(msg.id);
-    expect(loaded, isNotNull);
-    expect(loaded!.isFailed, isTrue);
-    expect(loaded.isStreaming, isFalse);
-    expect(loaded.content, 'partial');
-  });
+      final loaded = await dao.getById(msg.id);
+      expect(loaded, isNotNull);
+      expect(loaded!.isFailed, isTrue);
+      expect(loaded.isStreaming, isFalse);
+      expect(loaded.content, 'partial');
+    },
+  );
 
   test('failed flag survives re-query and defaults to false', () async {
     final msg = await dao.insert(

@@ -89,11 +89,17 @@ class ProactiveEventDao {
   }
 
   /// 统计某联系人当天（自然日）发送成功的次数，用于每日次数限制。
-  Future<int> countSentToday(String contactId, {String eventType = 'sent'}) async {
+  Future<int> countSentToday(
+    String contactId, {
+    String eventType = 'sent',
+  }) async {
     final db = await _database;
     final now = DateTime.now();
-    final dayStart = DateTime(now.year, now.month, now.day)
-        .millisecondsSinceEpoch;
+    final dayStart = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).millisecondsSinceEpoch;
     final rows = await db.rawQuery(
       'SELECT COUNT(*) AS c FROM proactive_events '
       'WHERE contact_id = ? AND event_type = ? AND created_at >= ?',

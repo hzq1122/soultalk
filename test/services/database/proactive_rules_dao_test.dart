@@ -90,10 +90,7 @@ void main() {
 
     final forC1 = await dao.recent(contactId: 'c-1');
     expect(forC1.length, 2);
-    expect(
-      forC1.map((e) => e.status),
-      containsAll(['failed', 'sent']),
-    );
+    expect(forC1.map((e) => e.status), containsAll(['failed', 'sent']));
   });
 
   test('friend circle rule upsert and posted at update', () async {

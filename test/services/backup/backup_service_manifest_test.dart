@@ -185,13 +185,16 @@ void main() {
   });
 
   test('rolls back files when restore placement fails mid-way', () async {
+    // 用文件锁模拟落位阶段中途失败：Windows 上被打开的文件无法 rename，
+    // 而 Linux/macOS 的 rename 不受 open 句柄影响，故仅在 Windows 上运行。
+    if (!Platform.isWindows) return;
     // 目标目录已有旧文件
-    await File('${paths.attachments.path}/chat/a.txt')
-        .create(recursive: true)
-        .then((file) => file.writeAsString('old-a'));
-    await File('${paths.attachments.path}/chat/b.txt')
-        .create(recursive: true)
-        .then((file) => file.writeAsString('old-b'));
+    await File(
+      '${paths.attachments.path}/chat/a.txt',
+    ).create(recursive: true).then((file) => file.writeAsString('old-a'));
+    await File(
+      '${paths.attachments.path}/chat/b.txt',
+    ).create(recursive: true).then((file) => file.writeAsString('old-b'));
 
     final zipPath = await service.exportToZip(
       sections: {BackupSection.attachments},
@@ -237,9 +240,9 @@ void main() {
     // 恢复后 rebuildFromDirectory 才能从文件系统解析回索引。
     const uuid = '123e4567-e89b-12d3-a456-426614174000';
     final content = utf8.encode('hello');
-    await File('${paths.attachments.path}/chat/$uuid-a.txt')
-        .create(recursive: true)
-        .then((file) => file.writeAsBytes(content));
+    await File(
+      '${paths.attachments.path}/chat/$uuid-a.txt',
+    ).create(recursive: true).then((file) => file.writeAsBytes(content));
     await db.insert('attachment_index', {
       'id': uuid,
       'chat_id': 'chat',

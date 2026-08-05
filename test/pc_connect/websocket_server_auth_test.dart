@@ -163,9 +163,7 @@ Future<Map<String, dynamic>> _waitForType(
   Stream<dynamic> stream,
   String type,
 ) async {
-  await for (final data in stream.timeout(
-    const Duration(seconds: 5),
-  )) {
+  await for (final data in stream.timeout(const Duration(seconds: 5))) {
     final decoded = jsonDecode(data as String) as Map<String, dynamic>;
     if (decoded['type'] == type) return decoded;
   }

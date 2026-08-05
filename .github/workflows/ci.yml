@@ -13,6 +13,7 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  FLUTTER_VERSION: '3.44.1'
 
 jobs:
   # ── Static Analysis ──────────────────────────────────────────────
@@ -28,7 +29,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: '3.41.x'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
 
       - name: Install dependencies (root)
         run: flutter pub get
@@ -55,7 +56,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: '3.41.x'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
 
       - name: Install dependencies (root)
         run: flutter pub get
@@ -89,7 +90,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: '3.41.x'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
 
       - name: Check formatting (root)
         run: dart format --set-exit-if-changed .
@@ -97,39 +98,32 @@ jobs:
       - name: Check formatting (pc)
         run: cd pc && dart format --set-exit-if-changed .
 
-  # ── Determine Version from Tag ───────────────────────────────────
+  # ── Determine Version from pubspec.yaml ──────────────────────────
+  # 版本号以 pubspec.yaml 为唯一权威（每次发布前手动 bump），
+  # main 分支每次编译成功后用该版本自动创建/更新 Release（allowUpdates 覆盖）。
   version-info:
     name: Version Info
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
     outputs:
       version: ${{ steps.version.outputs.VERSION }}
-      is-release: ${{ steps.version.outputs.IS_RELEASE }}
 
     steps:
-      - name: Parse tag
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Read version from pubspec
         id: version
         run: |
-          TAG="${{ github.ref_name }}"
-          if [[ "$TAG" == v* ]]; then
-            VERSION="${TAG#v}"
-            IS_RELEASE="true"
-          else
-            VERSION="$TAG"
-            IS_RELEASE="false"
-            # 非 v-tag 不更新 pubspec.yaml 版本号，避免非法 semver
-            echo "Non-release tag, version remains as-is in pubspec.yaml"
-          fi
+          VERSION=$(grep -E '^version:' pubspec.yaml | head -1 | awk '{print $2}' | tr -d "'\"")
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-          echo "IS_RELEASE=$IS_RELEASE" >> $GITHUB_OUTPUT
-          echo "Tag=$TAG → Version=$VERSION, Release=$IS_RELEASE"
+          echo "Version=$VERSION"
 
   # ── Android APK Build ────────────────────────────────────────────
   build-android:
     name: Android APK
     runs-on: ubuntu-latest
     needs: [analyze, test, format, version-info]
-    if: startsWith(github.ref, 'refs/tags/')
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
 
     steps:
       - name: Checkout code
@@ -145,22 +139,13 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: '3.41.x'
-
-      - name: Update version from tag (v-tags only)
-        if: needs.version-info.outputs.is-release == 'true'
-        run: |
-          VERSION="${{ needs.version-info.outputs.version }}"
-          sed -i "s/^version: .*/version: $VERSION/" pubspec.yaml
-          echo "Version set to $VERSION from tag"
+          flutter-version: ${{ env.FLUTTER_VERSION }}
 
       # 发布签名：从 GitHub Secrets 恢复 keystore。
       # 仓库需配置 ANDROID_KEYSTORE_BASE64（base64 编码的 .jks/.keystore）、
       # ANDROID_KEYSTORE_PASSWORD、ANDROID_KEY_ALIAS、ANDROID_KEY_PASSWORD；
-      # 未配置时回退 debug 签名（仅用于测试，正式发布前必须配置）。
-      # secrets 不能直接在 if 中使用，先经 env 注入。
+      # 未配置时回退 debug 签名（Release 说明中会标注 debug-signed 测试包）。
       - name: Set up release keystore
-        if: needs.version-info.outputs.is-release == 'true'
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -193,7 +178,7 @@ jobs:
     name: PC Windows x64
     runs-on: windows-latest
     needs: [analyze, test, format, version-info]
-    if: startsWith(github.ref, 'refs/tags/')
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
 
     steps:
       - name: Checkout code
@@ -203,24 +188,28 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: '3.41.x'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
 
       - name: Enable Windows desktop
         run: flutter config --enable-windows-desktop
 
-      - name: Update version from tag (v-tags only)
-        if: needs.version-info.outputs.is-release == 'true'
-        shell: bash
-        run: |
-          VERSION="${{ needs.version-info.outputs.version }}"
-          sed -i "s/^version: .*/version: $VERSION/" pc/pubspec.yaml
-          echo "Version set to $VERSION from tag"
-
       - name: Build PC Windows
+        shell: pwsh
         run: |
           cd pc
-          flutter pub get
-          flutter build windows --release
+          flutter pub get *> ..\pc-pub-get.log
+          flutter build windows --release 2>&1 | Tee-Object -FilePath ..\pc-build.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload build logs (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: pc-build-logs
+          path: |
+            pc-pub-get.log
+            pc-build.log
+          if-no-files-found: ignore
 
       - name: Package PC build
         shell: pwsh
@@ -236,11 +225,12 @@ jobs:
           name: pc-windows-x64
           path: soultalk-pc-windows-x64-*.zip
 
-  # ── SoulTalk 主项目 Windows 桌面编译（云编译验证）─────────────
+  # ── SoulTalk 主项目 Windows 桌面构建 ────────────────────────────
   build-windows-app:
     name: App Windows x64
     runs-on: windows-latest
     needs: [version-info]
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
 
     steps:
       - name: Checkout code
@@ -250,33 +240,15 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: '3.41.x'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
 
       - name: Enable Windows desktop
         run: flutter config --enable-windows-desktop
 
-      - name: Build Windows debug (CI validation)
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+      - name: Build Windows release
         shell: pwsh
         run: |
           flutter pub get *> pub-get.log
-          flutter build windows --debug 2>&1 | Tee-Object -FilePath build-debug.log
-          if ($LASTEXITCODE -ne 0) {
-            Get-Content build-debug.log | Select-String -Pattern "error|Error|FAILED|failed|exception|Exception|Unable|unable|not found" | Select-Object -Last 25 | ForEach-Object { Write-Output "::error::$($_.Line)" }
-            exit $LASTEXITCODE
-          }
-
-      - name: Build Windows release (tag)
-        if: startsWith(github.ref, 'refs/tags/')
-        shell: pwsh
-        run: |
-          flutter pub get *> pub-get.log
-          # 主程序与 Android/PC 一样从 tag 更新版本号
-          $VERSION = "${{ needs.version-info.outputs.version }}"
-          if ($VERSION) {
-            (Get-Content pubspec.yaml) -replace '^version: .*', "version: $VERSION" | Set-Content pubspec.yaml
-            Write-Host "Version set to $VERSION from tag"
-          }
           flutter build windows --release 2>&1 | Tee-Object -FilePath build-release.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
@@ -287,30 +259,28 @@ jobs:
           name: windows-build-logs
           path: |
             pub-get.log
-            build-debug.log
             build-release.log
           if-no-files-found: ignore
 
       - name: Package release build
-        if: startsWith(github.ref, 'refs/tags/')
         shell: pwsh
         run: |
-          $zipName = "soultalk-windows-x64.zip"
+          $version = "${{ needs.version-info.outputs.version }}"
+          $zipName = "soultalk-windows-x64-v$version.zip"
           Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath $zipName
           echo "zip_name=$zipName" >> $env:GITHUB_ENV
 
       - name: Upload release artifact
-        if: startsWith(github.ref, 'refs/tags/')
         uses: actions/upload-artifact@v5
         with:
           name: app-windows-x64
-          path: soultalk-windows-x64.zip
+          path: soultalk-windows-x64-*.zip
 
-  # ── Release (v-tag only) ─────────────────────────────────────────
+  # ── Release（main 每次编译成功自动发布 / v-tag 手动发布）─────────
   release:
     name: Create GitHub Release
     needs: [build-android, build-pc-windows, build-windows-app, version-info]
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     # 仅 release job 需要写权限（创建 Release）
     permissions:
@@ -326,6 +296,11 @@ jobs:
       - name: List artifacts
         run: find artifacts -type f
 
+      - name: Compute SHA256 checksums
+        run: |
+          find artifacts -type f \( -name '*.apk' -o -name '*.zip' \) -exec sha256sum {} + > checksums.sha256
+          cat checksums.sha256
+
       - name: Create Release
         # 固定 commit SHA 而非可变 tag
         uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd
@@ -334,8 +309,19 @@ jobs:
             artifacts/android-apk/*.apk
             artifacts/pc-windows-x64/*.zip
             artifacts/app-windows-x64/*.zip
-          tag: ${{ github.ref_name }}
-          name: SoulTalk ${{ github.ref_name }}
+            checksums.sha256
+          tag: v${{ needs.version-info.outputs.version }}
+          name: SoulTalk v${{ needs.version-info.outputs.version }}
+          body: |
+            > [!NOTE]
+            > 本 Release 由 GitHub Actions 在每次 main 分支编译成功后自动生成/更新。
+            > Android APK 在未配置 ANDROID_KEYSTORE_BASE64 secrets 时为 **debug-signed 测试包**，
+            > 配置正式 keystore 后将自动切换正式签名。
+
+            - 版本号以 `pubspec.yaml` 为准：v${{ needs.version-info.outputs.version }}
+            - 产物：Android APK、PC Windows x64 zip、主应用 Windows x64 zip
+            - 校验：`checksums.sha256` 为全部产物的 SHA256 摘要
           token: ${{ secrets.GITHUB_TOKEN }}
           allowUpdates: true
           generateReleaseNotes: true
+          makeLatest: true

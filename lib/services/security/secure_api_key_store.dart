@@ -13,7 +13,8 @@ class SecureApiKeyStore {
   SecureApiKeyStore({FlutterSecureStorage? storage}) : _storage = storage;
 
   FlutterSecureStorage get _impl =>
-      _storage ?? const FlutterSecureStorage(
+      _storage ??
+      const FlutterSecureStorage(
         aOptions: AndroidOptions(encryptedSharedPreferences: true),
       );
 

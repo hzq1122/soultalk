@@ -160,3 +160,6 @@ backups/
 .svn/
 migrate_working_dir/
 **/doc/api/
+
+# Reasonix 工具状态（本地会话数据，不应入库）
+.reasonix/

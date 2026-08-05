@@ -19,6 +19,7 @@ class PushValidator {
     'secret_key',
     'token',
   };
+
   /// messages 表已知列白名单：sqflite insert 不转义列名，
   /// 未知列名可被构造为 SQL 注入载荷，必须拒绝。
   static const _messagesColumns = {

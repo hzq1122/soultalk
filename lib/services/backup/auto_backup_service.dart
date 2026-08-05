@@ -182,8 +182,9 @@ class AutoBackupService {
     final rng = Random.secure();
     final generated = List.generate(
       32,
-      (_) => 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'[
-          rng.nextInt(62)],
+      (_) =>
+          'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'[rng
+              .nextInt(62)],
     ).join();
     await prefs.setString(key, generated);
     return generated;
@@ -196,10 +197,7 @@ class AutoBackupService {
   /// 排除：scheduler_run_log（诊断日志）、auto_backup 自身状态 key
   /// （避免自指导致每次备份）、凭据 key（备份内容不含它们）。
   /// （公开供测试与诊断使用。）
-  Future<String> computeFingerprint(
-    Database db,
-    SharedPreferences prefs,
-  ) =>
+  Future<String> computeFingerprint(Database db, SharedPreferences prefs) =>
       _computeFingerprint(db, prefs);
 
   Future<String> _computeFingerprint(
@@ -231,9 +229,7 @@ class AutoBackupService {
         )).first;
         parts.add('$table:${r['c']}:${r['m']}');
       } else {
-        final r = (await db.rawQuery(
-          'SELECT COUNT(*) AS c FROM $table',
-        )).first;
+        final r = (await db.rawQuery('SELECT COUNT(*) AS c FROM $table')).first;
         parts.add('$table:${r['c']}');
       }
     }
@@ -263,10 +259,7 @@ class AutoBackupService {
     var count = 0;
     var totalSize = 0;
     var maxMtime = 0;
-    await for (final entity in dir.list(
-      recursive: true,
-      followLinks: false,
-    )) {
+    await for (final entity in dir.list(recursive: true, followLinks: false)) {
       if (entity is! File) continue;
       count++;
       final stat = await entity.stat();

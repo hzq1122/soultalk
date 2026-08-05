@@ -109,15 +109,9 @@ class ApiConfigDao {
     // API Key 优先系统安全存储；写入成功则 SQLite 不存明文
     // （备份/同步自动剥离），失败时保留 SQLite 兼容字段作 fallback。
     if (newConfig.apiKey.isNotEmpty) {
-      final secured = await _secureStore.write(
-        newConfig.id,
-        newConfig.apiKey,
-      );
+      final secured = await _secureStore.write(newConfig.id, newConfig.apiKey);
       if (secured) {
-        await db.insert(
-          'api_configs',
-          {..._toMap(newConfig), 'api_key': ''},
-        );
+        await db.insert('api_configs', {..._toMap(newConfig), 'api_key': ''});
         return newConfig;
       }
     }

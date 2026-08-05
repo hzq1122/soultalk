@@ -37,9 +37,7 @@ class PullSyncService {
 
     if (table == 'pc_deletions') {
       // 删除同步（tombstone）：不写入 mirror，直接删除对应行
-      final deletions = rows
-          .map((row) => row.cast<String, dynamic>())
-          .toList();
+      final deletions = rows.map((row) => row.cast<String, dynamic>()).toList();
       final byTable = <String, List<String>>{};
       for (final deletion in deletions) {
         final targetTable = deletion['table_name']?.toString();
@@ -57,9 +55,7 @@ class PullSyncService {
     // （contact_id→contactId、created_at→timestamp 等）
     await mirrorDao.upsertRows(
       table,
-      rows
-          .map((row) => _mapFields(row.cast<String, dynamic>()))
-          .toList(),
+      rows.map((row) => _mapFields(row.cast<String, dynamic>())).toList(),
     );
   }
 
@@ -108,6 +104,9 @@ class PullSyncService {
     final parts = key.split('_');
     if (parts.length == 1) return key;
     return parts.first +
-        parts.skip(1).map((p) => p.isEmpty ? p : p[0].toUpperCase() + p.substring(1)).join();
+        parts
+            .skip(1)
+            .map((p) => p.isEmpty ? p : p[0].toUpperCase() + p.substring(1))
+            .join();
   }
 }

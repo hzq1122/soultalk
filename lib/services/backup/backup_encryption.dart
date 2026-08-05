@@ -6,7 +6,8 @@ import 'package:crypto/crypto.dart';
 import 'package:encrypt/encrypt.dart' as enc;
 import 'package:pointycastle/block/aes.dart';
 import 'package:pointycastle/block/modes/gcm.dart';
-import 'package:pointycastle/pointycastle.dart' show AEADParameters, KeyParameter;
+import 'package:pointycastle/pointycastle.dart'
+    show AEADParameters, KeyParameter;
 
 /// 备份加密。
 ///
@@ -68,8 +69,7 @@ class BackupEncryption {
   }
 
   static Uint8List _decryptGcm(Uint8List encryptedData, String password) {
-    final minLength =
-        _magic.length + _saltLength + _nonceLength + _tagLength;
+    final minLength = _magic.length + _saltLength + _nonceLength + _tagLength;
     if (encryptedData.length < minLength) {
       throw ArgumentError('Invalid encrypted data: too short');
     }
@@ -80,11 +80,7 @@ class BackupEncryption {
     offset += _nonceLength;
     final body = encryptedData.sublist(offset);
 
-    final key = _pbkdf2Sha256(
-      password,
-      saltBytes,
-      iterations: _kdfIterations,
-    );
+    final key = _pbkdf2Sha256(password, saltBytes, iterations: _kdfIterations);
     final cipher = GCMBlockCipher(AESEngine())
       ..init(
         false,

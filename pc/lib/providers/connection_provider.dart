@@ -214,10 +214,9 @@ class PCConnectionNotifier extends StateNotifier<PCConnectionState> {
     _syncStateSubscription = _syncManager!.stateStream.listen((syncState) {
       if (!mounted) return;
       if (syncState == SyncState.error) {
-        state = state.copyWith(
-          error: _syncManager?.lastError ?? '同步失败，请重试',
-        );
-      } else if (syncState == SyncState.idle || syncState == SyncState.syncing) {
+        state = state.copyWith(error: _syncManager?.lastError ?? '同步失败，请重试');
+      } else if (syncState == SyncState.idle ||
+          syncState == SyncState.syncing) {
         if (state.error != null && _syncManager?.lastError == null) {
           state = state.copyWith(error: null);
         }

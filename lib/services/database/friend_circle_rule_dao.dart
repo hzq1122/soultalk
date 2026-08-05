@@ -10,11 +10,14 @@ class FriendCircleRule {
   final bool enabled;
   final int intervalHours;
   final DateTime? lastPostedAt;
+
   /// 安静时段（跨天区间，如 23→7 表示 23:00-次日 7:00）。
   final int quietStartHour;
   final int quietEndHour;
+
   /// 每日发布次数上限（0 = 不限）。
   final int dailyLimit;
+
   /// 每日费用预算上限（分；0 = 不限，按约 0.1 元/条折算）。
   final int budgetCents;
   final int createdAt;

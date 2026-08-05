@@ -70,21 +70,33 @@ void main() {
 
     await dao.recomputeLastMessage('c-1');
 
-    final row = (await db.query('contacts', where: 'id = ?', whereArgs: ['c-1'])).single;
+    final row = (await db.query(
+      'contacts',
+      where: 'id = ?',
+      whereArgs: ['c-1'],
+    )).single;
     expect(row['last_message'], 'second');
     expect(row['last_message_at'], '2026-01-01T00:00:02.000');
   });
 
-  test('recompute clears last message and unread when chat is empty',
-      () async {
+  test('recompute clears last message and unread when chat is empty', () async {
     await insertMsg('m1', 'user', 'only', '2026-01-01T00:00:01.000');
     await db.delete('messages');
     // 模拟未读数残留
-    await db.update('contacts', {'unread_count': 5}, where: 'id = ?', whereArgs: ['c-1']);
+    await db.update(
+      'contacts',
+      {'unread_count': 5},
+      where: 'id = ?',
+      whereArgs: ['c-1'],
+    );
 
     await dao.recomputeLastMessage('c-1');
 
-    final row = (await db.query('contacts', where: 'id = ?', whereArgs: ['c-1'])).single;
+    final row = (await db.query(
+      'contacts',
+      where: 'id = ?',
+      whereArgs: ['c-1'],
+    )).single;
     expect(row['last_message'], isNull);
     expect(row['last_message_at'], isNull);
     expect(row['unread_count'], 0);

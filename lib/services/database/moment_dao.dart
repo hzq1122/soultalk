@@ -64,8 +64,7 @@ class MomentDao {
   Future<int> countCreatedToday(String contactId) async {
     final db = await _database;
     final now = DateTime.now();
-    final dayStart = DateTime(now.year, now.month, now.day)
-        .toIso8601String();
+    final dayStart = DateTime(now.year, now.month, now.day).toIso8601String();
     final rows = await db.rawQuery(
       'SELECT COUNT(*) AS c FROM moments '
       'WHERE contact_id = ? AND created_at >= ?',

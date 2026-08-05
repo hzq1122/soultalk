@@ -68,9 +68,7 @@ void main() {
 
   test('missing columns fall back to defaults', () async {
     // 模拟未迁移的旧库：行没有 thinking 列时读取应使用默认值
-    await db.execute(
-      'ALTER TABLE api_configs RENAME TO api_configs_old',
-    );
+    await db.execute('ALTER TABLE api_configs RENAME TO api_configs_old');
     await db.execute('''
       CREATE TABLE api_configs (
         id TEXT PRIMARY KEY,

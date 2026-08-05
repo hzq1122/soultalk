@@ -81,7 +81,8 @@ void main() {
     final settings =
         jsonDecode(
               utf8.decode(
-                archive.findFile('settings/settings.json')!.content as List<int>,
+                archive.findFile('settings/settings.json')!.content
+                    as List<int>,
               ),
             )
             as Map<String, dynamic>;
@@ -95,93 +96,105 @@ void main() {
     expect(jsonEncode(settings), isNot(contains('s3secret')));
   });
 
-  test('restore preserves existing local api_key (upsert, not replace)',
-      () async {
-    // 本地已有配置（含 key）
-    await db.insert('api_configs', {
-      'id': 'cfg-1',
-      'name': 'local',
-      'provider': 'openai',
-      'base_url': 'https://api.openai.com/v1',
-      'api_key': 'local-key',
-      'model': 'gpt-4o-mini',
-      'max_tokens': 4096,
-      'temperature': 0.8,
-      'stream_enabled': 1,
-    });
-    // 备份另一份（无 api_key）
-    final zipPath = await service.exportToZip(
-      sections: {BackupSection.apiConfigs},
-      targetDir: root.path,
-    );
+  test(
+    'restore preserves existing local api_key (upsert, not replace)',
+    () async {
+      // 本地已有配置（含 key）
+      await db.insert('api_configs', {
+        'id': 'cfg-1',
+        'name': 'local',
+        'provider': 'openai',
+        'base_url': 'https://api.openai.com/v1',
+        'api_key': 'local-key',
+        'model': 'gpt-4o-mini',
+        'max_tokens': 4096,
+        'temperature': 0.8,
+        'stream_enabled': 1,
+      });
+      // 备份另一份（无 api_key）
+      final zipPath = await service.exportToZip(
+        sections: {BackupSection.apiConfigs},
+        targetDir: root.path,
+      );
 
-    await db.update(
-      'api_configs',
-      {'name': 'to-be-overwritten'},
-      where: 'id = ?',
-      whereArgs: ['cfg-1'],
-    );
-    final imported = await service.importFromZip(
-      zipPath: zipPath,
-      sections: {BackupSection.apiConfigs},
-    );
+      await db.update(
+        'api_configs',
+        {'name': 'to-be-overwritten'},
+        where: 'id = ?',
+        whereArgs: ['cfg-1'],
+      );
+      final imported = await service.importFromZip(
+        zipPath: zipPath,
+        sections: {BackupSection.apiConfigs},
+      );
 
-    expect(imported, isTrue);
-    final rows = await db.query('api_configs', where: 'id = ?', whereArgs: ['cfg-1']);
-    expect(rows.single['api_key'], 'local-key'); // 保留本地 key
-    expect(rows.single['name'], 'local'); // 其他字段按备份覆盖
-  });
+      expect(imported, isTrue);
+      final rows = await db.query(
+        'api_configs',
+        where: 'id = ?',
+        whereArgs: ['cfg-1'],
+      );
+      expect(rows.single['api_key'], 'local-key'); // 保留本地 key
+      expect(rows.single['name'], 'local'); // 其他字段按备份覆盖
+    },
+  );
 
-  test('restore does not cascade-delete child rows when contact id conflicts',
-      () async {
-    // contacts 与 messages 带外键级联；恢复同 id 联系人时
-    // 子表（messages）必须保留（REPLACE 会先 DELETE 再 INSERT）
-    await db.rawQuery('PRAGMA foreign_keys=ON');
-    await db.insert('contacts', {
-      'id': 'contact-1',
-      'name': 'Alice',
-      'description': '',
-      'system_prompt': '',
-    });
-    await db.insert('messages', {
-      'id': 'msg-1',
-      'contact_id': 'contact-1',
-      'role': 'user',
-      'content': 'hello',
-      'created_at': '2026-01-01T00:00:00',
-    });
-    await db.insert('messages', {
-      'id': 'msg-2',
-      'contact_id': 'contact-1',
-      'role': 'assistant',
-      'content': 'hi',
-      'created_at': '2026-01-01T00:01:00',
-    });
+  test(
+    'restore does not cascade-delete child rows when contact id conflicts',
+    () async {
+      // contacts 与 messages 带外键级联；恢复同 id 联系人时
+      // 子表（messages）必须保留（REPLACE 会先 DELETE 再 INSERT）
+      await db.rawQuery('PRAGMA foreign_keys=ON');
+      await db.insert('contacts', {
+        'id': 'contact-1',
+        'name': 'Alice',
+        'description': '',
+        'system_prompt': '',
+      });
+      await db.insert('messages', {
+        'id': 'msg-1',
+        'contact_id': 'contact-1',
+        'role': 'user',
+        'content': 'hello',
+        'created_at': '2026-01-01T00:00:00',
+      });
+      await db.insert('messages', {
+        'id': 'msg-2',
+        'contact_id': 'contact-1',
+        'role': 'assistant',
+        'content': 'hi',
+        'created_at': '2026-01-01T00:01:00',
+      });
 
-    final zipPath = await service.exportToZip(
-      sections: {BackupSection.contacts, BackupSection.messages},
-      targetDir: root.path,
-    );
+      final zipPath = await service.exportToZip(
+        sections: {BackupSection.contacts, BackupSection.messages},
+        targetDir: root.path,
+      );
 
-    // 修改本地联系人（备份后新增/变更）再恢复
-    await db.update(
-      'contacts',
-      {'name': 'Alice (edited)'},
-      where: 'id = ?',
-      whereArgs: ['contact-1'],
-    );
-    final imported = await service.importFromZip(
-      zipPath: zipPath,
-      sections: {BackupSection.contacts, BackupSection.messages},
-    );
+      // 修改本地联系人（备份后新增/变更）再恢复
+      await db.update(
+        'contacts',
+        {'name': 'Alice (edited)'},
+        where: 'id = ?',
+        whereArgs: ['contact-1'],
+      );
+      final imported = await service.importFromZip(
+        zipPath: zipPath,
+        sections: {BackupSection.contacts, BackupSection.messages},
+      );
 
-    expect(imported, isTrue);
-    final contactRows = await db.query('contacts', where: 'id = ?', whereArgs: ['contact-1']);
-    expect(contactRows, hasLength(1));
-    expect(contactRows.single['name'], 'Alice');
-    final msgCount = await db.rawQuery('SELECT COUNT(*) AS c FROM messages');
-    expect(msgCount.single['c'], 2, reason: '恢复联系人不得级联删除其消息');
-  });
+      expect(imported, isTrue);
+      final contactRows = await db.query(
+        'contacts',
+        where: 'id = ?',
+        whereArgs: ['contact-1'],
+      );
+      expect(contactRows, hasLength(1));
+      expect(contactRows.single['name'], 'Alice');
+      final msgCount = await db.rawQuery('SELECT COUNT(*) AS c FROM messages');
+      expect(msgCount.single['c'], 2, reason: '恢复联系人不得级联删除其消息');
+    },
+  );
 
   test('forceEncrypt without password rejects plaintext export', () async {
     expect(

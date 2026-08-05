@@ -26,11 +26,20 @@ void main() {
   test('minDepth/maxDepth filter by context depth (ST semantics)', () {
     final s = script(minDepth: 3, maxDepth: 5);
     // 深度不足：不应用
-    expect(service.applyScripts('foo', [s], RegexPlacement.aiOutput, depth: 2), 'foo');
+    expect(
+      service.applyScripts('foo', [s], RegexPlacement.aiOutput, depth: 2),
+      'foo',
+    );
     // 深度范围内：应用
-    expect(service.applyScripts('foo', [s], RegexPlacement.aiOutput, depth: 4), 'bar');
+    expect(
+      service.applyScripts('foo', [s], RegexPlacement.aiOutput, depth: 4),
+      'bar',
+    );
     // 深度超出：不应用
-    expect(service.applyScripts('foo', [s], RegexPlacement.aiOutput, depth: 6), 'foo');
+    expect(
+      service.applyScripts('foo', [s], RegexPlacement.aiOutput, depth: 6),
+      'foo',
+    );
   });
 
   test('without depth, depth limits are ignored (backward compatible)', () {
@@ -44,17 +53,13 @@ void main() {
       replaceOverride: 'x',
       promptOnly: true,
     );
-    final normal = script(
-      findRegexOverride: r'\bbaz\b',
-      replaceOverride: 'y',
-    );
+    final normal = script(findRegexOverride: r'\bbaz\b', replaceOverride: 'y');
     // prompt 路径：两者都应用
     expect(
-      service.applyScripts(
-        'foo baz',
-        [promptOnly, normal],
-        RegexPlacement.aiOutput,
-      ),
+      service.applyScripts('foo baz', [
+        promptOnly,
+        normal,
+      ], RegexPlacement.aiOutput),
       'x y',
     );
     // UI 显示路径：仅普通脚本应用（ST ephemeral-prompt 语义）
