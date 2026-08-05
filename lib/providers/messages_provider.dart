@@ -7,35 +7,60 @@ const _kPageSize = 50;
 // ─── 消息列表 Provider ────────────────────────────────────────────────────────
 
 class MessagesNotifier extends FamilyAsyncNotifier<List<Message>, String> {
-  int _offset = 0;
+  /// 上一页最旧一条消息的游标（created_at + id），null 表示无更多。
+  DateTime? _cursorCreatedAt;
+  String? _cursorId;
   bool _hasMore = true;
+  bool _loadingMore = false;
 
   @override
   Future<List<Message>> build(String contactId) async {
-    _offset = 0;
+    _cursorCreatedAt = null;
+    _cursorId = null;
     final msgs = await ref
         .read(chatServiceProvider)
-        .getMessagePage(contactId, limit: _kPageSize, offset: 0);
-    _hasMore = msgs.length == _kPageSize;
-    return msgs;
+        .getMessagePageByCursor(contactId, limit: _kPageSize);
+    _updateCursor(msgs);
+    // DESC（新→旧）转为 ASC（旧→新），最新在列表末尾
+    return msgs.reversed.toList();
   }
 
   bool get hasMore => _hasMore;
 
-  Future<void> loadMore() async {
-    if (!_hasMore) return;
-    final nextOffset = _offset + _kPageSize;
-    final older = await ref
-        .read(chatServiceProvider)
-        .getMessagePage(arg, limit: _kPageSize, offset: nextOffset);
-    if (older.isEmpty) {
+  void _updateCursor(List<Message> descPage) {
+    if (descPage.isEmpty) {
       _hasMore = false;
       return;
     }
-    _offset = nextOffset;
-    final current = state.value ?? [];
-    state = AsyncData([...older, ...current]);
-    _hasMore = older.length == _kPageSize;
+    // DESC 分页结果最后一条 = 最旧一条，作为下一页 before 游标
+    final oldest = descPage.last;
+    _cursorCreatedAt = oldest.createdAt;
+    _cursorId = oldest.id;
+    _hasMore = descPage.length == _kPageSize;
+  }
+
+  Future<void> loadMore() async {
+    if (!_hasMore || _loadingMore) return;
+    _loadingMore = true;
+    try {
+      final older = await ref
+          .read(chatServiceProvider)
+          .getMessagePageByCursor(
+            arg,
+            limit: _kPageSize,
+            beforeCreatedAt: _cursorCreatedAt,
+            beforeId: _cursorId,
+          );
+      if (older.isEmpty) {
+        _hasMore = false;
+        return;
+      }
+      _updateCursor(older);
+      final current = state.value ?? [];
+      state = AsyncData([...older.reversed, ...current]);
+    } finally {
+      _loadingMore = false;
+    }
   }
 
   void addMessage(Message message) {
@@ -58,6 +83,40 @@ class MessagesNotifier extends FamilyAsyncNotifier<List<Message>, String> {
       );
       state = AsyncData(newList);
     }
+  }
+
+  /// 标记消息生成失败（消息保留，UI 显示失败样式与重试入口）。
+  void markFailed(String id) {
+    final list = state.value ?? [];
+    final idx = list.indexWhere((m) => m.id == id);
+    if (idx >= 0) {
+      final newList = List<Message>.from(list);
+      newList[idx] = newList[idx].copyWith(isStreaming: false, isFailed: true);
+      state = AsyncData(newList);
+    }
+  }
+
+  /// 更新本地消息内容（编辑用户消息）。
+  void updateMessageContent(String id, String content) {
+    final list = state.value ?? [];
+    final idx = list.indexWhere((m) => m.id == id);
+    if (idx >= 0) {
+      final newList = List<Message>.from(list);
+      newList[idx] = newList[idx].copyWith(
+        content: content,
+        isStreaming: false,
+        isFailed: false,
+      );
+      state = AsyncData(newList);
+    }
+  }
+
+  /// 删除某条消息之后的所有本地消息（编辑后重发前的清理）。
+  void removeMessagesAfter(String id) {
+    final list = state.value ?? [];
+    final idx = list.indexWhere((m) => m.id == id);
+    if (idx < 0) return;
+    state = AsyncData(list.sublist(0, idx + 1));
   }
 
   void updateLastMessageMetadata(String id, Map<String, dynamic> metadata) {
@@ -101,23 +160,27 @@ class MessagesNotifier extends FamilyAsyncNotifier<List<Message>, String> {
 
   Future<void> clearMessages() async {
     final contactId = arg;
+    _loadingMore = false;
     state = await AsyncValue.guard(() async {
       await ref.read(chatServiceProvider).deleteMessages(contactId);
-      _offset = 0;
+      _cursorCreatedAt = null;
+      _cursorId = null;
       _hasMore = false;
       return <Message>[];
     });
   }
 
   Future<void> refresh() async {
+    _loadingMore = false;
     state = const AsyncLoading();
-    _offset = 0;
+    _cursorCreatedAt = null;
+    _cursorId = null;
     state = await AsyncValue.guard(() async {
       final msgs = await ref
           .read(chatServiceProvider)
-          .getMessagePage(arg, limit: _kPageSize, offset: 0);
-      _hasMore = msgs.length == _kPageSize;
-      return msgs;
+          .getMessagePageByCursor(arg, limit: _kPageSize);
+      _updateCursor(msgs);
+      return msgs.reversed.toList();
     });
   }
 }

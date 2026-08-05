@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../providers/api_config_provider.dart';
 import '../../providers/contacts_provider.dart';
 import '../../models/contact.dart';
 import '../../theme/wechat_colors.dart';
@@ -142,7 +143,12 @@ class _ConversationTile extends ConsumerWidget {
         );
       },
       onDismissed: (_) {
-        // 只清空会话记录，不删除联系人
+        // 删除会话 = 删除该联系人的全部消息（附件一并清理），
+        // 保留联系人本身，但清空预览。
+        ref
+            .read(chatServiceProvider)
+            .deleteMessages(contact.id)
+            .catchError((_) {});
         final updated = contact.copyWith(
           lastMessage: null,
           lastMessageAt: null,

@@ -7,7 +7,6 @@ import 'device_identity_store.dart';
 /// PC 端 WebSocket 客户端，连接手机端
 class WebSocketClient {
   WebSocketChannel? _channel;
-  // ignore: unused_field — kept for future use
   StreamSubscription? _subscription;
   Timer? _heartbeatTimer;
   Timer? _reconnectTimer;
@@ -65,6 +64,11 @@ class WebSocketClient {
     _heartbeatTimer?.cancel();
     _reconnectTimer?.cancel();
     _reconnectAttempts = 0;
+
+    // 取消流订阅：避免断线后 onDone/onError 回调继续触发重连逻辑
+    final subscription = _subscription;
+    _subscription = null;
+    await subscription?.cancel();
 
     final channel = _channel;
     _channel = null;
@@ -155,6 +159,11 @@ class WebSocketClient {
         case 'disconnect':
         case 'pong':
         case 'error':
+        case 'manifest.response':
+        case 'pull.chunk':
+        case 'pull.complete':
+        case 'pull.error':
+        case 'push.result':
           _emitEvent(message);
           break;
       }

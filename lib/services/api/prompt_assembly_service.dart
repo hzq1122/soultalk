@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/app_paths.dart';
 import '../../models/contact.dart';
 import '../../models/message.dart';
 import '../../models/character_card.dart';
@@ -10,12 +11,19 @@ import '../st_compat/character/st_character_card_parser.dart';
 import '../st_compat/character/st_character_models.dart';
 import '../st_compat/regex/st_regex_mapper.dart';
 import '../st_compat/regex/st_regex_parser.dart';
+import '../st_compat/world_info/st_world_info_matcher.dart';
+import '../st_compat/world_info/st_world_info_models.dart';
+import '../st_compat/world_info/st_world_info_repository.dart';
 
 class PromptAssemblyService {
   final _regexService = const RegexService();
   final _stCharacterParser = const STCharacterCardParser();
   final _stRegexParser = STRegexParser();
   final _stRegexMapper = STRegexMapper();
+  final AppPaths? _paths;
+
+  /// [paths] 用于测试注入 st_compat 目录；不传时使用应用默认路径。
+  PromptAssemblyService({AppPaths? paths}) : _paths = paths;
 
   Future<AssembledPrompt> assemble({
     required Contact contact,
@@ -25,7 +33,7 @@ class PromptAssemblyService {
     final prefs = await SharedPreferences.getInstance();
 
     final promptPreset = await PromptPreset.load(prefs, 'prompt_preset');
-    final worldInfoEntries = await _loadWorldInfo(prefs, contact.id);
+    final worldInfoEntries = await _loadWorldInfo(prefs, contact.id, history);
 
     final userName_ = userName ?? prefs.getString('self_profile') ?? '用户';
 
@@ -239,7 +247,16 @@ class PromptAssemblyService {
   Future<List<WorldInfoEntry>> _loadWorldInfo(
     SharedPreferences prefs,
     String contactId,
+    List<Message> history,
   ) async {
+    // 文件权威源优先：st_compat/worlds/ 是 ST 世界书唯一权威，
+    // 用 STWorldInfoMatcher 对最近消息做关键词/正则匹配。
+    // 无文件或无匹配条目时，回退到旧 SharedPreferences 数据（兼容期）。
+    final stEntries = await _loadSTWorldInfo(
+      history.map((m) => m.content).toList(),
+    );
+    if (stEntries.isNotEmpty) return stEntries;
+
     final jsonStr = prefs.getString('world_info_$contactId');
     if (jsonStr != null) {
       try {
@@ -260,7 +277,54 @@ class PromptAssemblyService {
       } catch (_) {}
     }
 
-    return [];
+    return const [];
+  }
+
+  /// 从 st_compat/worlds/ 加载世界书并用 ST 匹配器筛选条目。
+  Future<List<WorldInfoEntry>> _loadSTWorldInfo(
+    List<String> recentMessages,
+  ) async {
+    try {
+      final paths = _paths ?? await AppPaths.create();
+      final repository = STWorldInfoRepository(paths: paths);
+      final matcher = STWorldInfoMatcher();
+      final names = await repository.listNames();
+      if (names.isEmpty) return const [];
+      final entries = <WorldInfoEntry>[];
+      for (final name in names) {
+        final lorebook = await repository.readByName(name);
+        final matched = matcher.match(
+          lorebook: lorebook,
+          recentMessages: recentMessages,
+        );
+        for (final entry in matched) {
+          entries.add(_stEntryToWorldInfoEntry(entry));
+        }
+      }
+      return entries;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  WorldInfoEntry _stEntryToWorldInfoEntry(STWorldInfoEntry entry) {
+    return WorldInfoEntry(
+      id: 'st_${entry.uid}',
+      key: entry.key.join(','),
+      keySecondary: entry.keySecondary,
+      content: entry.content,
+      comment: entry.comment,
+      enabled: !entry.disable,
+      constant: entry.constant,
+      // ST position: 0=before char def / 1=after char def → before；
+      // 其余（2+=after example/chat）→ after，与现有 position 语义对齐
+      position: entry.position <= 1 ? 0 : 2,
+      priority: entry.order,
+      group: entry.group,
+      depth: entry.depth,
+      selective: entry.selective,
+      caseSensitive: entry.caseSensitive == true ? 'yes' : 'no',
+    );
   }
 
   String _buildAllText(

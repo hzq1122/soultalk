@@ -14,6 +14,7 @@ import '../moments/moments_service.dart';
 import '../extensions/extension_event_bus.dart';
 import '../scheduler/scheduler_task_handler.dart';
 import '../database/scheduler_job_dao.dart';
+import 'rule_guards.dart';
 import '../../models/contact.dart';
 import '../../models/message.dart';
 import '../../models/api_config.dart';
@@ -44,6 +45,8 @@ class ProactiveService {
   static const _kLastSeenKey = 'proactive_last_seen_at';
   static const _kScheduledKeysKey = 'proactive_scheduled_keys';
   static const _kSentScheduledKeysKey = 'proactive_sent_scheduled_keys';
+  static const _maxScheduledRetries = 3;
+  static const _scheduledRetryDelay = Duration(minutes: 10);
 
   void init() {
     if (_initialized) return;
@@ -55,6 +58,69 @@ class ProactiveService {
     _ruleDao = ProactiveRuleDao(db);
     _eventDao = ProactiveEventDao(db);
     unawaited(_restoreScheduledState());
+    unawaited(ensureRecurringJobs());
+  }
+
+  /// 幂等确保 proactive_check / moments_cycle 两个周期任务存在于
+  /// scheduler_jobs 表中（仅注册 handler 不会创建任务，新数据库
+  /// 上调度器永远不会执行这两个任务）。
+  Future<void> ensureRecurringJobs() async {
+    try {
+      final dao = SchedulerJobDao(DatabaseService());
+      final prefs = await SharedPreferences.getInstance();
+      final momentsIntervalMinutes = prefs.getInt('moments_interval_minutes') ?? 60;
+      final now = DateTime.now().millisecondsSinceEpoch;
+      const jobs = [
+        (type: 'proactive_check', intervalMillis: 5 * 60 * 1000),
+      ];
+      for (final job in jobs) {
+        final existing = await dao.getByTypeTarget(job.type, 'global');
+        if (existing != null && existing.status == 'pending') continue;
+        await dao.upsert(
+          SchedulerJobRecord(
+            id: existing?.id ?? '${job.type}_global',
+            type: job.type,
+            targetId: 'global',
+            runAfter: existing?.status == 'pending'
+                ? existing!.runAfter
+                : now + job.intervalMillis,
+            retryCount: existing?.retryCount ?? 0,
+            status: 'pending',
+            payload: '{}',
+            lastError: null,
+            createdAt: existing?.createdAt ?? now,
+            updatedAt: now,
+          ),
+        );
+      }
+      // moments_cycle 使用用户配置的间隔
+      final existingCycle = await dao.getByTypeTarget('moments_cycle', 'global');
+      if (existingCycle == null || existingCycle.status != 'pending') {
+        await dao.upsert(
+          SchedulerJobRecord(
+            id: existingCycle?.id ?? 'moments_cycle_global',
+            type: 'moments_cycle',
+            targetId: 'global',
+            runAfter: existingCycle?.status == 'pending'
+                ? existingCycle!.runAfter
+                : now + Duration(minutes: momentsIntervalMinutes).inMilliseconds,
+            retryCount: existingCycle?.retryCount ?? 0,
+            status: 'pending',
+            payload: '{}',
+            lastError: null,
+            createdAt: existingCycle?.createdAt ?? now,
+            updatedAt: now,
+          ),
+        );
+      }
+    } catch (error, stackTrace) {
+      developer.log(
+        'Failed to ensure recurring scheduler jobs',
+        name: 'ProactiveService',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   void dispose() {
@@ -88,6 +154,9 @@ class ProactiveService {
 
   Future<void> _check() async {
     final now = DateTime.now();
+    // 总开关（prefs，默认开启）
+    final prefs = await SharedPreferences.getInstance();
+    if (!(prefs.getBool('proactive_global_enabled') ?? true)) return;
     if (now.hour >= 23 || now.hour < 7) return;
 
     final contacts = await _contactDao.getAll();
@@ -109,6 +178,18 @@ class ProactiveService {
         probability: 0.3,
       );
       if (!rule.enabled) continue;
+
+      // 安静时段：规则配置的跨天区间内不发送
+      if (isInQuietHours(now, rule.quietStartHour, rule.quietEndHour)) {
+        continue;
+      }
+
+      // 每日次数/费用预算限制：当天已发送 >= 上限则跳过
+      final effectiveLimit = rule.effectiveDailyLimit;
+      if (effectiveLimit > 0 &&
+          await _eventDao.countSentToday(contact.id) >= effectiveLimit) {
+        continue;
+      }
 
       // 规则触发时间优先，兼容期回退 contacts.last_proactive_at
       final lastTriggered = rule.lastTriggeredAt ?? contact.lastProactiveAt;
@@ -278,18 +359,65 @@ class ProactiveService {
 
     final delay = msg.scheduledAt.difference(now);
     if (delay <= Duration.zero) {
-      final sendAt = now;
-      unawaited(_markScheduledSent(key));
-      unawaited(_sendScheduledMessage(contact, configs, msg, sendAt));
+      unawaited(_deliverScheduledMessage(contact, configs, msg, key));
       return;
     }
 
     unawaited(_rememberScheduledKey(key));
     _scheduledTimers[key] = Timer(delay, () {
       _scheduledTimers.remove(key);
-      unawaited(_removeScheduledKey(key));
-      unawaited(_markScheduledSent(key));
-      unawaited(_sendScheduledMessage(contact, configs, msg, DateTime.now()));
+      unawaited(_deliverScheduledMessage(contact, configs, msg, key));
+    });
+  }
+
+  /// 投递计划消息：只有消息成功写入数据库后才标记为已发送。
+  /// API 失败/空回复/崩溃时不会永久跳过——key 保留在 scheduled keys，
+  /// 进程重启后 [_restoreScheduledState] 会重新排期；
+  /// 连续失败达到 [_maxScheduledRetries] 次后放弃。
+  Future<void> _deliverScheduledMessage(
+    Contact contact,
+    List<ApiConfig> configs,
+    ScheduledMessage msg,
+    String key, {
+    int retryCount = 0,
+  }) async {
+    // 状态机 sending：发送中标记（记录失败不影响投递）
+    try {
+      await _eventDao.record(
+        contactId: contact.id,
+        eventType: 'sending',
+        status: 'sending',
+        payload: jsonEncode({'key': key, 'retry': retryCount}),
+      );
+    } catch (_) {}
+    final sent = await _sendScheduledMessage(
+      contact,
+      configs,
+      msg,
+      DateTime.now(),
+    );
+    if (sent) {
+      await _markScheduledSent(key);
+      return;
+    }
+    if (retryCount >= _maxScheduledRetries) {
+      // 达到重试上限：放弃并标记，避免无限重试
+      await _markScheduledSent(key);
+      return;
+    }
+    // 保留 key 并安排重试；进程崩溃时 key 已在 prefs，重启后恢复
+    await _rememberScheduledKey(key);
+    _scheduledTimers[key] = Timer(_scheduledRetryDelay, () {
+      _scheduledTimers.remove(key);
+      unawaited(
+        _deliverScheduledMessage(
+          contact,
+          configs,
+          msg,
+          key,
+          retryCount: retryCount + 1,
+        ),
+      );
     });
   }
 
@@ -330,9 +458,7 @@ class ProactiveService {
       _scheduledTimers[key]?.cancel();
       _scheduledTimers[key] = Timer(delay, () {
         _scheduledTimers.remove(key);
-        unawaited(_removeScheduledKey(key));
-        unawaited(_markScheduledSent(key));
-        unawaited(_sendScheduledMessage(contact, configs, msg, DateTime.now()));
+        unawaited(_deliverScheduledMessage(contact, configs, msg, key));
       });
     }
   }
@@ -390,25 +516,22 @@ class ProactiveService {
     await prefs.setStringList(_kSentScheduledKeysKey, sent.toList());
   }
 
-  Future<void> _sendScheduledMessage(
+  /// 返回是否成功。只有成功（API 返回非空且消息写入数据库）才返回 true，
+  /// 调用方据此决定是否标记已发送。
+  Future<bool> _sendScheduledMessage(
     Contact contact,
     List<ApiConfig> configs,
     ScheduledMessage msg,
     DateTime createdAt,
   ) async {
-    final service = LlmService.fromConfig(
-      configs.firstWhere(
+    try {
+      final config = configs.firstWhere(
         (c) => c.id == contact.apiConfigId,
         orElse: () => configs.first,
-      ),
-    );
-
-    try {
+      );
+      final service = LlmService.fromConfig(config);
       final reply = await service.sendMessage(
-        config: configs.firstWhere(
-          (c) => c.id == contact.apiConfigId,
-          orElse: () => configs.first,
-        ),
+        config: config,
         messages: [
           Message(
             id: 'scheduled',
@@ -426,7 +549,7 @@ ${msg.content}
 直接输出消息内容，不要加任何前缀。''',
       );
 
-      if (reply.trim().isEmpty) return;
+      if (reply.trim().isEmpty) return false;
 
       await _messageDao.insert(
         Message(
@@ -450,6 +573,7 @@ ${msg.content}
       );
 
       onNewMessage?.call();
+      return true;
     } catch (error, stackTrace) {
       developer.log(
         'Failed to send scheduled proactive message',
@@ -457,6 +581,7 @@ ${msg.content}
         error: error,
         stackTrace: stackTrace,
       );
+      return false;
     }
   }
 
@@ -595,7 +720,23 @@ ${msg.content}
     }
   }
 
+  /// 进行中的主动消息发送（按联系人互斥，防止多入口并发重复发送）。
+  final _sendingContacts = <String>{};
+
   Future<void> _sendProactiveMessage(
+    Contact contact,
+    List<ApiConfig> configs,
+  ) async {
+    // 规则级互斥：同一联系人已有发送在进行时直接跳过
+    if (!_sendingContacts.add(contact.id)) return;
+    try {
+      await _doSendProactiveMessage(contact, configs);
+    } finally {
+      _sendingContacts.remove(contact.id);
+    }
+  }
+
+  Future<void> _doSendProactiveMessage(
     Contact contact,
     List<ApiConfig> configs,
   ) async {

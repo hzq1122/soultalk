@@ -62,7 +62,14 @@ class MessageBubble extends ConsumerWidget {
     final placement = msg.role == MessageRole.user
         ? RegexPlacement.userInput
         : RegexPlacement.aiOutput;
-    return service.applyScripts(msg.content, scripts, placement);
+    // 注意：promptOnly（ST ephemeral-prompt）脚本只注入 prompt，
+    // 不改变 UI 显示文本——UI 路径排除。
+    return service.applyScripts(
+      msg.content,
+      scripts,
+      placement,
+      includePromptOnly: false,
+    );
   }
 }
 
@@ -81,7 +88,10 @@ int? _intValue(Object? value) {
   return null;
 }
 
-Future<File> _resolveMessageFile(Message message) async {
+/// 解析消息附件文件。返回 null 表示路径无效（越界/绝对路径逃逸）。
+/// 安全：所有路径必须解析到应用根目录内（canonical 校验，拦截 `../` 与
+/// 任意绝对路径），防止恶意备份/同步数据读取应用目录外的文件。
+Future<File?> _resolveMessageFile(Message message) async {
   final metadata = message.metadata;
   final attachment = _attachmentMetadata(message);
   final relativePath =
@@ -89,11 +99,41 @@ Future<File> _resolveMessageFile(Message message) async {
       _nonEmptyString(metadata?['relative_path']);
   if (relativePath != null) {
     final paths = await AppPaths.create();
-    return File(p.join(paths.root.path, relativePath));
+    final candidate = File(p.join(paths.root.path, relativePath));
+    if (await _withinRootCanonical(paths.root, candidate)) return candidate;
+    return null;
   }
 
   final legacyPath = _nonEmptyString(metadata?['path']);
-  return File(legacyPath ?? message.content);
+  final fallback = legacyPath ?? message.content;
+  if (fallback.isEmpty) return null;
+  final paths = await AppPaths.create();
+  final direct = File(fallback);
+  if (direct.isAbsolute) {
+    // 绝对路径：仅允许位于应用目录内的文件
+    if (await _withinRootCanonical(paths.root, direct)) return direct;
+    return null;
+  }
+  // 相对路径：解析到应用根目录内后校验
+  final resolved = File(p.normalize(p.join(paths.root.path, fallback)));
+  if (await _withinRootCanonical(paths.root, resolved)) return resolved;
+  return null;
+}
+
+/// OS 级 canonical 边界校验：先 resolveSymbolicLinks 解析符号链接/
+/// junction，再确认文件真实路径位于应用根目录内（或等于 root），
+/// 防止应用目录内的符号链接越界读取目录外文件。
+/// 文件不存在/无法解析时回退到字符串级 normalize + isWithin。
+Future<bool> _withinRootCanonical(Directory root, File file) async {
+  try {
+    final rootPath = p.normalize(await root.resolveSymbolicLinks());
+    final filePath = p.normalize(await file.resolveSymbolicLinks());
+    return filePath == rootPath || p.isWithin(rootPath, filePath);
+  } catch (_) {
+    final rootPath = p.normalize(p.absolute(root.path));
+    final filePath = p.normalize(p.absolute(file.path));
+    return filePath == rootPath || p.isWithin(rootPath, filePath);
+  }
 }
 
 class _TextBubble extends StatelessWidget {
@@ -161,12 +201,44 @@ class _TextBubble extends StatelessWidget {
                   constraints: BoxConstraints(
                     maxWidth: MediaQuery.of(context).size.width * 0.65,
                   ),
-                  child: SelectableText(
-                    displayContent,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: WeChatColors.textPrimary,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SelectableText(
+                        displayContent.isEmpty && message.isFailed
+                            ? '（发送失败）'
+                            : displayContent,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: WeChatColors.textPrimary,
+                        ),
+                      ),
+                      if (message.isFailed && !_isUser)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.error_outline,
+                                size: 14,
+                                color: Colors.redAccent,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                displayContent.isEmpty
+                                    ? '发送失败，长按消息重试'
+                                    : '生成中断，长按消息重新生成',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.redAccent,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ],
@@ -383,7 +455,7 @@ class _ImageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<File>(
+    return FutureBuilder<File?>(
       future: _resolveMessageFile(message),
       builder: (context, snapshot) {
         final file = snapshot.data;
@@ -502,11 +574,11 @@ class _FileBubble extends StatelessWidget {
 
   Future<void> _openFile(BuildContext context) async {
     final file = await _resolveMessageFile(message);
-    if (!await file.exists()) {
+    if (file == null || !await file.exists()) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('文件不存在')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(file == null ? '文件路径无效' : '文件不存在')),
+      );
       return;
     }
     await OpenFilex.open(file.path);

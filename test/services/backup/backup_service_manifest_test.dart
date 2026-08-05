@@ -13,6 +13,8 @@ import 'package:soultalk/services/database/database_service.dart';
 import 'package:soultalk/services/database/migrations/migration_v7.dart';
 import 'package:soultalk/services/database/migrations/migration_v8.dart';
 import 'package:soultalk/services/database/migrations/migration_v9.dart';
+import 'package:soultalk/services/database/migrations/migration_v10.dart';
+import 'package:soultalk/services/database/migrations/migration_v11.dart';
 
 void main() {
   late Directory root;
@@ -32,6 +34,8 @@ void main() {
     await migrateV7(db);
     await migrateV8(db);
     await migrateV9(db);
+    await migrateV10(db);
+    await migrateV11(db);
     rebuildCount = 0;
     service = BackupService(
       dbService: _TestDatabaseService(db),
@@ -179,6 +183,101 @@ void main() {
             .toList();
     expect(restorePoints, isNotEmpty);
   });
+
+  test('rolls back files when restore placement fails mid-way', () async {
+    // 目标目录已有旧文件
+    await File('${paths.attachments.path}/chat/a.txt')
+        .create(recursive: true)
+        .then((file) => file.writeAsString('old-a'));
+    await File('${paths.attachments.path}/chat/b.txt')
+        .create(recursive: true)
+        .then((file) => file.writeAsString('old-b'));
+
+    final zipPath = await service.exportToZip(
+      sections: {BackupSection.attachments},
+      targetDir: root.path,
+    );
+
+    // 用文件锁模拟落位阶段中途失败（Windows 上被打开的文件无法 rename）
+    final handle = await File('${paths.attachments.path}/chat/b.txt').open();
+    try {
+      final imported = await service.importFromZip(
+        zipPath: zipPath,
+        sections: {BackupSection.attachments},
+      );
+      expect(imported, isFalse, reason: '落位失败必须整体失败');
+    } finally {
+      await handle.close();
+    }
+
+    // 回滚后目标目录保持恢复前原样，不留下半恢复状态
+    expect(
+      await File('${paths.attachments.path}/chat/a.txt').readAsString(),
+      'old-a',
+    );
+    expect(
+      await File('${paths.attachments.path}/chat/b.txt').readAsString(),
+      'old-b',
+    );
+    expect(
+      await Directory('${paths.attachments.path}.staging').exists(),
+      isFalse,
+      reason: 'staging 目录必须清理',
+    );
+    expect(
+      await Directory('${paths.attachments.path}.backup').exists(),
+      isFalse,
+      reason: 'backup 目录必须清理',
+    );
+    expect(rebuildCount, 0, reason: '失败恢复不得重建索引');
+  });
+
+  test('backups and restores attachment_index with rebuild fallback', () async {
+    // 文件名遵循 {uuid}-{originalName} 约定（uuid 固定 36 字符），
+    // 恢复后 rebuildFromDirectory 才能从文件系统解析回索引。
+    const uuid = '123e4567-e89b-12d3-a456-426614174000';
+    final content = utf8.encode('hello');
+    await File('${paths.attachments.path}/chat/$uuid-a.txt')
+        .create(recursive: true)
+        .then((file) => file.writeAsBytes(content));
+    await db.insert('attachment_index', {
+      'id': uuid,
+      'chat_id': 'chat',
+      'message_id': 'msg-1',
+      'original_name': 'a.txt',
+      'mime_type': 'text/plain',
+      'relative_path': 'soultalk/attachments/chat/$uuid-a.txt',
+      'sha256': sha256.convert(content).toString(),
+      'size': content.length,
+      'created_at': '2026-01-01T00:00:00.000',
+    });
+
+    final zipPath = await service.exportToZip(
+      sections: {BackupSection.attachmentIndex, BackupSection.attachments},
+      targetDir: root.path,
+    );
+
+    // 清空本地索引与文件后恢复
+    await db.delete('attachment_index');
+    await File('${paths.attachments.path}/chat/$uuid-a.txt').delete();
+
+    final imported = await service.importFromZip(
+      zipPath: zipPath,
+      sections: {BackupSection.attachmentIndex, BackupSection.attachments},
+    );
+
+    expect(imported, isTrue);
+    // 索引随备份写回；随后以文件系统为权威重建兜底
+    expect(rebuildCount, 1, reason: '恢复 attachmentIndex 后必须重建索引兜底');
+    final rows = await db.query('attachment_index');
+    expect(rows, hasLength(1));
+    expect(rows.single['sha256'], sha256.convert(content).toString());
+    expect(rows.single['original_name'], 'a.txt');
+    expect(
+      await File('${paths.attachments.path}/chat/$uuid-a.txt').exists(),
+      isTrue,
+    );
+  });
 }
 
 Future<void> _createCoreTables(Database db) async {
@@ -225,6 +324,7 @@ Future<void> _createCoreTables(Database db) async {
       content TEXT NOT NULL,
       type TEXT NOT NULL DEFAULT 'text',
       is_streaming INTEGER NOT NULL DEFAULT 0,
+      is_failed INTEGER NOT NULL DEFAULT 0,
       token_count INTEGER NOT NULL DEFAULT 0,
       metadata TEXT,
       created_at TEXT
@@ -302,6 +402,26 @@ Future<void> _createCoreTables(Database db) async {
       status TEXT NOT NULL DEFAULT 'active',
       created_at TEXT NOT NULL,
       reviewed_at TEXT
+    )
+  ''');
+  await db.execute('''
+    CREATE TABLE cart_items (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      price REAL NOT NULL DEFAULT 0,
+      quantity INTEGER NOT NULL DEFAULT 1,
+      shop TEXT
+    )
+  ''');
+  await db.execute('''
+    CREATE TABLE wallet_transactions (
+      id TEXT PRIMARY KEY,
+      amount REAL NOT NULL DEFAULT 0,
+      type TEXT NOT NULL DEFAULT 'spend',
+      description TEXT NOT NULL DEFAULT '',
+      contact_id TEXT,
+      contact_name TEXT,
+      created_at TEXT NOT NULL
     )
   ''');
 }

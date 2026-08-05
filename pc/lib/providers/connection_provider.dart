@@ -69,6 +69,7 @@ class PCConnectionNotifier extends StateNotifier<PCConnectionState> {
   StreamSubscription? _stateSubscription;
   StreamSubscription? _eventSubscription;
   StreamSubscription? _messagesSubscription;
+  StreamSubscription<SyncState>? _syncStateSubscription;
 
   HttpServer? _pairingServer;
   String? _pairingCode;
@@ -209,11 +210,28 @@ class PCConnectionNotifier extends StateNotifier<PCConnectionState> {
     _messagesSubscription = _syncManager!.messagesStream.listen((messages) {
       state = state.copyWith(messages: messages);
     });
+    // 订阅同步状态：失败时把原因展示到 UI（error 横幅 + 重试入口）
+    _syncStateSubscription = _syncManager!.stateStream.listen((syncState) {
+      if (!mounted) return;
+      if (syncState == SyncState.error) {
+        state = state.copyWith(
+          error: _syncManager?.lastError ?? '同步失败，请重试',
+        );
+      } else if (syncState == SyncState.idle || syncState == SyncState.syncing) {
+        if (state.error != null && _syncManager?.lastError == null) {
+          state = state.copyWith(error: null);
+        }
+      }
+    });
   }
 
   /// 断开连接
   Future<void> disconnect() async {
     await _client.disconnect();
+    await _syncStateSubscription?.cancel();
+    _syncStateSubscription = null;
+    await _messagesSubscription?.cancel();
+    _messagesSubscription = null;
     _syncManager?.dispose();
     _syncManager = null;
     state = state.copyWith(
@@ -304,6 +322,7 @@ class PCConnectionNotifier extends StateNotifier<PCConnectionState> {
     _stateSubscription?.cancel();
     _eventSubscription?.cancel();
     _messagesSubscription?.cancel();
+    _syncStateSubscription?.cancel();
     _client.dispose();
     _syncManager?.dispose();
     _stopPairingServer(updateState: false);

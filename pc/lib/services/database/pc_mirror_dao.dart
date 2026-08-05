@@ -46,6 +46,21 @@ class PcMirrorDao {
         .toList();
   }
 
+  /// 删除同步：按行 id 删除 mirror 记录（服务端 tombstone 应用）。
+  Future<void> deleteRows(String table, List<String> rowIds) async {
+    if (rowIds.isEmpty) return;
+    final db = await _database;
+    final batch = db.batch();
+    for (final id in rowIds) {
+      batch.delete(
+        'pc_mirror_rows',
+        where: 'table_name = ? AND id = ?',
+        whereArgs: [table, id],
+      );
+    }
+    await batch.commit(noResult: true);
+  }
+
   int? _timestamp(Map<String, dynamic> row) {
     for (final key in const ['updated_at', 'created_at', 'timestamp']) {
       final value = row[key];

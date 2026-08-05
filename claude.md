@@ -28,7 +28,7 @@ SoulTalk 是 AI 微信风格社交应用，已有聊天、通讯录、发现/朋
 
 ### SQLite 迁移与 DAO
 
-当前数据库版本：9。
+当前数据库版本：11。
 
 迁移文件：
 - lib/services/database/migrations/migration_v7.dart：file_index、st_character_index、st_chat_index、st_world_index、st_preset_index
@@ -100,7 +100,7 @@ SoulTalk 是 AI 微信风格社交应用，已有聊天、通讯录、发现/朋
 
 核心文件：
 - lib/main.dart：App 入口，初始化 sqflite FFI，后台执行兼容索引重建。
-- lib/services/database/database_service.dart：SQLite 初始化与迁移，当前版本 9。
+- lib/services/database/database_service.dart：SQLite 初始化与迁移，当前版本 11。
 - lib/services/chat/chat_service.dart：聊天主链路，流式/非流式统一 request messages。
 - lib/services/api/prompt_assembly_service.dart：Prompt 主组装，已接入 ST 角色卡字段和 regex。
 - lib/services/backup/backup_service.dart：ZIP/AES 导入导出，已纳入 st_compat 与附件。
@@ -138,7 +138,7 @@ P1：备份恢复补强。备份 manifest 增加 st_compat 和 attachments 文�
 
 P2：统一 Scheduler 服务层。实现 UnifiedScheduler、SchedulerTaskHandler、SchedulerPolicy、SchedulerRunLogDao，并先把 AutoBackup 接入 scheduler_jobs。
 
-P3：Proactive/FriendCircle 迁移到 Scheduler（已完成）。新增 proactive_rules、proactive_events、friend_circle_rules 表（migration_v10，数据库版本 10）；ProactiveService._check 以规则表为准（无规则时以旧字段创建），发送成功/失败记录事件；MomentsService 发布后记录 last_posted_at；ProactiveCheckTaskHandler/MomentsCycleTaskHandler 已注册到 UnifiedScheduler；保留旧 contacts 字段兼容。
+P3：Proactive/FriendCircle 迁移到 Scheduler（已完成）。新增 proactive_rules、proactive_events、friend_circle_rules 表（migration_v10），api_configs 思考字段/memory_entries 唯一索引/pc_deletions（migration_v11，数据库版本 11）；ProactiveService._check 以规则表为准（无规则时以旧字段创建），发送成功/失败记录事件；MomentsService 发布后记录 last_posted_at；ProactiveCheckTaskHandler/MomentsCycleTaskHandler 已注册到 UnifiedScheduler；保留旧 contacts 字段兼容。
 
 P4：LanSync v1。已完成：手动 IP + WebSocket -> device id/key -> 配对授权（扫码自动登记 + deviceKey 校验 + 撤销 UI + 认证门禁）-> manifest exchange -> 单向 pull -> 双向 push 闭环（PushApplier 校验后写库 + 冲突解决测试）。未实现：mDNS/UDP 自动发现。
 

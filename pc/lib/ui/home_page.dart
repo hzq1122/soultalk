@@ -36,7 +36,7 @@ class HomePage extends ConsumerWidget {
                 _buildActionButtons(context, ref, connState),
                 if (connState.error != null) ...[
                   const SizedBox(height: 16),
-                  _buildError(connState.error!),
+                  _buildError(context, ref, connState.error!),
                 ],
                 if (connState.messages.isNotEmpty) ...[
                   const SizedBox(height: 32),
@@ -141,7 +141,7 @@ class HomePage extends ConsumerWidget {
     );
   }
 
-  Widget _buildError(String error) {
+  Widget _buildError(BuildContext context, WidgetRef ref, String error) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -157,6 +157,18 @@ class HomePage extends ConsumerWidget {
             child: Text(
               error,
               style: const TextStyle(color: DesktopTheme.error, fontSize: 13),
+            ),
+          ),
+          // 同步失败重试入口
+          TextButton.icon(
+            onPressed: () {
+              ref.read(pcConnectionProvider.notifier).requestSync();
+            },
+            icon: const Icon(Icons.refresh, size: 16),
+            label: const Text('重试同步'),
+            style: TextButton.styleFrom(
+              foregroundColor: DesktopTheme.error,
+              visualDensity: VisualDensity.compact,
             ),
           ),
         ],

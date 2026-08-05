@@ -52,6 +52,9 @@ dependencies:
   # 持久化
   shared_preferences: ^2.3.5
 
+  # 系统安全存储（API Key 优先存此处，SQLite 仅作兼容 fallback）
+  flutter_secure_storage: ^9.2.4
+
   # 文件选择
   file_picker: ^8.1.7
 
@@ -64,6 +67,7 @@ dependencies:
   # 加密 (用于PNG角色卡base64解析 + 备份加密)
   crypto: ^3.0.5
   encrypt: ^5.0.3
+  pointycastle: ^3.9.1
 
   # 压缩 / 解压
   archive: ^4.0.2

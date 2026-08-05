@@ -34,16 +34,20 @@ class UpdateState {
     String? currentVersion,
     UpdateInfo? updateInfo,
     double? downloadProgress,
-    String? downloadPath,
+    Object? downloadPath = _unset,
     String? errorMessage,
   }) => UpdateState(
     status: status ?? this.status,
     currentVersion: currentVersion ?? this.currentVersion,
     updateInfo: updateInfo ?? this.updateInfo,
     downloadProgress: downloadProgress ?? this.downloadProgress,
-    downloadPath: downloadPath ?? this.downloadPath,
+    downloadPath: identical(downloadPath, _unset)
+        ? this.downloadPath
+        : downloadPath as String?,
     errorMessage: errorMessage ?? this.errorMessage,
   );
+
+  static const Object _unset = Object();
 }
 
 class UpdateNotifier extends StateNotifier<UpdateState> {

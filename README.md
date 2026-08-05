@@ -2,7 +2,7 @@
 
 AI 驱动的微信风格社交应用 — 三层记忆架构, 多平台 API 额度查询, 角色卡系统。
 
-[![Build and Release APK](https://github.com/hzq1122/soultalk/actions/workflows/release.yml/badge.svg)](https://github.com/hzq1122/soultalk/actions/workflows/release.yml)
+[![Build and Release APK](https://github.com/hzq1122/soultalk/actions/workflows/ci.yml/badge.svg)](https://github.com/hzq1122/soultalk/actions/workflows/ci.yml)
 [![Flutter](https://img.shields.io/badge/Flutter-3.41.x-blue)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-3.11.x-blue)](https://dart.dev)
 

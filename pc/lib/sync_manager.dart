@@ -20,6 +20,11 @@ class SyncManager {
       StreamController<List<Map<String, dynamic>>>.broadcast();
   final StreamController<SyncState> _stateController =
       StreamController<SyncState>.broadcast();
+  StreamSubscription<Map<String, dynamic>>? _eventsSubscription;
+
+  /// 最近一次同步失败的原因（供 UI 展示与重试提示）。
+  String? _lastError;
+  String? get lastError => _lastError;
 
   Stream<List<Map<String, dynamic>>> get messagesStream =>
       _messagesController.stream;
@@ -32,7 +37,7 @@ class SyncManager {
     : _mirrorDao = mirrorDao ?? PcMirrorDao() {
     _pullSyncService = PullSyncService(client: _client, mirrorDao: _mirrorDao);
     _pushSyncService = PushSyncService(client: _client);
-    _client.events.listen(_handleEvent);
+    _eventsSubscription = _client.events.listen(_handleEvent);
   }
 
   /// 请求同步
@@ -40,6 +45,8 @@ class SyncManager {
     _stateController.add(SyncState.syncing);
     _pullSyncService.requestManifest();
     _pullSyncService.requestTable('messages');
+    // 删除同步：拉取 tombstone 记录，清理 mirror 中已删除的行
+    _pullSyncService.requestTable('pc_deletions');
   }
 
   /// 检查同步状态
@@ -89,11 +96,21 @@ class SyncManager {
       case 'pull.chunk':
         _handlePullChunk(event);
         break;
+      case 'pull.error':
+        // 同步失败：记录原因并进入 error 状态（UI 显示原因 + 重试入口）
+        _lastError =
+            '${(event['message'] as String?) ?? '拉取失败'}'
+            '（table: ${(event['payload'] as Map?)?['table']}）';
+        _stateController.add(SyncState.error);
+        break;
       case 'pull.complete':
+        _lastError = null;
         _stateController.add(SyncState.idle);
         break;
       case 'push.result':
-        if (((event['payload'] as Map?)?['accepted'] as bool?) == false) {
+        final payload = (event['payload'] as Map?);
+        if (payload?['accepted'] == false) {
+          _lastError = (payload?['reason'] as String?) ?? '推送被拒绝';
           _stateController.add(SyncState.error);
         }
         break;
@@ -128,12 +145,34 @@ class SyncManager {
   }
 
   Future<void> _handlePullChunk(Map<String, dynamic> event) async {
-    await _pullSyncService.handlePullChunk(event);
-    final rows = await _mirrorDao.getRows('messages');
-    _messages
-      ..clear()
-      ..addAll(rows);
-    _messagesController.add(_messages);
+    final payload = (event['payload'] as Map?)?.cast<String, dynamic>();
+    final table = payload?['table'] as String?;
+    final rows = (payload?['rows'] as List?)?.cast<Map>();
+
+    if (table == null || rows == null) return;
+
+    if (table == 'pc_deletions') {
+      // 应用删除 tombstone，不进入 mirror
+      await _pullSyncService.handlePullChunk(event);
+    } else {
+      await _pullSyncService.handlePullChunk(event);
+      if (table == 'messages') {
+        final mirrorRows = await _mirrorDao.getRows('messages');
+        _messages
+          ..clear()
+          ..addAll(mirrorRows);
+        _messagesController.add(_messages);
+      }
+    }
+
+    // 分页续拉：hasMore 为 true 时用最后一条 id 作为游标继续请求，
+    // 直到服务端下发 pull.complete（避免超过一页的数据静默丢失）。
+    if (payload?['hasMore'] == true && rows.isNotEmpty) {
+      final lastId = rows.last['id']?.toString();
+      if (lastId != null && lastId.isNotEmpty) {
+        _pullSyncService.requestTable(table, limit: 500, after: lastId);
+      }
+    }
   }
 
   void _handleSyncCheckResult(Map<String, dynamic> event) {
@@ -197,6 +236,8 @@ class SyncManager {
   }
 
   void dispose() {
+    _eventsSubscription?.cancel();
+    _eventsSubscription = null;
     _messagesController.close();
     _stateController.close();
   }

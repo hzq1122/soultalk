@@ -1,5 +1,6 @@
 import 'dart:developer' as developer;
 import 'dart:math';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../database/database_service.dart';
 import '../database/contact_dao.dart';
 import '../database/moment_dao.dart';
@@ -7,6 +8,7 @@ import '../database/api_config_dao.dart';
 import '../database/friend_circle_rule_dao.dart';
 import '../api/llm_service.dart';
 import '../extensions/extension_event_bus.dart';
+import '../proactive/rule_guards.dart';
 import '../../models/contact.dart';
 import '../../models/moment.dart';
 import '../../models/message.dart';
@@ -118,6 +120,10 @@ class MomentsService {
 
   Future<void> generateMomentsForAllContacts() async {
     init();
+    final now = DateTime.now();
+    // 总开关（prefs，默认开启）
+    final prefs = await SharedPreferences.getInstance();
+    if (!(prefs.getBool('moments_global_enabled') ?? true)) return;
     final contacts = await _contactDao.getAll();
     final configs = await _apiConfigDao.getAll();
     if (configs.isEmpty) return;
@@ -127,6 +133,35 @@ class MomentsService {
       if (contact.systemPrompt.isEmpty && contact.characterCardJson == null) {
         continue;
       }
+
+      // 朋友圈规则（friend_circle_rules）：无规则时以旧字段默认创建，
+      // 之后以规则表为准——enabled/intervalHours/lastPostedAt 真正参与执行。
+      var rule = await _friendCircleRuleDao.getByContact(contact.id);
+      rule ??= await _friendCircleRuleDao.upsertForContact(
+        contact.id,
+        enabled: contact.proactiveEnabled,
+        intervalHours: 24,
+      );
+      if (!rule.enabled) continue;
+
+      // 安静时段：规则配置的跨天区间内不发布
+      if (isInQuietHours(now, rule.quietStartHour, rule.quietEndHour)) {
+        continue;
+      }
+
+      // 每日次数/费用预算限制
+      final effectiveLimit = rule.effectiveDailyLimit;
+      if (effectiveLimit > 0 &&
+          await _momentDao.countCreatedToday(contact.id) >= effectiveLimit) {
+        continue;
+      }
+
+      final lastPosted = rule.lastPostedAt;
+      if (lastPosted != null &&
+          now.difference(lastPosted).inHours < rule.intervalHours) {
+        continue;
+      }
+
       if (_random.nextDouble() > 0.4) continue;
 
       await _generateMomentForContact(contact, configs);

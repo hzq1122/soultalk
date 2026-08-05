@@ -145,16 +145,24 @@ class S3Storage implements CloudStorage {
 
   String _host() => Uri.parse(config.endpoint).host;
 
+  /// 计算与实际上传内容一致的 x-amz-content-sha256。
+  /// 签名与上传字节必须一致，否则 S3/MinIO 返回
+  /// XAmzContentSHA256Mismatch / SignatureDoesNotMatch。
+  static String bodyHashFor(List<int> bodyBytes) =>
+      sha256.convert(bodyBytes).toString();
+
   Map<String, String> _signedHeaders(
     String method,
     String path, {
-    String? body,
+    List<int>? bodyBytes,
   }) {
     final now = DateTime.now().toUtc();
     final amzDate = _amzDateStr(now);
     final dateStamp = amzDate.substring(0, 8);
 
-    final bodyHash = sha256.convert(utf8.encode(body ?? '')).toString();
+    // 必须使用与实际发送内容一致的字节哈希，否则 S3/MinIO 返回
+    // XAmzContentSHA256Mismatch / SignatureDoesNotMatch。
+    final bodyHash = bodyHashFor(bodyBytes ?? const <int>[]);
 
     final headers = <String, String>{
       'Host': _host(),
@@ -236,7 +244,9 @@ class S3Storage implements CloudStorage {
       final resp = await _dio.put(
         '${config.bucket}/$remoteName',
         data: bytes,
-        options: Options(headers: _signedHeaders('PUT', '/$remoteName')),
+        options: Options(
+          headers: _signedHeaders('PUT', '/$remoteName', bodyBytes: bytes),
+        ),
       );
       return resp.statusCode == 200;
     } catch (_) {

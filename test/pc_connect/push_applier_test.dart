@@ -27,6 +27,7 @@ void main() {
         content TEXT NOT NULL,
         type TEXT NOT NULL DEFAULT 'text',
         is_streaming INTEGER NOT NULL DEFAULT 0,
+      is_failed INTEGER NOT NULL DEFAULT 0,
         token_count INTEGER NOT NULL DEFAULT 0,
         metadata TEXT,
         created_at TEXT,

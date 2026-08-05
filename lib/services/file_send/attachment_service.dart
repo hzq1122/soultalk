@@ -60,6 +60,38 @@ class AttachmentService {
     return attachmentIndexDao.updateMessageId(attachmentId, messageId);
   }
 
+  /// 删除附件：attachment_index 记录 + 磁盘文件。
+  /// 用于发送流程中途失败时的补偿清理。
+  ///
+  /// 安全：relative_path 来自索引（可能源自备份/导入），删除前做
+  /// OS 级 canonical containment 校验，禁止越界删除应用目录外文件。
+  Future<void> deleteAttachment(String attachmentId) async {
+    final record = await attachmentIndexDao.getById(attachmentId);
+    if (record == null) return;
+    final file = File(p.join(paths.root.path, record.relativePath));
+    // 先做 canonical containment 校验再删除：
+    // 越界路径直接拒绝（索引保留，避免索引/文件不一致）。
+    if (await file.exists() && !await _withinRootCanonical(file)) return;
+    await attachmentIndexDao.deleteById(attachmentId);
+    if (await file.exists()) {
+      await file.delete();
+    }
+  }
+
+  /// OS 级 canonical 校验：文件真实路径（解析符号链接后）必须位于
+  /// 应用根目录内，防止 ../、绝对路径、junction 越界。
+  Future<bool> _withinRootCanonical(File file) async {
+    try {
+      final rootPath = p.normalize(await paths.root.resolveSymbolicLinks());
+      final filePath = p.normalize(await file.resolveSymbolicLinks());
+      return filePath == rootPath || p.isWithin(rootPath, filePath);
+    } catch (_) {
+      final rootPath = p.normalize(p.absolute(paths.root.path));
+      final filePath = p.normalize(p.absolute(file.path));
+      return filePath == rootPath || p.isWithin(rootPath, filePath);
+    }
+  }
+
   Future<AttachmentIndexRecord> importFile({
     required String chatId,
     required File source,
@@ -83,6 +115,16 @@ class AttachmentService {
       // 写入失败时清理可能残留的临时/目标文件
       if (await target.exists()) await target.delete();
       rethrow;
+    }
+
+    // 写入后校验：从最终落盘文件重新计算 hash/size，与写入前读取值
+    // 比对，防止源文件在复制期间被修改导致索引记录与内容不一致。
+    final writtenDigest = (await sha256.bind(target.openRead()).first)
+        .toString();
+    final writtenSize = await target.length();
+    if (writtenDigest != digest.toString() || writtenSize != size) {
+      if (await target.exists()) await target.delete();
+      throw StateError('附件写入校验失败：源文件在复制期间发生变化');
     }
 
     final record = AttachmentIndexRecord(

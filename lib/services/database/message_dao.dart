@@ -19,6 +19,7 @@ class MessageDao {
     'content': msg.content,
     'type': msg.type.name,
     'is_streaming': msg.isStreaming ? 1 : 0,
+    'is_failed': msg.isFailed ? 1 : 0,
     'token_count': msg.tokenCount,
     'metadata': msg.metadata != null ? jsonEncode(msg.metadata) : null,
     'created_at': msg.createdAt?.toIso8601String(),
@@ -37,6 +38,7 @@ class MessageDao {
       orElse: () => MessageType.text,
     ),
     isStreaming: (map['is_streaming'] as int? ?? 0) == 1,
+    isFailed: (map['is_failed'] as int? ?? 0) == 1,
     tokenCount: map['token_count'] as int? ?? 0,
     metadata: map['metadata'] != null
         ? (jsonDecode(map['metadata'] as String) as Map<String, dynamic>)
@@ -61,6 +63,18 @@ class MessageDao {
       offset: offset,
     );
     return rows.map(_fromMap).toList();
+  }
+
+  Future<Message?> getById(String id) async {
+    final db = await _database;
+    final rows = await db.query(
+      'messages',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return _fromMap(rows.first);
   }
 
   /// 获取最近 N 条消息（用于上下文管理）
@@ -91,6 +105,33 @@ class MessageDao {
       offset: offset,
     );
     return rows.reversed.map(_fromMap).toList();
+  }
+
+  /// 游标分页：按 created_at DESC, id DESC 排序（无并发偏移问题）。
+  /// [beforeCreatedAt]/[beforeId] 为上一页最后一条消息（不含），
+  /// 两者必须同时提供；不提供时返回最新 [limit] 条。
+  Future<List<Message>> getPageByCursor(
+    String contactId, {
+    required int limit,
+    DateTime? beforeCreatedAt,
+    String? beforeId,
+  }) async {
+    final db = await _database;
+    final where = StringBuffer('contact_id = ?');
+    final args = <Object?>[contactId];
+    if (beforeCreatedAt != null && beforeId != null) {
+      where.write(' AND (created_at < ? OR (created_at = ? AND id < ?))');
+      final ts = beforeCreatedAt.toIso8601String();
+      args.addAll([ts, ts, beforeId]);
+    }
+    final rows = await db.query(
+      'messages',
+      where: where.toString(),
+      whereArgs: args,
+      orderBy: 'created_at DESC, id DESC',
+      limit: limit,
+    );
+    return rows.map(_fromMap).toList();
   }
 
   Future<Message> insert(Message message) async {
@@ -128,6 +169,17 @@ class MessageDao {
     await db.update(
       'messages',
       {'type': type},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  /// 标记消息生成失败（失败持久化状态：消息保留，UI 显示失败样式）。
+  Future<void> updateFailed(String id, bool failed) async {
+    final db = await _database;
+    await db.update(
+      'messages',
+      {'is_failed': failed ? 1 : 0, 'is_streaming': 0},
       where: 'id = ?',
       whereArgs: [id],
     );

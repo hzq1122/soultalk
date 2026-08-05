@@ -60,6 +60,20 @@ class MomentDao {
     return rows.map(_fromMap).toList();
   }
 
+  /// 统计某联系人当天（自然日）发布的朋友圈数量，用于每日次数限制。
+  Future<int> countCreatedToday(String contactId) async {
+    final db = await _database;
+    final now = DateTime.now();
+    final dayStart = DateTime(now.year, now.month, now.day)
+        .toIso8601String();
+    final rows = await db.rawQuery(
+      'SELECT COUNT(*) AS c FROM moments '
+      'WHERE contact_id = ? AND created_at >= ?',
+      [contactId, dayStart],
+    );
+    return (rows.first['c'] as int?) ?? 0;
+  }
+
   Future<Moment> insert(Moment moment) async {
     final db = await _database;
     final newMoment = Moment(

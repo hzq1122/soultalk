@@ -80,6 +80,59 @@ void main() {
     expect(AttachmentService.inferMimeType('a.bin'), isNull);
   });
 
+  test('import verifies written bytes match index record', () async {
+    final source = File('${root.path}/data.bin');
+    final bytes = List<int>.generate(4096, (i) => i % 251);
+    await source.writeAsBytes(bytes);
+
+    final dao = AttachmentIndexDao(dbService);
+    final service = AttachmentService(
+      paths: AppPaths.fromRootForTesting(root),
+      attachmentIndexDao: dao,
+    );
+
+    final record = await service.importFile(
+      chatId: 'chat-1',
+      source: source,
+      mimeType: 'application/octet-stream',
+    );
+
+    // 写入后校验：落盘文件的 hash/size 与索引记录必须一致
+    final written = File('${root.path}/${record.relativePath}');
+    expect(await written.length(), record.size);
+    expect(
+      (await sha256.bind(written.openRead()).first).toString(),
+      record.sha256,
+    );
+    final indexed = await dao.getById(record.id);
+    expect(indexed!.sha256, record.sha256);
+    expect(indexed.size, record.size);
+  });
+
+  test('deleteAttachment removes file and index record', () async {
+    final source = File('${root.path}/gone.txt');
+    await source.writeAsString('to be deleted');
+
+    final dao = AttachmentIndexDao(dbService);
+    final service = AttachmentService(
+      paths: AppPaths.fromRootForTesting(root),
+      attachmentIndexDao: dao,
+    );
+
+    final record = await service.importFile(
+      chatId: 'chat-1',
+      source: source,
+      mimeType: 'text/plain',
+    );
+    final target = File('${root.path}/${record.relativePath}');
+    expect(await target.exists(), isTrue);
+
+    await service.deleteAttachment(record.id);
+
+    expect(await target.exists(), isFalse, reason: '磁盘文件必须清理');
+    expect(await dao.getById(record.id), isNull, reason: '索引记录必须清理');
+  });
+
   test(
     'sanitizes chat id before using it as an attachment directory',
     () async {

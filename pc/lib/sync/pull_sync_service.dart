@@ -12,10 +12,18 @@ class PullSyncService {
     client.sendRaw({'type': 'manifest.request', 'payload': {}});
   }
 
-  void requestTable(String table, {List<String>? ids, int limit = 500}) {
+  void requestTable(
+    String table, {
+    List<String>? ids,
+    int limit = 500,
+    String? after,
+  }) {
     final payload = <String, dynamic>{'table': table, 'limit': limit};
     if (ids != null) {
       payload['ids'] = ids;
+    }
+    if (after != null) {
+      payload['after'] = after;
     }
     client.sendRaw({'type': 'pull.request', 'payload': payload});
   }
@@ -26,9 +34,80 @@ class PullSyncService {
     final table = payload['table'] as String?;
     final rows = (payload['rows'] as List?)?.cast<Map>();
     if (table == null || rows == null) return;
+
+    if (table == 'pc_deletions') {
+      // 删除同步（tombstone）：不写入 mirror，直接删除对应行
+      final deletions = rows
+          .map((row) => row.cast<String, dynamic>())
+          .toList();
+      final byTable = <String, List<String>>{};
+      for (final deletion in deletions) {
+        final targetTable = deletion['table_name']?.toString();
+        final rowId = deletion['row_id']?.toString();
+        if (targetTable == null || rowId == null) continue;
+        byTable.putIfAbsent(targetTable, () => []).add(rowId);
+      }
+      for (final entry in byTable.entries) {
+        await mirrorDao.deleteRows(entry.key, entry.value);
+      }
+      return;
+    }
+
+    // 统一字段映射：数据库 snake_case → PC UI camelCase
+    // （contact_id→contactId、created_at→timestamp 等）
     await mirrorDao.upsertRows(
       table,
-      rows.map((row) => row.cast<String, dynamic>()).toList(),
+      rows
+          .map((row) => _mapFields(row.cast<String, dynamic>()))
+          .toList(),
     );
+  }
+
+  static const Map<String, String> _snakeToCamel = {
+    'contact_id': 'contactId',
+    'api_config_id': 'apiConfigId',
+    'character_card_json': 'characterCardJson',
+    'unread_count': 'unreadCount',
+    'last_message': 'lastMessage',
+    'last_message_at': 'lastMessageAt',
+    'proactive_enabled': 'proactiveEnabled',
+    'last_proactive_at': 'lastProactiveAt',
+    'is_streaming': 'isStreaming',
+    'token_count': 'tokenCount',
+    'created_at': 'timestamp',
+    'updated_at': 'updatedAt',
+    'image_url': 'imageUrl',
+    'script_name': 'scriptName',
+    'find_regex': 'findRegex',
+    'replace_string': 'replaceString',
+    'trim_strings': 'trimStrings',
+    'markdown_only': 'markdownOnly',
+    'prompt_only': 'promptOnly',
+    'run_on_edit': 'runOnEdit',
+    'substitute_regex': 'substituteRegex',
+    'min_depth': 'minDepth',
+    'max_depth': 'maxDepth',
+    'slot_name': 'slotName',
+    'slot_value': 'slotValue',
+    'slot_type': 'slotType',
+    'card_type': 'cardType',
+  };
+
+  /// 数据库行 → PC 端字段名。未知 snake_case 键也转为 camelCase，
+  /// 已存在的 camelCase 键保持原样。
+  Map<String, dynamic> _mapFields(Map<String, dynamic> row) {
+    final result = <String, dynamic>{};
+    for (final entry in row.entries) {
+      final mapped = _snakeToCamel[entry.key] ?? _toCamel(entry.key);
+      result[mapped] = entry.value;
+    }
+    return result;
+  }
+
+  String _toCamel(String key) {
+    final parts = key.split('_');
+    if (parts.length == 1) return key;
+    return parts.first +
+        parts.skip(1).map((p) => p.isEmpty ? p : p[0].toUpperCase() + p.substring(1)).join();
   }
 }

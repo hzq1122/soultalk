@@ -118,7 +118,8 @@ class MemoryCardNotifier extends FamilyAsyncNotifier<List<MemoryCard>, String> {
   }
 
   Future<void> addCard(MemoryCard card) async {
-    await ref.read(memoryCardDaoProvider).insert(card);
+    // 新建卡片时强制绑定当前联系人，避免 contactId 为空产生孤儿卡片
+    await ref.read(memoryCardDaoProvider).insert(card.copyWith(contactId: arg));
     await refresh();
   }
 

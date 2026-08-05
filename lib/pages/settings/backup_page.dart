@@ -554,13 +554,17 @@ class _BackupPageState extends ConsumerState<BackupPage>
       return;
     }
 
-    // Ask for encryption password
+    // Ask for encryption password（云端备份必须加密）
     if (!mounted) return;
     final password = await showDialog<String>(
       context: context,
       builder: (ctx) => _PasswordDialog(),
     );
     if (!mounted) return;
+    if (password == null || password.isEmpty) {
+      setState(() => _cloudStatus = '已取消：云端备份必须设置加密密码');
+      return;
+    }
 
     setState(() => _cloudLoading = true);
     _cloudStatus = '正在准备...';
@@ -572,6 +576,7 @@ class _BackupPageState extends ConsumerState<BackupPage>
         sections: BackupSection.values.toSet(),
         targetDir: tempDir,
         password: password,
+        forceEncrypt: true,
       );
 
       _cloudStatus = '正在上传...';
@@ -971,7 +976,6 @@ class _PasswordDialog extends StatefulWidget {
 class _PasswordDialogState extends State<_PasswordDialog> {
   final _passCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
-  bool _encrypt = true;
 
   @override
   void dispose() {
@@ -983,36 +987,31 @@ class _PasswordDialogState extends State<_PasswordDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('云端备份加密'),
+      title: const Text('云端备份加密（必填）'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SwitchListTile(
-            title: const Text('加密上传'),
-            value: _encrypt,
-            onChanged: (v) => setState(() => _encrypt = v),
+          const Text('为保护隐私，上传到云端的备份必须加密。'),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _passCtrl,
+            obscureText: true,
+            decoration: const InputDecoration(
+              labelText: '密码',
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
           ),
-          if (_encrypt) ...[
-            TextField(
-              controller: _passCtrl,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: '密码',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _confirmCtrl,
+            obscureText: true,
+            decoration: const InputDecoration(
+              labelText: '确认密码',
+              border: OutlineInputBorder(),
+              isDense: true,
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _confirmCtrl,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: '确认密码',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
-          ],
+          ),
         ],
       ),
       actions: [
@@ -1022,24 +1021,20 @@ class _PasswordDialogState extends State<_PasswordDialog> {
         ),
         ElevatedButton(
           onPressed: () {
-            if (_encrypt) {
-              final p = _passCtrl.text.trim();
-              if (p.isEmpty) {
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(const SnackBar(content: Text('请输入密码')));
-                return;
-              }
-              if (p != _confirmCtrl.text.trim()) {
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(const SnackBar(content: Text('两次密码不一致')));
-                return;
-              }
-              Navigator.of(context).pop(p);
-            } else {
-              Navigator.of(context).pop(null);
+            final p = _passCtrl.text.trim();
+            if (p.isEmpty) {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('请输入密码')));
+              return;
             }
+            if (p != _confirmCtrl.text.trim()) {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('两次密码不一致')));
+              return;
+            }
+            Navigator.of(context).pop(p);
           },
           child: const Text('确定'),
         ),

@@ -29,6 +29,7 @@ class OpenAiAdapterImpl implements LlmService {
     required ApiConfig config,
     required List<Message> messages,
     String? systemPrompt,
+    CancelToken? cancelToken,
   }) async {
     final baseUrl = config.baseUrl.replaceAll(RegExp(r'/+$'), '');
     final response = await _dio.post(
@@ -40,6 +41,7 @@ class OpenAiAdapterImpl implements LlmService {
         },
       ),
       data: _buildRequestData(config, messages, systemPrompt, stream: false),
+      cancelToken: cancelToken,
     );
     final data = response.data as Map<String, dynamic>;
     final choices = data['choices'] as List?;
@@ -56,6 +58,7 @@ class OpenAiAdapterImpl implements LlmService {
     required ApiConfig config,
     required List<Message> messages,
     String? systemPrompt,
+    CancelToken? cancelToken,
   }) async* {
     final baseUrl = _normalizeUrl(config.baseUrl);
     final streamDio = Dio(
@@ -75,6 +78,7 @@ class OpenAiAdapterImpl implements LlmService {
         responseType: ResponseType.stream,
       ),
       data: _buildRequestData(config, messages, systemPrompt, stream: true),
+      cancelToken: cancelToken,
     );
 
     if (response.data == null) {

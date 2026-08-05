@@ -11,6 +11,13 @@ class ProactiveRule {
   final int minHours;
   final double probability;
   final DateTime? lastTriggeredAt;
+  /// 安静时段（跨天区间，如 23→7 表示 23:00-次日 7:00）。
+  final int quietStartHour;
+  final int quietEndHour;
+  /// 每日发送次数上限（0 = 不限）。
+  final int dailyLimit;
+  /// 每日费用预算上限（分；0 = 不限，按约 0.1 元/条折算）。
+  final int budgetCents;
   final int createdAt;
   final int updatedAt;
 
@@ -21,9 +28,23 @@ class ProactiveRule {
     required this.minHours,
     required this.probability,
     required this.lastTriggeredAt,
+    this.quietStartHour = 23,
+    this.quietEndHour = 7,
+    this.dailyLimit = 0,
+    this.budgetCents = 0,
     required this.createdAt,
     required this.updatedAt,
   });
+
+  /// 参与执行的有效每日条数上限（daily_limit 与 budget 折算取小；
+  /// 0 = 不限）。
+  int get effectiveDailyLimit {
+    final fromBudget = budgetCents > 0 ? budgetCents ~/ 10 : 0;
+    if (dailyLimit > 0 && fromBudget > 0) {
+      return dailyLimit < fromBudget ? dailyLimit : fromBudget;
+    }
+    return dailyLimit > 0 ? dailyLimit : fromBudget;
+  }
 
   Map<String, Object?> toMap() => {
     'id': id,
@@ -32,6 +53,10 @@ class ProactiveRule {
     'min_hours': minHours,
     'probability': probability,
     'last_triggered_at': lastTriggeredAt?.toIso8601String(),
+    'quiet_start_hour': quietStartHour,
+    'quiet_end_hour': quietEndHour,
+    'daily_limit': dailyLimit,
+    'budget_cents': budgetCents,
     'created_at': createdAt,
     'updated_at': updatedAt,
   };
@@ -45,6 +70,10 @@ class ProactiveRule {
     lastTriggeredAt: map['last_triggered_at'] != null
         ? DateTime.tryParse(map['last_triggered_at'] as String)
         : null,
+    quietStartHour: map['quiet_start_hour'] as int? ?? 23,
+    quietEndHour: map['quiet_end_hour'] as int? ?? 7,
+    dailyLimit: map['daily_limit'] as int? ?? 0,
+    budgetCents: map['budget_cents'] as int? ?? 0,
     createdAt: map['created_at'] as int? ?? 0,
     updatedAt: map['updated_at'] as int? ?? 0,
   );
@@ -64,6 +93,10 @@ class ProactiveRuleDao {
     bool? enabled,
     int? minHours,
     double? probability,
+    int? quietStartHour,
+    int? quietEndHour,
+    int? dailyLimit,
+    int? budgetCents,
   }) async {
     final db = await _database;
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -74,6 +107,10 @@ class ProactiveRuleDao {
       enabled: enabled ?? existing?.enabled ?? true,
       minHours: minHours ?? existing?.minHours ?? 2,
       probability: probability ?? existing?.probability ?? 0.3,
+      quietStartHour: quietStartHour ?? existing?.quietStartHour ?? 23,
+      quietEndHour: quietEndHour ?? existing?.quietEndHour ?? 7,
+      dailyLimit: dailyLimit ?? existing?.dailyLimit ?? 0,
+      budgetCents: budgetCents ?? existing?.budgetCents ?? 0,
       lastTriggeredAt: existing?.lastTriggeredAt,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,

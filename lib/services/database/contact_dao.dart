@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import '../../models/contact.dart';
+import '../../models/message.dart';
 import 'database_service.dart';
 
 class ContactDao {
@@ -138,6 +139,45 @@ class ContactDao {
     await db.update(
       'contacts',
       {'unread_count': 0},
+      where: 'id = ?',
+      whereArgs: [contactId],
+    );
+  }
+
+  /// 删除消息后重算联系人的最后一条消息；无剩余消息时
+  /// 清空 last_message/last_message_at 并清零未读数。
+  Future<void> recomputeLastMessage(String contactId) async {
+    final db = await _database;
+    final rows = await db.query(
+      'messages',
+      columns: ['content', 'created_at'],
+      where: 'contact_id = ? AND role != ?',
+      whereArgs: [contactId, MessageRole.system.name],
+      orderBy: 'created_at DESC',
+      limit: 1,
+    );
+    final now = DateTime.now().toIso8601String();
+    if (rows.isEmpty) {
+      await db.update(
+        'contacts',
+        {
+          'last_message': null,
+          'last_message_at': null,
+          'unread_count': 0,
+          'updated_at': now,
+        },
+        where: 'id = ?',
+        whereArgs: [contactId],
+      );
+      return;
+    }
+    await db.update(
+      'contacts',
+      {
+        'last_message': rows.first['content'],
+        'last_message_at': rows.first['created_at'],
+        'updated_at': now,
+      },
       where: 'id = ?',
       whereArgs: [contactId],
     );

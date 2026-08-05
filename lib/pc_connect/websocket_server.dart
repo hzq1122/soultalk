@@ -9,6 +9,7 @@ import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:shelf_web_socket/shelf_web_socket.dart';
 import 'package:dart_jsonwebtoken/dart_jsonwebtoken.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import 'connection_manager.dart';
@@ -440,8 +441,12 @@ class WebSocketServer {
     String deviceId,
     Map<String, dynamic> message,
   ) async {
+    // 读入口权限门禁：设备被撤销或无 pull 权限时拒绝拉取
+    if (!await _deviceHasPermission(deviceId, 'pull')) return;
     final since = message['since'] as String?;
-    final limit = message['limit'] as int? ?? 20;
+    // 与 pull.request 一致：limit 钳制到 [1,500]，防止恶意大值
+    final rawLimit = message['limit'] as int? ?? 20;
+    final limit = rawLimit.clamp(1, 500);
 
     final data = await _syncHandler.getSyncData(
       since: since != null ? DateTime.tryParse(since) : null,
@@ -458,6 +463,8 @@ class WebSocketServer {
     String deviceId,
     Map<String, dynamic> message,
   ) async {
+    // 读入口权限门禁：设备被撤销或无 pull 权限时拒绝
+    if (!await _deviceHasPermission(deviceId, 'pull')) return;
     final lastSyncTime = message['lastSyncTime'] as String?;
     if (lastSyncTime == null) return;
 
@@ -472,7 +479,20 @@ class WebSocketServer {
     });
   }
 
-  void _handleNewMessage(String deviceId, Map<String, dynamic> message) {
+  Future<void> _handleNewMessage(
+    String deviceId,
+    Map<String, dynamic> message,
+  ) async {
+    // 权限门禁：向其他 PC 广播消息等同写入操作，必须拥有 push 权限；
+    // 只读设备（keepPCReadOnly）不得传播任意消息内容。
+    if (!await _deviceHasPermission(deviceId, 'push')) {
+      _connectionManager.sendMessage(deviceId, {
+        'type': 'error',
+        'reason': 'no_push_permission',
+        'message': '只读模式下不允许广播消息',
+      });
+      return;
+    }
     // 标记来自 PC
     message['fromPC'] = true;
     message['fromDevice'] = deviceId;
@@ -491,6 +511,14 @@ class WebSocketServer {
     String deviceId,
     Map<String, dynamic> message,
   ) async {
+    // 冲突解决会覆盖 messages 内容：与 push.propose 相同，必须校验 push 权限
+    if (!await _deviceHasPermission(deviceId, 'push')) {
+      _connectionManager.sendMessage(deviceId, {
+        'type': 'error',
+        'message': '设备无 push 权限',
+      });
+      return;
+    }
     final resolutions = message['resolutions'] as List<dynamic>?;
     if (resolutions == null) return;
 
@@ -508,10 +536,41 @@ class WebSocketServer {
     });
   }
 
+  /// 校验已认证设备是否拥有指定权限（pull/push）。
+  /// “PC 只读”等权限设置在此强制生效，不检查的入口等同于无权限门禁。
+  Future<bool> _deviceHasPermission(
+    String socketDeviceId,
+    String permission,
+  ) async {
+    try {
+      final clientDeviceId = _clientDeviceIds[socketDeviceId];
+      if (clientDeviceId == null) return false;
+      final device = await _pairingStore.getDevice(clientDeviceId);
+      if (device == null || device.revoked) return false;
+      // 「电脑断联后保持只读模式」：开启时 PC 只允许 pull（查看），
+      // push 与 conflict resolution 一律拒绝。
+      if (permission == 'push') {
+        final prefs = await SharedPreferences.getInstance();
+        final keepReadOnly = prefs.getBool('pc_keep_readonly') ?? true;
+        if (keepReadOnly) return false;
+      }
+      return device.permissions.contains(permission);
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> _handlePullRequest(
     String deviceId,
     Map<String, dynamic> message,
   ) async {
+    if (!await _deviceHasPermission(deviceId, 'pull')) {
+      _connectionManager.sendMessage(deviceId, {
+        'type': 'pull.error',
+        'message': '设备无 pull 权限',
+      });
+      return;
+    }
     final payload =
         (message['payload'] as Map?)?.cast<String, dynamic>() ?? message;
     final table = payload['table'] as String?;
@@ -523,21 +582,31 @@ class WebSocketServer {
       return;
     }
     final ids = (payload['ids'] as List?)?.cast<String>();
-    final limit = payload['limit'] as int? ?? 500;
+    // 单次同步数量上限：客户端传值不可信，钳制到 [1, 500]，
+    // 防止恶意/异常客户端一次拉取全表导致内存与网络滥用。
+    final rawLimit = payload['limit'] as int? ?? 500;
+    final limit = rawLimit.clamp(1, 500);
+    final after = payload['after'] as String?;
     try {
       final data = await _syncExporter.exportRows(
         table: table,
-        ids: ids,
+        ids: ids?.take(500).toList(),
         limit: limit,
+        after: after,
       );
       _connectionManager.sendMessage(deviceId, {
         'type': 'pull.chunk',
         'payload': data,
       });
-      _connectionManager.sendMessage(deviceId, {
-        'type': 'pull.complete',
-        'payload': {'table': table},
-      });
+      // hasMore 为 true 时不下发 pull.complete：PC 端用最后一条 id
+      // 作为 after 游标继续拉取，直到收到 complete 为止（避免静默截断）。
+      final hasMore = data['hasMore'] == true;
+      if (!hasMore) {
+        _connectionManager.sendMessage(deviceId, {
+          'type': 'pull.complete',
+          'payload': {'table': table},
+        });
+      }
     } catch (error) {
       _connectionManager.sendMessage(deviceId, {
         'type': 'pull.error',
@@ -550,6 +619,16 @@ class WebSocketServer {
     String deviceId,
     Map<String, dynamic> message,
   ) async {
+    // 权限门禁：只有拥有 push 权限的设备才能写入手机数据库
+    if (!await _deviceHasPermission(deviceId, 'push')) {
+      _connectionManager.sendMessage(deviceId, {
+        'type': 'push.result',
+        'accepted': false,
+        'reason': 'no_push_permission',
+        'message': '设备无 push 权限',
+      });
+      return;
+    }
     try {
       // payload 解构也纳入 try：非 Map 类型（int/String/List）会抛
       // TypeError，必须被捕获并返回结果，否则 PC 端收不到响应挂起

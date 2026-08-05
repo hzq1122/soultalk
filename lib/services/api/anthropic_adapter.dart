@@ -56,6 +56,7 @@ class AnthropicAdapterImpl implements LlmService {
     required ApiConfig config,
     required List<Message> messages,
     String? systemPrompt,
+    CancelToken? cancelToken,
   }) async {
     final baseUrl = _normalizeUrl(config.baseUrl);
     final body = <String, dynamic>{
@@ -81,14 +82,25 @@ class AnthropicAdapterImpl implements LlmService {
       '$baseUrl/v1/messages',
       data: body,
       options: Options(headers: _headers(config)),
+      cancelToken: cancelToken,
     );
     final data = response.data as Map<String, dynamic>;
     final content = data['content'] as List?;
     if (content == null || content.isEmpty) {
       throw Exception('API 返回了空的 content');
     }
-    final firstBlock = content.first as Map<String, dynamic>?;
-    return (firstBlock?['text'] as String?) ?? '';
+    // 思考模式下 thinking block 在前：遍历所有 block，拼接 text 块
+    // （text 可能是字符串或 {type: 'text', text: ...} 对象）。
+    final textParts = <String>[];
+    for (final block in content) {
+      if (block is! Map) continue;
+      final blockMap = block as Map<String, dynamic>;
+      final text = blockMap['text'];
+      if (text is String && text.isNotEmpty) {
+        textParts.add(text);
+      }
+    }
+    return textParts.join();
   }
 
   @override
@@ -96,6 +108,7 @@ class AnthropicAdapterImpl implements LlmService {
     required ApiConfig config,
     required List<Message> messages,
     String? systemPrompt,
+    CancelToken? cancelToken,
   }) async* {
     final baseUrl = _normalizeUrl(config.baseUrl);
     final streamDio = Dio(
@@ -132,6 +145,7 @@ class AnthropicAdapterImpl implements LlmService {
         headers: _headers(config),
         responseType: ResponseType.stream,
       ),
+      cancelToken: cancelToken,
     );
 
     if (response.data == null) {
@@ -154,8 +168,9 @@ class AnthropicAdapterImpl implements LlmService {
 
       for (final line in completeLines.split('\n')) {
         final trimmed = line.trim();
-        if (!trimmed.startsWith('data: ')) continue;
-        final jsonStr = trimmed.substring(6).trim();
+        // 兼容 'data: {...}' 与 'data:{...}' 两种前缀
+        if (!trimmed.startsWith('data:')) continue;
+        final jsonStr = trimmed.substring(5).trim();
         if (jsonStr == '[DONE]') return;
         try {
           final json = jsonDecode(jsonStr) as Map<String, dynamic>;

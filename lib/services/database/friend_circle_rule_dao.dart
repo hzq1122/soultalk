@@ -10,6 +10,13 @@ class FriendCircleRule {
   final bool enabled;
   final int intervalHours;
   final DateTime? lastPostedAt;
+  /// 安静时段（跨天区间，如 23→7 表示 23:00-次日 7:00）。
+  final int quietStartHour;
+  final int quietEndHour;
+  /// 每日发布次数上限（0 = 不限）。
+  final int dailyLimit;
+  /// 每日费用预算上限（分；0 = 不限，按约 0.1 元/条折算）。
+  final int budgetCents;
   final int createdAt;
   final int updatedAt;
 
@@ -19,9 +26,22 @@ class FriendCircleRule {
     required this.enabled,
     required this.intervalHours,
     required this.lastPostedAt,
+    this.quietStartHour = 23,
+    this.quietEndHour = 7,
+    this.dailyLimit = 0,
+    this.budgetCents = 0,
     required this.createdAt,
     required this.updatedAt,
   });
+
+  /// 参与执行的有效每日条数上限（daily_limit 与 budget 折算取小；0 = 不限）。
+  int get effectiveDailyLimit {
+    final fromBudget = budgetCents > 0 ? budgetCents ~/ 10 : 0;
+    if (dailyLimit > 0 && fromBudget > 0) {
+      return dailyLimit < fromBudget ? dailyLimit : fromBudget;
+    }
+    return dailyLimit > 0 ? dailyLimit : fromBudget;
+  }
 
   Map<String, Object?> toMap() => {
     'id': id,
@@ -29,6 +49,10 @@ class FriendCircleRule {
     'enabled': enabled ? 1 : 0,
     'interval_hours': intervalHours,
     'last_posted_at': lastPostedAt?.toIso8601String(),
+    'quiet_start_hour': quietStartHour,
+    'quiet_end_hour': quietEndHour,
+    'daily_limit': dailyLimit,
+    'budget_cents': budgetCents,
     'created_at': createdAt,
     'updated_at': updatedAt,
   };
@@ -42,6 +66,10 @@ class FriendCircleRule {
         lastPostedAt: map['last_posted_at'] != null
             ? DateTime.tryParse(map['last_posted_at'] as String)
             : null,
+        quietStartHour: map['quiet_start_hour'] as int? ?? 23,
+        quietEndHour: map['quiet_end_hour'] as int? ?? 7,
+        dailyLimit: map['daily_limit'] as int? ?? 0,
+        budgetCents: map['budget_cents'] as int? ?? 0,
         createdAt: map['created_at'] as int? ?? 0,
         updatedAt: map['updated_at'] as int? ?? 0,
       );
@@ -60,6 +88,10 @@ class FriendCircleRuleDao {
     String contactId, {
     bool? enabled,
     int? intervalHours,
+    int? quietStartHour,
+    int? quietEndHour,
+    int? dailyLimit,
+    int? budgetCents,
   }) async {
     final db = await _database;
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -69,6 +101,10 @@ class FriendCircleRuleDao {
       contactId: contactId,
       enabled: enabled ?? existing?.enabled ?? true,
       intervalHours: intervalHours ?? existing?.intervalHours ?? 24,
+      quietStartHour: quietStartHour ?? existing?.quietStartHour ?? 23,
+      quietEndHour: quietEndHour ?? existing?.quietEndHour ?? 7,
+      dailyLimit: dailyLimit ?? existing?.dailyLimit ?? 0,
+      budgetCents: budgetCents ?? existing?.budgetCents ?? 0,
       lastPostedAt: existing?.lastPostedAt,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,

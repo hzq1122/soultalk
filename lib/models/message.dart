@@ -23,6 +23,7 @@ class Message with _$Message {
     required String content,
     @Default(MessageType.text) MessageType type,
     @Default(false) bool isStreaming,
+    @Default(false) bool isFailed,
     @Default(0) int tokenCount,
     Map<String, dynamic>? metadata,
     DateTime? createdAt,

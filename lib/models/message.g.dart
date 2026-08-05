@@ -16,6 +16,7 @@ _$MessageImpl _$$MessageImplFromJson(Map<String, dynamic> json) =>
           $enumDecodeNullable(_$MessageTypeEnumMap, json['type']) ??
           MessageType.text,
       isStreaming: json['isStreaming'] as bool? ?? false,
+      isFailed: json['isFailed'] as bool? ?? false,
       tokenCount: (json['tokenCount'] as num?)?.toInt() ?? 0,
       metadata: json['metadata'] as Map<String, dynamic>?,
       createdAt: json['createdAt'] == null
@@ -31,6 +32,7 @@ Map<String, dynamic> _$$MessageImplToJson(_$MessageImpl instance) =>
       'content': instance.content,
       'type': _$MessageTypeEnumMap[instance.type]!,
       'isStreaming': instance.isStreaming,
+      'isFailed': instance.isFailed,
       'tokenCount': instance.tokenCount,
       'metadata': instance.metadata,
       'createdAt': instance.createdAt?.toIso8601String(),

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -20,6 +21,7 @@ import '../../services/chat/typing_simulator.dart';
 import '../../services/tts/tts_service.dart';
 import '../../services/stt/stt_service.dart';
 import '../../services/file_send/attachment_service.dart';
+import '../../services/database/attachment_index_dao.dart';
 import 'widgets/message_bubble.dart';
 import 'widgets/input_bar.dart';
 import 'widgets/typing_indicator.dart';
@@ -47,7 +49,22 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   bool _hasReceivedFirstChunk = false;
   bool _ttsEnabled = false;
   String? _lastUserText;
+  String? _lastUserMessageId;
   String? _lastAiMsgId;
+
+  /// 最近一次发送是否失败（用于跳过 TTS 等成功动作）。
+  bool _lastSendFailed = false;
+
+  /// 进行中请求的取消令牌：停止生成按钮 / dispose 时取消。
+  CancelToken? _activeCancelToken;
+
+  void _stopGeneration() {
+    _activeCancelToken?.cancel();
+    setState(() {
+      _isSending = false;
+      _isTyping = false;
+    });
+  }
 
   @override
   void initState() {
@@ -67,6 +84,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
   @override
   void dispose() {
+    // 页面销毁时取消进行中的生成请求：回调已由 mounted 保护，
+    // 取消后 ChatService 保留已生成内容并标记完成，不写已销毁的 State。
+    _activeCancelToken?.cancel();
     _stopRecording(deleteFile: true);
     _audioRecorder.dispose();
     _disposeTtsPlayer(deleteFile: true);
@@ -91,9 +111,14 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     });
   }
 
-  Future<void> _sendMessage(Contact contact, String text) async {
+  Future<void> _sendMessage(
+    Contact contact,
+    String text, {
+    String? existingUserMessageId,
+  }) async {
     if (_isSending) return;
     _lastUserText = text;
+    _lastSendFailed = false;
     setState(() {
       _isSending = true;
       _isTyping = true;
@@ -109,72 +134,96 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
     // 保持 _isTyping = true，在 API 返回第一个 chunk 时再隐藏
 
-    ref
-        .read(chatServiceProvider)
-        .sendMessage(
-          contact: contact,
-          userText: text,
-          onMessagesCreated: (userMsg, aiMsg) {
-            _lastAiMsgId = aiMsg.id;
-            messagesNotifier.addMessage(userMsg);
-            messagesNotifier.addMessage(aiMsg);
-            _scrollToBottom(animated: true);
-          },
-          onAiChunk: (content, isDone) {
-            if (!_hasReceivedFirstChunk && mounted) {
-              setState(() => _hasReceivedFirstChunk = true);
-              _delayedHideTyping();
-            }
+    final token = CancelToken();
+    _activeCancelToken = token;
 
-            final aiMsgId = _lastAiMsgId;
-            if (aiMsgId != null) {
-              messagesNotifier.updateLastMessage(
-                aiMsgId,
-                content,
-                isStreaming: !isDone,
-              );
-              _scrollToBottom(animated: false);
-            }
-            if (isDone) {
-              if (mounted) setState(() => _isSending = false);
-              ref.read(contactsProvider.notifier).refresh();
-              if (_ttsEnabled) {
-                _speakAiResponse(content);
+    try {
+      await ref
+          .read(chatServiceProvider)
+          .sendMessage(
+            contact: contact,
+            userText: text,
+            existingUserMessageId: existingUserMessageId,
+            cancelToken: token,
+            onMessagesCreated: (userMsg, aiMsg) {
+              _lastUserMessageId = userMsg.id;
+              _lastAiMsgId = aiMsg.id;
+              messagesNotifier.addMessage(userMsg);
+              messagesNotifier.addMessage(aiMsg);
+              _scrollToBottom(animated: true);
+            },
+            onAiChunk: (content, isDone) {
+              if (!_hasReceivedFirstChunk && mounted) {
+                setState(() => _hasReceivedFirstChunk = true);
+                _delayedHideTyping();
               }
-            }
-          },
-          onError: (error) {
-            if (mounted) {
-              setState(() {
-                _isSending = false;
-                _isTyping = false;
-                _hasReceivedFirstChunk = true;
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('发送失败: $error'),
-                  backgroundColor: Colors.red,
-                  duration: const Duration(seconds: 4),
-                  behavior: SnackBarBehavior.floating,
-                  action: SnackBarAction(
-                    label: '重试',
-                    textColor: Colors.white,
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                      // Remove failed AI placeholder
-                      if (_lastAiMsgId != null) {
-                        messagesNotifier.removeMessage(_lastAiMsgId!);
-                      }
-                      if (_lastUserText != null) {
-                        _sendMessage(contact, _lastUserText!);
-                      }
-                    },
+
+              final aiMsgId = _lastAiMsgId;
+              if (aiMsgId != null) {
+                messagesNotifier.updateLastMessage(
+                  aiMsgId,
+                  content,
+                  isStreaming: !isDone,
+                );
+                _scrollToBottom(animated: false);
+              }
+              if (isDone) {
+                if (mounted) setState(() => _isSending = false);
+                ref.read(contactsProvider.notifier).refresh();
+                if (_ttsEnabled && !_lastSendFailed) {
+                  _speakAiResponse(content);
+                }
+              }
+            },
+            onError: (error) {
+              _lastSendFailed = true;
+              if (mounted) {
+                // 失败消息保留并标记 failed（UI 显示失败样式与重试入口）
+                final aiMsgId = _lastAiMsgId;
+                if (aiMsgId != null) {
+                  messagesNotifier.markFailed(aiMsgId);
+                }
+                setState(() {
+                  _isSending = false;
+                  _isTyping = false;
+                  _hasReceivedFirstChunk = true;
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('发送失败: $error'),
+                    backgroundColor: Colors.red,
+                    duration: const Duration(seconds: 4),
+                    behavior: SnackBarBehavior.floating,
+                    action: SnackBarAction(
+                      label: '重试',
+                      textColor: Colors.white,
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                        // 移除失败的 assistant 消息后重试：
+                        // 复用原用户消息 ID，避免重复插入用户消息。
+                        if (_lastAiMsgId != null) {
+                          messagesNotifier.removeMessage(_lastAiMsgId!);
+                        }
+                        if (_lastUserText != null) {
+                          _sendMessage(
+                            contact,
+                            _lastUserText!,
+                            existingUserMessageId: _lastUserMessageId,
+                          );
+                        }
+                      },
+                    ),
                   ),
-                ),
-              );
-            }
-          },
-        );
+                );
+              }
+            },
+          );
+    } finally {
+      if (identical(_activeCancelToken, token)) {
+        _activeCancelToken = null;
+      }
+      if (mounted) setState(() => _isSending = false);
+    }
   }
 
   void _delayedHideTyping() {
@@ -452,7 +501,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final isAiError =
         message.role == MessageRole.assistant &&
         !message.isStreaming &&
-        message.content.isEmpty;
+        (message.isFailed || message.content.isEmpty);
 
     showModalBottomSheet(
       context: context,
@@ -483,8 +532,32 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                       ?.where((c) => c.id == widget.contactId)
                       .firstOrNull;
                   if (contact != null && _lastUserText != null) {
-                    _sendMessage(contact, _lastUserText!);
+                    // 重新生成复用原用户消息 ID，避免重复插入用户消息
+                    _sendMessage(
+                      contact,
+                      _lastUserText!,
+                      existingUserMessageId: _lastUserMessageId,
+                    );
                   }
+                },
+              ),
+            if (isUser)
+              ListTile(
+                leading: const Icon(
+                  Icons.edit_outlined,
+                  color: WeChatColors.primary,
+                ),
+                title: const Text('编辑消息'),
+                subtitle: const Text(
+                  '修改内容后重新生成 AI 回复',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: WeChatColors.textSecondary,
+                  ),
+                ),
+                onTap: () {
+                  ctx.pop();
+                  _editMessage(message);
                 },
               ),
             if (isUser)
@@ -503,6 +576,32 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   ref
                       .read(messagesProvider(widget.contactId).notifier)
                       .retractMessage(message.id);
+                },
+              ),
+            if (!isUser && !message.isStreaming && message.content.isNotEmpty)
+              ListTile(
+                leading: const Icon(
+                  Icons.play_arrow,
+                  color: WeChatColors.primary,
+                ),
+                title: const Text('继续生成'),
+                subtitle: const Text(
+                  '从这条消息的末尾继续续写',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: WeChatColors.textSecondary,
+                  ),
+                ),
+                onTap: () {
+                  ctx.pop();
+                  final contact = ref
+                      .read(contactsProvider)
+                      .value
+                      ?.where((c) => c.id == widget.contactId)
+                      .firstOrNull;
+                  if (contact != null) {
+                    _continueFromMessage(contact, message);
+                  }
                 },
               ),
             ListTile(
@@ -526,6 +625,178 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _showPromptPreview(Contact contact) async {
+    final service = ref.read(chatServiceProvider);
+    String systemPrompt;
+    List<Message> requestMessages;
+    try {
+      final preview = await service.previewPrompt(contact);
+      systemPrompt = preview.systemPrompt;
+      requestMessages = preview.requestMessages;
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('预览失败: $e')));
+      }
+      return;
+    }
+    if (!mounted) return;
+
+    final sections = <String>[
+      '═══ System Prompt（系统提示，注入位置：消息列表之前）═══\n${systemPrompt.isEmpty ? '（空）' : systemPrompt}',
+      ...requestMessages.map(
+        (m) =>
+            '─── ${m.role.name.toUpperCase()} ───\n${m.content.isEmpty ? '（空）' : m.content}',
+      ),
+    ];
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Prompt 预览'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: SelectableText(
+              sections.join('\n\n'),
+              style: const TextStyle(
+                fontSize: 13,
+                fontFamily: 'monospace',
+                height: 1.4,
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _editMessage(Message message) async {
+    final controller = TextEditingController(text: message.content);
+    final newText = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('编辑消息'),
+        content: TextField(
+          controller: controller,
+          maxLines: 4,
+          minLines: 2,
+          decoration: const InputDecoration(
+            border: OutlineInputBorder(),
+            hintText: '修改消息内容',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (newText == null || newText.isEmpty || newText == message.content) {
+      return;
+    }
+
+    final notifier = ref.read(messagesProvider(widget.contactId).notifier);
+    final service = ref.read(chatServiceProvider);
+    // 删除该消息之后的所有旧消息（旧 AI 回复等），保持语义一致
+    await service.deleteMessagesAfter(widget.contactId, message.id);
+    notifier.removeMessagesAfter(message.id);
+    // 更新消息文本并重新生成（复用原用户消息 ID，不重复插入）
+    await service.updateMessageContent(message.id, newText);
+    notifier.updateMessageContent(message.id, newText);
+
+    final contact = ref
+        .read(contactsProvider)
+        .value
+        ?.where((c) => c.id == widget.contactId)
+        .firstOrNull;
+    if (contact != null) {
+      _lastUserText = newText;
+      _lastUserMessageId = message.id;
+      _sendMessage(contact, newText, existingUserMessageId: message.id);
+    }
+  }
+
+  Future<void> _continueFromMessage(Contact contact, Message message) async {
+    if (_isSending) return;
+    _lastSendFailed = false;
+    setState(() {
+      _isSending = true;
+      _isTyping = true;
+      _hasReceivedFirstChunk = false;
+    });
+
+    final messagesNotifier = ref.read(
+      messagesProvider(widget.contactId).notifier,
+    );
+    final token = CancelToken();
+    _activeCancelToken = token;
+
+    try {
+      await ref
+          .read(chatServiceProvider)
+          .continueFromAiMessage(
+            contact: contact,
+            aiMessageId: message.id,
+            cancelToken: token,
+            onAiChunk: (content, isDone) {
+              if (!_hasReceivedFirstChunk && mounted) {
+                setState(() => _hasReceivedFirstChunk = true);
+                _delayedHideTyping();
+              }
+              messagesNotifier.updateLastMessage(
+                message.id,
+                content,
+                isStreaming: !isDone,
+              );
+              _scrollToBottom(animated: false);
+              if (isDone) {
+                if (mounted) setState(() => _isSending = false);
+                ref.read(contactsProvider.notifier).refresh();
+              }
+            },
+            onError: (error) {
+              _lastSendFailed = true;
+              if (mounted) {
+                messagesNotifier.markFailed(message.id);
+                setState(() {
+                  _isSending = false;
+                  _isTyping = false;
+                  _hasReceivedFirstChunk = true;
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('继续生成失败: $error'),
+                    backgroundColor: Colors.red,
+                    duration: const Duration(seconds: 4),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
+            },
+          );
+    } finally {
+      if (identical(_activeCancelToken, token)) {
+        _activeCancelToken = null;
+      }
+      if (mounted) setState(() => _isSending = false);
+    }
   }
 
   Future<void> _sendImageMessage(String imagePath) {
@@ -552,10 +823,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final messagesNotifier = ref.read(
       messagesProvider(widget.contactId).notifier,
     );
+    AttachmentIndexRecord? record;
 
     try {
       final attachmentService = await AttachmentService.create();
-      final record = await attachmentService.importFile(
+      record = await attachmentService.importFile(
         chatId: widget.contactId,
         source: File(sourcePath),
         mimeType: AttachmentService.inferMimeType(sourcePath),
@@ -576,14 +848,28 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       );
       final service = ref.read(chatServiceProvider);
       final saved = await service.saveMessage(userMsg);
-      await attachmentService.attachToMessage(
-        attachmentId: record.id,
-        messageId: saved.id,
-      );
+      try {
+        await attachmentService.attachToMessage(
+          attachmentId: record.id,
+          messageId: saved.id,
+        );
+      } catch (_) {
+        // 关联失败：消息已保存但附件未关联，回滚消息避免不一致
+        await service.deleteMessage(saved.id);
+        rethrow;
+      }
       messagesNotifier.addMessage(saved);
       _scrollToBottom(animated: true);
       ref.read(contactsProvider.notifier).refresh();
     } catch (e) {
+      // 补偿清理：saveMessage/attachToMessage 失败时删除已导入的
+      // 附件文件与 attachment_index 记录，避免孤儿文件。
+      if (record != null) {
+        try {
+          final attachmentService = await AttachmentService.create();
+          await attachmentService.deleteAttachment(record.id);
+        } catch (_) {}
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -679,6 +965,12 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           ],
         ),
         actions: [
+          if (_isSending)
+            IconButton(
+              tooltip: '停止生成',
+              icon: const Icon(Icons.stop_circle_outlined),
+              onPressed: _stopGeneration,
+            ),
           IconButton(
             icon: const Icon(Icons.more_horiz),
             onPressed: () => _showChatMenu(context, contact),
@@ -775,6 +1067,21 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            ListTile(
+              leading: const Icon(Icons.article_outlined),
+              title: const Text('Prompt 预览'),
+              subtitle: const Text(
+                '查看发送给模型的最终 system prompt 与消息列表',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: WeChatColors.textSecondary,
+                ),
+              ),
+              onTap: () {
+                ctx.pop();
+                _showPromptPreview(contact);
+              },
+            ),
             ListTile(
               leading: const Icon(Icons.info_outline),
               title: const Text('联系人资料'),

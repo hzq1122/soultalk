@@ -140,14 +140,21 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
   Future<void> _syncMomentsCycleSchedule(int minutes) async {
     final dao = SchedulerJobDao(DatabaseService());
     final existing = await dao.getByTypeTarget('moments_cycle', 'global');
-    if (existing == null) return;
-    await dao.reschedule(
-      existing.id,
-      runAfter: DateTime.now()
-          .add(Duration(minutes: minutes))
-          .millisecondsSinceEpoch,
-      status: 'pending',
-      retryCount: 0,
+    // 找不到任务时也要创建（仅注册 handler 不会创建任务）。
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await dao.upsert(
+      SchedulerJobRecord(
+        id: existing?.id ?? 'moments_cycle_global',
+        type: 'moments_cycle',
+        targetId: 'global',
+        runAfter: now + Duration(minutes: minutes).inMilliseconds,
+        retryCount: existing?.retryCount ?? 0,
+        status: 'pending',
+        payload: '{}',
+        lastError: null,
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+      ),
     );
   }
 

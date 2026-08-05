@@ -1,3 +1,5 @@
+import 'package:dio/dio.dart';
+
 import '../../models/api_config.dart';
 import '../../models/message.dart';
 import 'openai_adapter.dart';
@@ -10,6 +12,7 @@ abstract class LlmService {
     required ApiConfig config,
     required List<Message> messages,
     String? systemPrompt,
+    CancelToken? cancelToken,
   });
 
   /// 发送消息（流式）
@@ -17,6 +20,7 @@ abstract class LlmService {
     required ApiConfig config,
     required List<Message> messages,
     String? systemPrompt,
+    CancelToken? cancelToken,
   });
 
   /// 工厂方法：根据 Provider 创建对应 Adapter

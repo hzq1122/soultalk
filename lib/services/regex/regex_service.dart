@@ -3,11 +3,30 @@ import '../../models/regex_script.dart';
 class RegexService {
   const RegexService();
 
-  String applyScripts(String text, List<RegexScript> scripts, int placement) {
+  /// 应用正则脚本。
+  ///
+  /// ST 语义：
+  /// - [placement] 过滤脚本的 source（userInput/aiOutput/worldInfo/...）
+  /// - [depth] 为当前消息在上下文中的深度（轮次）：minDepth/maxDepth
+  ///   仅在提供 depth 时生效（ST 深度过滤）
+  /// - [includePromptOnly] 为 false 时跳过 promptOnly 脚本
+  ///   （ST ephemeral-prompt：仅注入 prompt，不改变 UI 显示文本）
+  String applyScripts(
+    String text,
+    List<RegexScript> scripts,
+    int placement, {
+    int? depth,
+    bool includePromptOnly = true,
+  }) {
     var result = text;
     for (final script in scripts) {
       if (script.disabled) continue;
+      if (!includePromptOnly && script.promptOnly) continue;
       if (!script.placement.contains(placement)) continue;
+      if (depth != null) {
+        if (script.minDepth != null && depth < script.minDepth!) continue;
+        if (script.maxDepth != null && depth > script.maxDepth!) continue;
+      }
       result = _applyScript(result, script);
     }
     return result;
