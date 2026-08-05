@@ -18,7 +18,7 @@ import 'sync_handler.dart';
 import 'api_config_sender.dart';
 import 'manifest/manifest_builder.dart';
 import 'sync_exporter.dart';
-import 'push/push_validator.dart';
+import 'push/push_applier.dart';
 
 /// WebSocket 服务端，用于手机端与 PC 端通信
 class WebSocketServer {
@@ -48,7 +48,7 @@ class WebSocketServer {
     dbService: DatabaseService(),
   );
   final SyncExporter _syncExporter = SyncExporter(dbService: DatabaseService());
-  final PushValidator _pushValidator = PushValidator();
+  final PushApplier _pushApplier = const PushApplier();
 
   final StreamController<Map<String, dynamic>> _eventController =
       StreamController<Map<String, dynamic>>.broadcast();
@@ -526,17 +526,25 @@ class WebSocketServer {
     }
   }
 
-  void _handlePushProposal(String deviceId, Map<String, dynamic> message) {
+  Future<void> _handlePushProposal(
+    String deviceId,
+    Map<String, dynamic> message,
+  ) async {
     final payload =
         (message['payload'] as Map?)?.cast<String, dynamic>() ?? message;
-    final result = _pushValidator.validate(payload);
+    // 校验通过后真正应用变更（写库），构成 push 闭环
+    final result = await _pushApplier.apply(payload);
     _connectionManager.sendMessage(deviceId, {
       'type': 'push.result',
-      'payload': {
-        'accepted': result.allowed,
-        if (!result.allowed) 'reason': result.reason,
-      },
+      'payload': result,
     });
+    if (result['applied'] == true) {
+      _eventController.add({
+        'type': 'push_applied',
+        'deviceId': deviceId,
+        'payload': payload,
+      });
+    }
   }
 
   void _handleDisconnect(String deviceId, Map<String, dynamic> message) {
