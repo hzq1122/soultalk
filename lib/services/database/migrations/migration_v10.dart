@@ -29,8 +29,12 @@ Future<void> migrateV10(Database db) async {
       created_at INTEGER NOT NULL
     )
   ''');
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_proactive_events_contact ON proactive_events(contact_id)');
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_proactive_events_created ON proactive_events(created_at)');
+  await db.execute(
+    'CREATE INDEX IF NOT EXISTS idx_proactive_events_contact ON proactive_events(contact_id)',
+  );
+  await db.execute(
+    'CREATE INDEX IF NOT EXISTS idx_proactive_events_created ON proactive_events(created_at)',
+  );
   await db.execute('''
     CREATE TABLE IF NOT EXISTS friend_circle_rules (
       id TEXT PRIMARY KEY,
