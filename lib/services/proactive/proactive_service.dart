@@ -689,16 +689,26 @@ ${msg.content}
         whereArgs: [contact.id],
       );
 
-      // P3：记录规则触发时间与发送事件
-      final rule = await _ruleDao.getByContact(contact.id);
-      if (rule != null) {
-        await _ruleDao.updateTriggeredAt(contact.id, now);
-        await _eventDao.record(
-          contactId: contact.id,
-          ruleId: rule.id,
-          eventType: 'sent',
-          status: 'sent',
-          payload: jsonEncode({'content': reply.trim()}),
+      // P3：记录规则触发时间与发送事件（独立保护，
+      // 记录失败不影响消息发送结果，也不误记 failed）
+      try {
+        final rule = await _ruleDao.getByContact(contact.id);
+        if (rule != null) {
+          await _ruleDao.updateTriggeredAt(contact.id, now);
+          await _eventDao.record(
+            contactId: contact.id,
+            ruleId: rule.id,
+            eventType: 'sent',
+            status: 'sent',
+            payload: jsonEncode({'content': reply.trim()}),
+          );
+        }
+      } catch (recordError, recordStack) {
+        developer.log(
+          'Failed to record proactive rule/event',
+          name: 'ProactiveService',
+          error: recordError,
+          stackTrace: recordStack,
         );
       }
 

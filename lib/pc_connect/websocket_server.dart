@@ -25,6 +25,7 @@ class WebSocketServer {
   static const int _minPort = 49152;
   static const int _maxPort = 65535;
   static const int _maxDevices = 3;
+  static const int _maxPendingConnections = 5;
   static const Duration _tokenTtl = Duration(minutes: 2);
   static const Duration _idleTimeout = Duration(minutes: 5);
 
@@ -109,6 +110,9 @@ class WebSocketServer {
     _server = null;
     _currentToken = null;
     _connectionManager.clear();
+    // 清理认证状态，避免 stop→start 快速重启后计数残留
+    _authenticatedSockets.clear();
+    _clientDeviceIds.clear();
 
     _eventController.add({'type': 'server_stopped'});
   }
@@ -234,6 +238,14 @@ class WebSocketServer {
   }
 
   void _handleConnection(WebSocketChannel webSocket, String? protocol) {
+    // 未认证连接上限：JWT 窗口内建立大量空连接会占用 fd/内存
+    // 并阻止 idle 自动停服，超限直接拒绝新连接
+    final pendingCount =
+        _connectionManager.connectionCount - _authenticatedSockets.length;
+    if (pendingCount >= _maxPendingConnections) {
+      webSocket.sink.close(1013, 'Too many pending connections');
+      return;
+    }
     final deviceId = _generateDeviceId();
 
     webSocket.stream.listen(
@@ -369,6 +381,12 @@ class WebSocketServer {
       }
     } catch (error) {
       _rejectAuth(socketDeviceId, 'pairing_error', '配对校验失败：$error');
+      return;
+    }
+
+    // 认证期间的异步 IO 窗口内 socket 可能已断开，
+    // 避免登记僵尸认证条目（永久占用设备名额）
+    if (!_connectionManager.isDeviceConnected(socketDeviceId)) {
       return;
     }
 
@@ -532,17 +550,25 @@ class WebSocketServer {
   ) async {
     final payload =
         (message['payload'] as Map?)?.cast<String, dynamic>() ?? message;
-    // 校验通过后真正应用变更（写库），构成 push 闭环
-    final result = await _pushApplier.apply(payload);
-    _connectionManager.sendMessage(deviceId, {
-      'type': 'push.result',
-      'payload': result,
-    });
-    if (result['applied'] == true) {
-      _eventController.add({
-        'type': 'push_applied',
-        'deviceId': deviceId,
-        'payload': payload,
+    try {
+      // 校验通过后真正应用变更（写库），构成 push 闭环
+      final result = await _pushApplier.apply(payload);
+      _connectionManager.sendMessage(deviceId, {
+        'type': 'push.result',
+        'payload': result,
+      });
+      if (result['applied'] == true) {
+        _eventController.add({
+          'type': 'push_applied',
+          'deviceId': deviceId,
+          'payload': payload,
+        });
+      }
+    } catch (error) {
+      // 畸形消息/未知异常也返回结果，避免 PC 端永久挂起
+      _connectionManager.sendMessage(deviceId, {
+        'type': 'push.result',
+        'payload': {'accepted': false, 'reason': 'internal_error: $error'},
       });
     }
   }
@@ -550,6 +576,9 @@ class WebSocketServer {
   void _handleDisconnect(String deviceId, Map<String, dynamic> message) {
     final keepPCAlive = message['keepPCAlive'] as bool? ?? false;
     _connectionManager.removeDevice(deviceId);
+    // 主动断开时同步清理认证状态（不等 onDone）
+    _authenticatedSockets.remove(deviceId);
+    _clientDeviceIds.remove(deviceId);
 
     _eventController.add({
       'type': 'device_disconnected',

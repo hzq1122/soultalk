@@ -13,11 +13,15 @@ class PushApplier {
   Future<Map<String, dynamic>> validateOnly(
     Map<String, dynamic> proposal,
   ) async {
-    final result = validator.validate(proposal);
-    return {
-      'accepted': result.allowed,
-      if (!result.allowed) 'reason': result.reason,
-    };
+    try {
+      final result = validator.validate(proposal);
+      return {
+        'accepted': result.allowed,
+        if (!result.allowed) 'reason': result.reason,
+      };
+    } catch (error) {
+      return {'accepted': false, 'reason': 'invalid_proposal: $error'};
+    }
   }
 
   /// 校验通过后将推送的变更真正应用到本地数据库。
@@ -27,7 +31,13 @@ class PushApplier {
   /// - accepted=true, applied=true：已写入
   /// - accepted=true, applied=false：重复/外键失败等（含 reason）
   Future<Map<String, dynamic>> apply(Map<String, dynamic> proposal) async {
-    final result = validator.validate(proposal);
+    PushValidationResult result;
+    try {
+      // 畸形类型（如 operation 为数字）在此被捕获，避免 TypeError 上抛
+      result = validator.validate(proposal);
+    } catch (error) {
+      return {'accepted': false, 'reason': 'invalid_proposal: $error'};
+    }
     if (!result.allowed) {
       return {'accepted': false, 'reason': result.reason};
     }
@@ -36,18 +46,22 @@ class PushApplier {
     final row = proposal['row'] as Map<String, dynamic>;
     final rowId = row['id'];
 
+    // id 必须为非空字符串：数字/null id 会绕过 TEXT 主键查重
+    if (rowId is! String || rowId.isEmpty) {
+      return {'accepted': true, 'applied': false, 'reason': 'invalid_id'};
+    }
+
     try {
       final db = await (dbService ?? DatabaseService()).database;
-      if (rowId != null) {
-        final existing = await db.query(
-          table,
-          where: 'id = ?',
-          whereArgs: [rowId],
-          limit: 1,
-        );
-        if (existing.isNotEmpty) {
-          return {'accepted': true, 'applied': false, 'reason': 'duplicate'};
-        }
+      // rowId 已保证为非空 String（见上方 invalid_id 检查）
+      final existing = await db.query(
+        table,
+        where: 'id = ?',
+        whereArgs: [rowId],
+        limit: 1,
+      );
+      if (existing.isNotEmpty) {
+        return {'accepted': true, 'applied': false, 'reason': 'duplicate'};
       }
       await db.insert(table, row, conflictAlgorithm: ConflictAlgorithm.ignore);
       return {'accepted': true, 'applied': true};

@@ -108,6 +108,18 @@ void main() {
     expect(result['reason'], 'secret_field_not_allowed');
   });
 
+  test('non-string id is rejected to prevent primary key bypass', () async {
+    final result = await PushApplier(dbService: dbService).apply({
+      'table': 'messages',
+      'operation': 'insert',
+      'row': {'id': 12345, 'contact_id': 'c-1', 'role': 'user', 'content': 'x'},
+    });
+
+    expect(result['accepted'], isTrue);
+    expect(result['applied'], isFalse);
+    expect(result['reason'], 'invalid_id');
+  });
+
   test('foreign key failure returns applied false', () async {
     final result = await PushApplier(dbService: dbService).apply({
       'table': 'messages',
