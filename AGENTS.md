@@ -121,12 +121,12 @@ SoulTalk 是 AI 微信风格社交应用，已有聊天、通讯录、发现/朋
 ## 4. 正在进行中的任务与问题
 
 当前推进方向：
-1. 现有文件发送 UI/流程接入 AttachmentService。
-2. 备份恢复后自动重建 file_index 与 ST 索引。
-3. 统一 Scheduler 服务层。
+1. 已完成：文件发送 UI/流程接入 AttachmentService（chat_page._sendAttachmentMessage → importFile + metadata + messageId 回填 + _FileBubble 渲染）。
+2. 备份恢复后自动重建 file_index 与 ST 索引（已完成）。
+3. 统一 Scheduler 服务层（已完成，含崩溃恢复与重试上限）。
 4. 后续迁移 Proactive/FriendCircle/LanSync。
 
-已知未完成：附件服务层已完成但旧文件发送 UI 尚未接入；备份 manifest 尚未校验 mtime（zip 时间精度限制）；Scheduler 已具备崩溃恢复与重试上限，Proactive/FriendCircle 尚未迁移到 Scheduler；LanSync 配对授权已闭环（扫码自动登记 + deviceKey 校验 + 撤销生效），mDNS/UDP 发现、双向 push 等 P4 后续项未实现；ExtensionBridge L2/L3 尚未实现。
+已知未完成：备份 manifest 尚未校验 mtime（zip 时间精度限制）；Scheduler 已具备崩溃恢复与重试上限，Proactive/FriendCircle 尚未迁移到 Scheduler；LanSync 配对授权已闭环（扫码自动登记 + deviceKey 校验 + 撤销生效），mDNS/UDP 发现、双向 push 等 P4 后续项未实现；ExtensionBridge L2/L3 尚未实现。
 
 最近修复：chat_service.dart 字符串跨行语法错误；backup_service.dart enum switch 和反斜杠语法错误；ProactiveService JSON key 和 Timer 恢复；LanSync 连接被拒（_getClientIp 改用 shelf.io.connection_info）；流式 UTF-8 乱码（utf8.decoder.bind）；Scheduler 崩溃恢复与 maxRetries；备份恢复事务化；Anthropic 思考参数改官方 thinking{type,budget_tokens}；流式 DB 写 200ms 节流；LanSync 配对闭环（_handleAuth 接入 PairingStore，设备身份以客户端 deviceId 为准，首次扫码连接自动登记，撤销/密钥不匹配拒绝）并新增 5 个配对测试；ConnectionManager.clear 并发修改修复。
 
