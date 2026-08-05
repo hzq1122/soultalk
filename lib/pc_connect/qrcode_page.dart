@@ -4,6 +4,8 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../providers/pc_connect_provider.dart';
 import '../theme/wechat_colors.dart';
+import 'models/paired_device.dart';
+import 'pairing_store.dart';
 
 /// 二维码扫描页面 — 手机扫描 PC 端二维码完成配对
 class QRCodePage extends ConsumerStatefulWidget {
@@ -17,11 +19,42 @@ class _QRCodePageState extends ConsumerState<QRCodePage> {
   MobileScannerController? _scannerController;
   bool _isScanning = true;
   String? _errorMessage;
+  List<PairedDevice> _pairedDevices = [];
 
   @override
   void initState() {
     super.initState();
     _scannerController = MobileScannerController();
+    _loadPairedDevices();
+  }
+
+  Future<void> _loadPairedDevices() async {
+    final devices = await PairingStore().loadDevices();
+    if (!mounted) return;
+    setState(() => _pairedDevices = devices);
+  }
+
+  Future<void> _revokeDevice(PairedDevice device) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('撤销配对'),
+        content: Text('撤销后“${device.deviceName}”将无法再连接本手机，确定撤销？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('撤销', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await PairingStore().revoke(device.deviceId);
+    await _loadPairedDevices();
   }
 
   @override
@@ -133,6 +166,8 @@ class _QRCodePageState extends ConsumerState<QRCodePage> {
           if (connectState.connectedDevices.isNotEmpty) ...[
             _buildConnectedDevices(context, ref, connectState),
           ],
+          // 已配对设备（含撤销管理）
+          if (_pairedDevices.isNotEmpty) _buildPairedDevices(context),
           // 设置
           _buildSettings(context, ref, connectState),
         ],
@@ -367,6 +402,75 @@ class _QRCodePageState extends ConsumerState<QRCodePage> {
                             )
                             .toList(),
                       ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPairedDevices(BuildContext context) {
+    return SizedBox(
+      height: 150,
+      child: Card(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '已配对设备',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: WeChatColors.textPrimary,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Expanded(
+                child: ListView(
+                  children: _pairedDevices.map((device) {
+                    final revoked = device.revoked;
+                    return ListTile(
+                      dense: true,
+                      leading: Icon(
+                        revoked ? Icons.block : Icons.computer,
+                        color: revoked ? Colors.grey : Colors.green,
+                        size: 20,
+                      ),
+                      title: Text(
+                        device.deviceName,
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                      subtitle: Text(
+                        revoked
+                            ? '已撤销 · ${device.deviceId}'
+                            : '授权于 ${_formatTime(DateTime.fromMillisecondsSinceEpoch(device.authorizedAt))}',
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                      trailing: revoked
+                          ? Text(
+                              '已撤销',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: WeChatColors.textHint,
+                              ),
+                            )
+                          : TextButton(
+                              onPressed: () => _revokeDevice(device),
+                              child: const Text(
+                                '撤销',
+                                style: TextStyle(
+                                  color: Colors.red,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                    );
+                  }).toList(),
+                ),
               ),
             ],
           ),

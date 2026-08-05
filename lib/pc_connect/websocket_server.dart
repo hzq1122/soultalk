@@ -41,6 +41,9 @@ class WebSocketServer {
 
   /// 已通过配对校验的 socket（按服务器 socketDeviceId 索引）
   final Set<String> _authenticatedSockets = {};
+
+  /// socketDeviceId → 客户端持久 deviceId 映射（用于事件身份一致）
+  final Map<String, String> _clientDeviceIds = {};
   final SyncManifestBuilder _manifestBuilder = SyncManifestBuilder(
     dbService: DatabaseService(),
   );
@@ -146,8 +149,9 @@ class WebSocketServer {
             return shelf.Response.forbidden('Invalid or expired token');
           }
 
-          // 检查是否超过最大设备数
-          if (_connectionManager.connectedDevices.length >= _maxDevices) {
+          // 检查是否超过最大设备数（仅统计已认证设备，
+          // 未认证连接不占名额，防止空连接 DoS）
+          if (_authenticatedSockets.length >= _maxDevices) {
             return shelf.Response.forbidden('Maximum devices reached');
           }
 
@@ -240,14 +244,16 @@ class WebSocketServer {
       onDone: () {
         _connectionManager.removeDevice(deviceId);
         _authenticatedSockets.remove(deviceId);
+        final clientDeviceId = _clientDeviceIds.remove(deviceId);
         _eventController.add({
           'type': 'device_disconnected',
-          'deviceId': deviceId,
+          'deviceId': clientDeviceId ?? deviceId,
         });
       },
       onError: (error) {
         _connectionManager.removeDevice(deviceId);
         _authenticatedSockets.remove(deviceId);
+        _clientDeviceIds.remove(deviceId);
       },
     );
 
@@ -370,6 +376,7 @@ class WebSocketServer {
 
     // 配对通过：标记为已认证（业务消息门禁）
     _authenticatedSockets.add(socketDeviceId);
+    _clientDeviceIds[socketDeviceId] = clientDeviceId;
 
     try {
       _connectionManager.sendMessage(socketDeviceId, {
@@ -400,6 +407,7 @@ class WebSocketServer {
   /// 拒绝设备认证：发送 auth_error 并断开连接。
   void _rejectAuth(String deviceId, String reason, String message) {
     _authenticatedSockets.remove(deviceId);
+    _clientDeviceIds.remove(deviceId);
     _connectionManager.sendMessage(deviceId, {
       'type': 'auth_error',
       'reason': reason,
