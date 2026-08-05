@@ -4,6 +4,7 @@ import '../database/database_service.dart';
 import '../database/contact_dao.dart';
 import '../database/moment_dao.dart';
 import '../database/api_config_dao.dart';
+import '../database/friend_circle_rule_dao.dart';
 import '../api/llm_service.dart';
 import '../extensions/extension_event_bus.dart';
 import '../../models/contact.dart';
@@ -18,6 +19,7 @@ class MomentsService {
   late final ContactDao _contactDao;
   late final MomentDao _momentDao;
   late final ApiConfigDao _apiConfigDao;
+  late final FriendCircleRuleDao _friendCircleRuleDao;
   final _random = Random();
   bool _initialized = false;
 
@@ -28,6 +30,7 @@ class MomentsService {
     _contactDao = ContactDao(db);
     _momentDao = MomentDao(db);
     _apiConfigDao = ApiConfigDao(db);
+    _friendCircleRuleDao = FriendCircleRuleDao(db);
   }
 
   Future<List<Moment>> getAllMoments({int? limit, int? offset}) {
@@ -185,6 +188,9 @@ class MomentsService {
           createdAt: DateTime.now(),
         ),
       );
+      // P3：记录朋友圈发布规则（last_posted_at）
+      await _friendCircleRuleDao.upsertForContact(contact.id);
+      await _friendCircleRuleDao.updatePostedAt(contact.id, moment.createdAt!);
       ExtensionEventBus.instance.publishType(
         'moment_created',
         payload: {'momentId': moment.id, 'content': moment.content},

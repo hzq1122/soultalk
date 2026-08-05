@@ -5,6 +5,7 @@ import 'package:path/path.dart';
 import 'migrations/migration_v7.dart';
 import 'migrations/migration_v8.dart';
 import 'migrations/migration_v9.dart';
+import 'migrations/migration_v10.dart';
 
 class DatabaseService {
   static final DatabaseService _instance = DatabaseService._internal();
@@ -28,7 +29,7 @@ class DatabaseService {
     final path = join(dbPath, 'soultalk.db');
     return openDatabase(
       path,
-      version: 9,
+      version: 10,
       onConfigure: _onConfigure,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
@@ -238,6 +239,7 @@ class DatabaseService {
     await migrateV7(db);
     await migrateV8(db);
     await migrateV9(db);
+    await migrateV10(db);
   }
 
   Future<void> _onOpen(Database db) async {
@@ -395,6 +397,9 @@ class DatabaseService {
     }
     if (oldVersion < 9) {
       await migrateV9(db);
+    }
+    if (oldVersion < 10) {
+      await migrateV10(db);
     }
   }
 

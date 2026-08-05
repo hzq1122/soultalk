@@ -7,6 +7,8 @@ import '../database/database_service.dart';
 import '../database/contact_dao.dart';
 import '../database/message_dao.dart';
 import '../database/api_config_dao.dart';
+import '../database/proactive_rule_dao.dart';
+import '../database/proactive_event_dao.dart';
 import '../api/llm_service.dart';
 import '../moments/moments_service.dart';
 import '../extensions/extension_event_bus.dart';
@@ -28,6 +30,8 @@ class ProactiveService {
   late final ContactDao _contactDao;
   late final MessageDao _messageDao;
   late final ApiConfigDao _apiConfigDao;
+  late final ProactiveRuleDao _ruleDao;
+  late final ProactiveEventDao _eventDao;
   bool _initialized = false;
   bool _isChecking = false;
   bool _isRunningMomentsCycle = false;
@@ -48,6 +52,8 @@ class ProactiveService {
     _contactDao = ContactDao(db);
     _messageDao = MessageDao(db);
     _apiConfigDao = ApiConfigDao(db);
+    _ruleDao = ProactiveRuleDao(db);
+    _eventDao = ProactiveEventDao(db);
     unawaited(_restoreScheduledState());
   }
 
@@ -94,14 +100,24 @@ class ProactiveService {
         continue;
       }
 
-      final lastProactive = contact.lastProactiveAt;
-      final minHours = 2 + _random.nextInt(7);
-      if (lastProactive != null &&
-          now.difference(lastProactive).inHours < minHours) {
+      // P3 规则：无规则时以旧字段为默认值创建，之后以规则表为准
+      var rule = await _ruleDao.getByContact(contact.id);
+      rule ??= await _ruleDao.upsertForContact(
+        contact.id,
+        enabled: contact.proactiveEnabled,
+        minHours: 2 + _random.nextInt(7),
+        probability: 0.3,
+      );
+      if (!rule.enabled) continue;
+
+      // 规则触发时间优先，兼容期回退 contacts.last_proactive_at
+      final lastTriggered = rule.lastTriggeredAt ?? contact.lastProactiveAt;
+      if (lastTriggered != null &&
+          now.difference(lastTriggered).inHours < rule.minHours) {
         continue;
       }
 
-      if (_random.nextDouble() > 0.3) continue;
+      if (_random.nextDouble() > rule.probability) continue;
 
       await _sendProactiveMessage(contact, configs);
     }
@@ -664,13 +680,27 @@ ${msg.content}
       );
       await _contactDao.incrementUnread(contact.id);
 
+      final now = DateTime.now();
       final db = await DatabaseService().database;
       await db.update(
         'contacts',
-        {'last_proactive_at': DateTime.now().toIso8601String()},
+        {'last_proactive_at': now.toIso8601String()},
         where: 'id = ?',
         whereArgs: [contact.id],
       );
+
+      // P3：记录规则触发时间与发送事件
+      final rule = await _ruleDao.getByContact(contact.id);
+      if (rule != null) {
+        await _ruleDao.updateTriggeredAt(contact.id, now);
+        await _eventDao.record(
+          contactId: contact.id,
+          ruleId: rule.id,
+          eventType: 'sent',
+          status: 'sent',
+          payload: jsonEncode({'content': reply.trim()}),
+        );
+      }
 
       onNewMessage?.call();
     } catch (error, stackTrace) {
@@ -680,6 +710,15 @@ ${msg.content}
         error: error,
         stackTrace: stackTrace,
       );
+      // P3：记录失败事件（不抛异常，保持旧行为）
+      try {
+        await _eventDao.record(
+          contactId: contact.id,
+          eventType: 'failed',
+          status: 'failed',
+          payload: error.toString(),
+        );
+      } catch (_) {}
     }
   }
 }
