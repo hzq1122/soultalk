@@ -122,6 +122,28 @@ void main() {
     expect(reloaded!.apiKey, 'sk-secure');
   });
 
+  test('clearing api key removes old secure storage key', () async {
+    secureStore.values['api_key_cfg-1'] = 'sk-old';
+    await db.insert('api_configs', {
+      'id': 'cfg-1',
+      'name': 'main',
+      'base_url': 'https://api.openai.com/v1',
+      'api_key': '',
+      'model': 'gpt-4o-mini',
+      'max_tokens': 4096,
+      'temperature': 0.8,
+    });
+
+    await dao.update(makeConfig(apiKey: ''));
+
+    // 旧凭据必须被撤销：secure 存储与 SQLite 均无 key
+    expect(secureStore.values.containsKey('api_key_cfg-1'), isFalse);
+    final row = (await db.query('api_configs')).single;
+    expect(row['api_key'], '');
+    final reloaded = await dao.getById('cfg-1');
+    expect(reloaded!.apiKey, isEmpty);
+  });
+
   test('secure store failure falls back to SQLite (no crash)', () async {
     secureStore.failing = true;
     await db.insert('api_configs', {

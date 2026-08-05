@@ -529,6 +529,8 @@ class WebSocketServer {
   }
 
   Future<void> _handleManifestRequest(String deviceId) async {
+    // 读入口权限门禁：设备被撤销或无 pull 权限时拒绝
+    if (!await _deviceHasPermission(deviceId, 'pull')) return;
     final manifest = await _manifestBuilder.build();
     _connectionManager.sendMessage(deviceId, {
       'type': 'manifest.response',

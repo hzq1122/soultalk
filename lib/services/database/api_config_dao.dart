@@ -140,6 +140,9 @@ class ApiConfigDao {
         );
         return;
       }
+    } else {
+      // 清空 key：同步删除安全存储中的旧 key，避免旧凭据继续生效
+      await _secureStore.delete(config.id);
     }
     await db.update(
       'api_configs',
