@@ -385,8 +385,10 @@ class WebSocketServer {
     }
 
     // 认证期间的异步 IO 窗口内 socket 可能已断开，
-    // 避免登记僵尸认证条目（永久占用设备名额）
-    if (!_connectionManager.isDeviceConnected(socketDeviceId)) {
+    // 避免登记僵尸认证条目（永久占用设备名额）；
+    // 同时复查设备数上限（并发认证可能突破 HTTP 阶段的单次检查）
+    if (!_connectionManager.isDeviceConnected(socketDeviceId) ||
+        _authenticatedSockets.length >= _maxDevices) {
       return;
     }
 
@@ -548,9 +550,11 @@ class WebSocketServer {
     String deviceId,
     Map<String, dynamic> message,
   ) async {
-    final payload =
-        (message['payload'] as Map?)?.cast<String, dynamic>() ?? message;
     try {
+      // payload 解构也纳入 try：非 Map 类型（int/String/List）会抛
+      // TypeError，必须被捕获并返回结果，否则 PC 端收不到响应挂起
+      final payload =
+          (message['payload'] as Map?)?.cast<String, dynamic>() ?? message;
       // 校验通过后真正应用变更（写库），构成 push 闭环
       final result = await _pushApplier.apply(payload);
       _connectionManager.sendMessage(deviceId, {
