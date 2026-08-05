@@ -81,10 +81,13 @@ class ConnectionManager {
 
   /// 清空所有连接
   void clear() {
-    for (final connection in _connections.values) {
-      connection.channel.sink.close();
-    }
+    // 先取出 channel 列表再清空，避免 close 回调（onDone → removeDevice）
+    // 在迭代 _connections 时并发修改 map
+    final channels = _connections.values.map((c) => c.channel).toList();
     _connections.clear();
+    for (final channel in channels) {
+      channel.sink.close();
+    }
   }
 }
 

@@ -11,6 +11,7 @@ import 'package:dart_jsonwebtoken/dart_jsonwebtoken.dart';
 import 'package:uuid/uuid.dart';
 
 import 'connection_manager.dart';
+import 'pairing_store.dart';
 import '../services/database/database_service.dart';
 import 'sync_handler.dart';
 import 'api_config_sender.dart';
@@ -35,6 +36,7 @@ class WebSocketServer {
   final ConnectionManager _connectionManager = ConnectionManager();
   final SyncHandler _syncHandler = SyncHandler();
   final ApiConfigSender _apiConfigSender = ApiConfigSender();
+  final PairingStore _pairingStore = PairingStore();
   final SyncManifestBuilder _manifestBuilder = SyncManifestBuilder(
     dbService: DatabaseService(),
   );
@@ -255,7 +257,7 @@ class WebSocketServer {
 
       switch (type) {
         case 'auth':
-          _handleAuth(deviceId, message);
+          unawaited(_handleAuth(deviceId, message));
           break;
         case 'sync':
           _handleSync(deviceId, message);
@@ -298,24 +300,81 @@ class WebSocketServer {
     }
   }
 
-  void _handleAuth(String deviceId, Map<String, dynamic> message) {
+  /// 处理认证消息：校验设备配对状态。
+  ///
+  /// 设备身份以客户端 auth 消息中的 deviceId 为准（PC 端持久化身份），
+  /// 服务器的 socketDeviceId 仅用于连接路由。
+  /// - 已配对设备：校验 deviceKey 与撤销状态，通过才放行；
+  /// - 未配对设备：当前连接已通过 [_checkAuth] 的 JWT 校验（扫码即授权），
+  ///   首次连接自动登记为已配对设备；
+  /// - 校验失败：发送 auth_error 并断开连接。
+  Future<void> _handleAuth(
+    String socketDeviceId,
+    Map<String, dynamic> message,
+  ) async {
+    final clientDeviceId = message['deviceId'] as String?;
     final deviceName = message['deviceName'] as String? ?? 'PC';
-    _connectionManager.setDeviceName(deviceId, deviceName);
+    final deviceKey = message['deviceKey'] as String?;
 
-    _connectionManager.sendMessage(deviceId, {
+    if (clientDeviceId == null || clientDeviceId.isEmpty) {
+      _rejectAuth(socketDeviceId, 'device_id_missing', '缺少设备标识');
+      return;
+    }
+
+    try {
+      final existing = await _pairingStore.getDevice(clientDeviceId);
+      if (existing != null) {
+        // 已配对设备：校验 deviceKey 与撤销状态
+        final verified =
+            deviceKey != null &&
+            await _pairingStore.verify(clientDeviceId, deviceKey);
+        if (!verified) {
+          _rejectAuth(socketDeviceId, 'device_not_authorized', '设备未通过授权校验');
+          return;
+        }
+      } else if (deviceKey == null || deviceKey.isEmpty) {
+        // 未配对且缺少 deviceKey：拒绝（扫码连接也必须携带设备身份）
+        _rejectAuth(socketDeviceId, 'device_key_missing', '缺少设备密钥');
+        return;
+      } else {
+        // 未配对：扫码授权（JWT 已校验）后的首次连接自动登记配对
+        await _pairingStore.approve(
+          deviceId: clientDeviceId,
+          deviceName: deviceName,
+          deviceKey: deviceKey,
+        );
+      }
+    } catch (error) {
+      _rejectAuth(socketDeviceId, 'pairing_error', '配对校验失败：$error');
+      return;
+    }
+
+    _connectionManager.setDeviceName(socketDeviceId, deviceName);
+
+    _connectionManager.sendMessage(socketDeviceId, {
       'type': 'auth_ok',
-      'deviceId': deviceId,
+      'deviceId': clientDeviceId,
       'serverTime': DateTime.now().toIso8601String(),
     });
 
     // 发送 API 配置
-    _apiConfigSender.sendConfig(deviceId, _connectionManager);
+    _apiConfigSender.sendConfig(socketDeviceId, _connectionManager);
 
     _eventController.add({
       'type': 'device_authenticated',
-      'deviceId': deviceId,
+      'deviceId': clientDeviceId,
       'deviceName': deviceName,
     });
+  }
+
+  /// 拒绝设备认证：发送 auth_error 并断开连接。
+  void _rejectAuth(String deviceId, String reason, String message) {
+    _connectionManager.sendMessage(deviceId, {
+      'type': 'auth_error',
+      'reason': reason,
+      'message': message,
+    });
+    _connectionManager.removeDevice(deviceId);
   }
 
   Future<void> _handleSync(

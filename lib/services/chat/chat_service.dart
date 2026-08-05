@@ -235,6 +235,12 @@ class ChatService {
 
     final buffer = StringBuffer();
     final reasoningBuf = StringBuffer();
+    // 流式 DB 持久化节流：UI 实时性依赖 onAiChunk 回调与事件总线，
+    // DB 仅作持久化，按 200ms 窗口批量写入以减少磁盘 IO；
+    // 流结束/异常分支仍有最终落库，保证内容完整。
+    var lastDbWrite = DateTime.now().subtract(
+      const Duration(milliseconds: 200),
+    );
     try {
       if (config.streamEnabled) {
         await for (final chunk in service.sendMessageStream(
@@ -247,11 +253,15 @@ class ChatService {
             continue;
           }
           buffer.write(chunk);
-          await _messageDao.updateContent(
-            aiMsgId,
-            buffer.toString(),
-            isStreaming: true,
-          );
+          final now = DateTime.now();
+          if (now.difference(lastDbWrite).inMilliseconds >= 200) {
+            await _messageDao.updateContent(
+              aiMsgId,
+              buffer.toString(),
+              isStreaming: true,
+            );
+            lastDbWrite = now;
+          }
           ExtensionEventBus.instance.publishType(
             'message_stream_chunk',
             contactId: contact.id,

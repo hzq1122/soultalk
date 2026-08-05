@@ -20,6 +20,19 @@ class AnthropicAdapterImpl implements LlmService {
     return base.endsWith('/') ? base.substring(0, base.length - 1) : base;
   }
 
+  /// 将 reasoningEffort 配置解析为 Anthropic 官方 thinking.budget_tokens。
+  /// 支持数值字符串（如 "8192"）或 low/medium/high 映射，默认 8192。
+  static int _budgetTokens(String effort) {
+    final parsed = int.tryParse(effort.trim());
+    if (parsed != null && parsed > 0) return parsed;
+    return switch (effort.trim().toLowerCase()) {
+      'low' => 1024,
+      'medium' => 4096,
+      'high' => 8192,
+      _ => 8192,
+    };
+  }
+
   Map<String, String> _headers(ApiConfig config) => {
     'x-api-key': config.apiKey,
     'anthropic-version': _anthropicVersion,
@@ -46,7 +59,11 @@ class AnthropicAdapterImpl implements LlmService {
       body['system'] = systemPrompt;
     }
     if (config.thinkingEnabled) {
-      body['output_config'] = {'effort': config.reasoningEffort};
+      // Anthropic 官方思考参数：thinking.type + budget_tokens
+      body['thinking'] = {
+        'type': 'enabled',
+        'budget_tokens': _budgetTokens(config.reasoningEffort),
+      };
     }
 
     final response = await _dio.post(
@@ -87,7 +104,11 @@ class AnthropicAdapterImpl implements LlmService {
       body['system'] = systemPrompt;
     }
     if (config.thinkingEnabled) {
-      body['output_config'] = {'effort': config.reasoningEffort};
+      // Anthropic 官方思考参数：thinking.type + budget_tokens
+      body['thinking'] = {
+        'type': 'enabled',
+        'budget_tokens': _budgetTokens(config.reasoningEffort),
+      };
     }
 
     final response = await streamDio.post<ResponseBody>(
