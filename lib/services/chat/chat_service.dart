@@ -236,8 +236,8 @@ class ChatService {
     final buffer = StringBuffer();
     final reasoningBuf = StringBuffer();
     // 流式 DB 持久化节流：UI 实时性依赖 onAiChunk 回调与事件总线，
-    // DB 仅作持久化，按 200ms 窗口批量写入以减少磁盘 IO；
-    // 流结束/异常分支仍有最终落库，保证内容完整。
+    // DB 仅作持久化，按 200ms 窗口批量写入以减少磁盘 IO。
+    // 正常结束时最终完整落库；异常时保持原行为（清空占位消息）。
     var lastDbWrite = DateTime.now().subtract(
       const Duration(milliseconds: 200),
     );

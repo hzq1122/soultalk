@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:io';
 import 'dart:math';
 
@@ -37,6 +38,9 @@ class WebSocketServer {
   final SyncHandler _syncHandler = SyncHandler();
   final ApiConfigSender _apiConfigSender = ApiConfigSender();
   final PairingStore _pairingStore = PairingStore();
+
+  /// 已通过配对校验的 socket（按服务器 socketDeviceId 索引）
+  final Set<String> _authenticatedSockets = {};
   final SyncManifestBuilder _manifestBuilder = SyncManifestBuilder(
     dbService: DatabaseService(),
   );
@@ -235,6 +239,7 @@ class WebSocketServer {
       },
       onDone: () {
         _connectionManager.removeDevice(deviceId);
+        _authenticatedSockets.remove(deviceId);
         _eventController.add({
           'type': 'device_disconnected',
           'deviceId': deviceId,
@@ -242,6 +247,7 @@ class WebSocketServer {
       },
       onError: (error) {
         _connectionManager.removeDevice(deviceId);
+        _authenticatedSockets.remove(deviceId);
       },
     );
 
@@ -254,6 +260,17 @@ class WebSocketServer {
     try {
       final message = jsonDecode(rawMessage) as Map<String, dynamic>;
       final type = message['type'] as String?;
+
+      // 认证门禁：除 auth 外的业务消息仅允许已通过配对校验的连接处理
+      if (type != 'auth' && !_authenticatedSockets.contains(deviceId)) {
+        _connectionManager.sendMessage(deviceId, {
+          'type': 'auth_error',
+          'reason': 'not_authenticated',
+          'message': '连接未认证',
+        });
+        _connectionManager.removeDevice(deviceId);
+        return;
+      }
 
       switch (type) {
         case 'auth':
@@ -351,24 +368,38 @@ class WebSocketServer {
 
     _connectionManager.setDeviceName(socketDeviceId, deviceName);
 
-    _connectionManager.sendMessage(socketDeviceId, {
-      'type': 'auth_ok',
-      'deviceId': clientDeviceId,
-      'serverTime': DateTime.now().toIso8601String(),
-    });
+    // 配对通过：标记为已认证（业务消息门禁）
+    _authenticatedSockets.add(socketDeviceId);
 
-    // 发送 API 配置
-    _apiConfigSender.sendConfig(socketDeviceId, _connectionManager);
+    try {
+      _connectionManager.sendMessage(socketDeviceId, {
+        'type': 'auth_ok',
+        'deviceId': clientDeviceId,
+        'serverTime': DateTime.now().toIso8601String(),
+      });
 
-    _eventController.add({
-      'type': 'device_authenticated',
-      'deviceId': clientDeviceId,
-      'deviceName': deviceName,
-    });
+      // 发送 API 配置
+      _apiConfigSender.sendConfig(socketDeviceId, _connectionManager);
+
+      _eventController.add({
+        'type': 'device_authenticated',
+        'deviceId': clientDeviceId,
+        'deviceName': deviceName,
+      });
+    } catch (error, stackTrace) {
+      // 配对已通过，通知类异常不应拒绝已认证设备，仅记录
+      developer.log(
+        'Failed to finalize device authentication',
+        name: 'WebSocketServer',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   /// 拒绝设备认证：发送 auth_error 并断开连接。
   void _rejectAuth(String deviceId, String reason, String message) {
+    _authenticatedSockets.remove(deviceId);
     _connectionManager.sendMessage(deviceId, {
       'type': 'auth_error',
       'reason': reason,
@@ -539,7 +570,14 @@ class WebSocketServer {
   }
 
   void dispose() {
-    stop();
-    _eventController.close();
+    // 等 stop() 完成（含 server_stopped 事件发出）后再关闭事件控制器，
+    // 避免 close 与 stop 内的事件 add 竞态
+    unawaited(
+      stop().then((_) {
+        if (!_eventController.isClosed) {
+          _eventController.close();
+        }
+      }),
+    );
   }
 }

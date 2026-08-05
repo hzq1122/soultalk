@@ -22,15 +22,23 @@ class AnthropicAdapterImpl implements LlmService {
 
   /// 将 reasoningEffort 配置解析为 Anthropic 官方 thinking.budget_tokens。
   /// 支持数值字符串（如 "8192"）或 low/medium/high 映射，默认 8192。
-  static int _budgetTokens(String effort) {
+  /// Anthropic 要求 max_tokens 必须大于 budget_tokens，因此钳制为
+  /// min(映射值, maxTokens - 1)，保证请求参数合法。
+  static int _budgetTokens(String effort, int maxTokens) {
+    int mapped;
     final parsed = int.tryParse(effort.trim());
-    if (parsed != null && parsed > 0) return parsed;
-    return switch (effort.trim().toLowerCase()) {
-      'low' => 1024,
-      'medium' => 4096,
-      'high' => 8192,
-      _ => 8192,
-    };
+    if (parsed != null && parsed > 0) {
+      mapped = parsed;
+    } else {
+      mapped = switch (effort.trim().toLowerCase()) {
+        'low' => 1024,
+        'medium' => 4096,
+        'high' => 8192,
+        _ => 8192,
+      };
+    }
+    if (maxTokens <= 1) return mapped;
+    return mapped < maxTokens ? mapped : maxTokens - 1;
   }
 
   Map<String, String> _headers(ApiConfig config) => {
@@ -62,7 +70,10 @@ class AnthropicAdapterImpl implements LlmService {
       // Anthropic 官方思考参数：thinking.type + budget_tokens
       body['thinking'] = {
         'type': 'enabled',
-        'budget_tokens': _budgetTokens(config.reasoningEffort),
+        'budget_tokens': _budgetTokens(
+          config.reasoningEffort,
+          config.maxTokens,
+        ),
       };
     }
 
@@ -107,7 +118,10 @@ class AnthropicAdapterImpl implements LlmService {
       // Anthropic 官方思考参数：thinking.type + budget_tokens
       body['thinking'] = {
         'type': 'enabled',
-        'budget_tokens': _budgetTokens(config.reasoningEffort),
+        'budget_tokens': _budgetTokens(
+          config.reasoningEffort,
+          config.maxTokens,
+        ),
       };
     }
 
