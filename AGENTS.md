@@ -153,7 +153,7 @@ P5：ExtensionBridge L2/L3。顺序：manifest parser -> event bus -> context pr
 3. 自动备份指纹：messages/moments updated_at 修改追踪（v14），原地编辑（消息编辑/失败状态/metadata/点赞/评论）触发备份。
 4. LanSync：updated_at 水位 + 复合游标增量导出；Merkle 两端 camelCase + key 排序规范化；PC 会话内增量水位；PC 端仅接受内网 ws:// 配对/连接。
 5. API 配置协议：手机发 camelCase DTO（不含 apiKey）；PC tryFromJson 容错（snake_case 兼容、int 布尔、畸形跳过）；PC copyWith nullable 哨兵清空。
-6. 备份恢复加固：_precheckZipTotalSize（decode 前预算）、manifest 双向白名单（未声明文件拒绝）、symlink/junction 祖先防护、旧备份 created_at 回填。
+6. 备份恢复加固：_precheckZipTotalSize（decode 前预算）、manifest 双向白名单（未声明文件拒绝）、symlink/junction 祖先防护、旧备份 created_at 回填、恢复 api_configs 时 base_url 必须为 https 或本机 http（防恶意备份凭据劫持，rowFilter 整行拒绝）。
 7. 编辑消息清理附件：deleteMessagesAfter 快照收集后清理 attachment_index + 磁盘文件；ChatService 可注入。
 8. CI 签名：正式 tag 无 Secrets 直接失败；storeFile 按 android/ 根解析；build-android 限定 v* tag。
 9. 中优先级：v15 created_at NOT NULL（重建表）；rebuildFromDirectory 从消息 metadata 恢复 message_id/mime_type（递归扫描）；ApiConfig toJson 不含 apiKey；WebDAV/S3 强制 HTTPS（localhost 例外）；push_applier 对旧版 PC 缺 created_at 补默认。

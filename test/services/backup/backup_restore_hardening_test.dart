@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:archive/archive_io.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -142,6 +143,91 @@ void main() {
     // 外部目录不得被写入
     expect(await File(p.join(outside.path, 'sub', 'a.txt')).exists(), isFalse);
   });
+
+  test('malicious api config base_url is rejected on restore', () async {
+    // 本地已有配置（api_key 恢复时由 preserveColumns 保留）
+    await db.insert('api_configs', {
+      'id': 'cfg-local',
+      'name': 'local',
+      'provider': 'openai',
+      'base_url': 'https://api.openai.com',
+      'api_key': 'sk-local-secret',
+      'model': 'gpt-4o-mini',
+      'max_tokens': 4096,
+      'temperature': 0.8,
+      'stream_enabled': 1,
+    });
+
+    // 导出合法备份，再把 api_configs.json 篡改为恶意 base_url
+    // （同步更新 manifest 的 sha256/size 以通过完整性校验），
+    // 模拟被篡改的备份：新增攻击者配置 + 覆写本地配置。
+    final zipPath = await service.exportToZip(
+      sections: {BackupSection.apiConfigs},
+      targetDir: root.path,
+    );
+    final tampered = await _replaceJsonFileInZip(
+      zipPath,
+      'api/api_configs.json',
+      [
+        {
+          'id': 'cfg-evil',
+          'name': 'evil',
+          'provider': 'openai',
+          'base_url': 'http://evil.example.com',
+          'api_key': '',
+          'model': 'gpt-4o-mini',
+          'max_tokens': 4096,
+          'temperature': 0.8,
+          'stream_enabled': 1,
+        },
+        {
+          'id': 'cfg-local',
+          'name': 'local',
+          'provider': 'openai',
+          'base_url': 'http://evil.example.com',
+          'api_key': '',
+          'model': 'gpt-4o-mini',
+          'max_tokens': 4096,
+          'temperature': 0.8,
+          'stream_enabled': 1,
+        },
+        {
+          'id': 'cfg-good',
+          'name': 'good',
+          'provider': 'openai',
+          'base_url': 'https://api.openai.com',
+          'api_key': '',
+          'model': 'gpt-4o-mini',
+          'max_tokens': 4096,
+          'temperature': 0.8,
+          'stream_enabled': 1,
+        },
+      ],
+    );
+    final evilZip = p.join(root.path, 'evil-cfg.zip');
+    await File(evilZip).writeAsBytes(tampered);
+
+    final report = await service.importFromZipWithReport(
+      zipPath: evilZip,
+      sections: {BackupSection.apiConfigs},
+    );
+
+    expect(report.success, isTrue);
+    // 恶意新配置（http 非本机）未插入
+    final evilRows = await db
+        .query('api_configs', where: 'id = ?', whereArgs: ['cfg-evil']);
+    expect(evilRows, isEmpty);
+    // 本地配置未被覆写：base_url 与 api_key 均保持原样
+    final localRows = await db
+        .query('api_configs', where: 'id = ?', whereArgs: ['cfg-local']);
+    expect(localRows.single['base_url'], 'https://api.openai.com');
+    expect(localRows.single['api_key'], 'sk-local-secret');
+    // 合法 https 配置正常恢复
+    final goodRows = await db
+        .query('api_configs', where: 'id = ?', whereArgs: ['cfg-good']);
+    expect(goodRows, hasLength(1));
+    expect(goodRows.single['base_url'], 'https://api.openai.com');
+  });
 }
 
 /// 构造两个各声明 3 GiB 未压缩大小的 STORE zip（真实内容很小）。
@@ -214,6 +300,39 @@ Future<List<int>> _injectFileIntoZip(
   archive.addFile(
     ArchiveFile(archivePath, content.length, utf8.encode(content)),
   );
+  return ZipEncoder().encode(archive);
+}
+
+/// 替换 zip 中 [archivePath] 文件的内容，并同步更新 manifest.json 中
+/// 对应条目的 sha256/size，保证恢复时的完整性校验（manifest 白名单）
+/// 仍能通过——用于模拟“内容被篡改但 manifest 一并更新”的恶意备份。
+/// 注：Archive.addFile 对同名文件会自动替换（见 archive 包实现）。
+Future<List<int>> _replaceJsonFileInZip(
+  String zipPath,
+  String archivePath,
+  Object content,
+) async {
+  final bytes = await File(zipPath).readAsBytes();
+  final archive = ZipDecoder().decodeBytes(bytes);
+  final newContent = utf8.encode(jsonEncode(content));
+  archive.addFile(ArchiveFile(archivePath, newContent.length, newContent));
+
+  final manifestFile = archive.findFile('manifest.json');
+  if (manifestFile != null) {
+    final manifest =
+        jsonDecode(utf8.decode(manifestFile.content as List<int>))
+            as Map<String, dynamic>;
+    for (final entry in manifest['files'] as List) {
+      if (entry is Map && entry['archive_path'] == archivePath) {
+        entry['sha256'] = sha256.convert(newContent).toString();
+        entry['size'] = newContent.length;
+      }
+    }
+    final manifestBytes = utf8.encode(jsonEncode(manifest));
+    archive.addFile(
+      ArchiveFile('manifest.json', manifestBytes.length, manifestBytes),
+    );
+  }
   return ZipEncoder().encode(archive);
 }
 

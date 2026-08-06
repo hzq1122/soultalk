@@ -478,6 +478,11 @@ class BackupService {
                     // 新配置则补空字符串（用户重新填写）。
                     preserveColumns: const {'api_key'},
                     insertDefaults: const {'api_key': ''},
+                    // 凭据劫持防护：恢复的 base_url 必须为 https 或本机
+                    // http，否则整行拒绝恢复。恶意备份可把 base_url 指向
+                    // 攻击者端点，使 preserveColumns 保留的本地真实
+                    // api_key 随 LLM 请求外泄。
+                    rowFilter: (data) => _isSecureBaseUrl(data['base_url']),
                   ),
                 );
               case BackupSection.contacts:
@@ -910,6 +915,20 @@ class BackupService {
   static bool _isSafeColumnName(String name) =>
       _safeColumnName.hasMatch(name) && !name.startsWith('sqlite_');
 
+  /// LLM base_url 安全校验：https 或本机 http（localhost/127.0.0.1/::1）
+  /// 放行，其余拒绝。null/空串视为未配置（无请求目标，不会外泄）。
+  /// 防止恶意备份把 base_url 覆写为攻击者端点后，本地真实 api_key
+  /// 随 LLM 请求外泄（凭据劫持链）。
+  static bool _isSecureBaseUrl(Object? baseUrl) {
+    if (baseUrl == null) return true;
+    if (baseUrl is! String || baseUrl.isEmpty) return false;
+    final uri = Uri.tryParse(baseUrl);
+    if (uri == null || !uri.hasScheme) return false;
+    final isLocalhost =
+        uri.host == 'localhost' || uri.host == '127.0.0.1' || uri.host == '::1';
+    return uri.scheme == 'https' || (uri.scheme == 'http' && isLocalhost);
+  }
+
   /// 恢复行数据，使用真正的 UPSERT 语义：
   /// 先尝试 INSERT；主键冲突时改为 UPDATE（不会触发 SQLite REPLACE 的
   /// “先 DELETE 再 INSERT”，避免级联删除联系人下的消息/朋友圈/记忆）。
@@ -923,6 +942,7 @@ class BackupService {
     String table, {
     Set<String>? preserveColumns,
     Map<String, Object?> insertDefaults = const {},
+    bool Function(Map<String, Object?> data)? rowFilter,
   }) async {
     final file = archive.findFile(archivePath);
     if (file == null) return 0;
@@ -933,6 +953,11 @@ class BackupService {
       // 实现 SQL 注入。仅保留合法列名（小写字母/数字/下划线，
       // 不以 sqlite_ 开头），其余丢弃。
       data.removeWhere((key, _) => !_isSafeColumnName(key));
+      // 安全：行级过滤（如 api_configs.base_url 必须是 https 或本机
+      // http），拒绝恢复被篡改/恶意的行。
+      if (rowFilter != null && !rowFilter(data)) {
+        continue;
+      }
       // 兼容：v15 起 messages.created_at NOT NULL，旧备份可能为 NULL；
       // 统一回填纪元时间戳，避免恢复整包失败。
       if (data['created_at'] == null && data.containsKey('created_at')) {
