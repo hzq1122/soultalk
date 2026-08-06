@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/database/database_service.dart';
@@ -16,30 +18,50 @@ class ApiConfigSender {
     String deviceId,
     ConnectionManager connectionManager,
   ) async {
-    if (!await _allowApiSharing()) {
-      sendConfigDisabled(deviceId, connectionManager);
-      return;
-    }
-    final configs = await getConfigsForSync();
+    try {
+      if (!await _allowApiSharing()) {
+        sendConfigDisabled(deviceId, connectionManager);
+        return;
+      }
+      final configs = await getConfigsForSync();
 
-    connectionManager.sendMessage(deviceId, {
-      'type': 'api_config',
-      'configs': configs,
-    });
+      connectionManager.sendMessage(deviceId, {
+        'type': 'api_config',
+        'configs': configs,
+      });
+    } catch (error, stackTrace) {
+      // 发送失败（如连接已断开、DB 不可用）不应成为未处理异步错误：
+      // 认证流程是 fire-and-forget，异常只记录，不影响已认证设备。
+      developer.log(
+        'Failed to send api config to PC',
+        name: 'ApiConfigSender',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   /// 广播配置更新给所有已连接设备
   Future<void> broadcastConfigUpdate(
     ConnectionManager connectionManager,
   ) async {
-    if (!await _allowApiSharing()) return;
-    final configs = await getConfigsForSync();
+    try {
+      if (!await _allowApiSharing()) return;
+      final configs = await getConfigsForSync();
 
-    connectionManager.broadcast({
-      'type': 'api_config',
-      'update': true,
-      'configs': configs,
-    });
+      connectionManager.broadcast({
+        'type': 'api_config',
+        'update': true,
+        'configs': configs,
+      });
+    } catch (error, stackTrace) {
+      developer.log(
+        'Failed to broadcast api config',
+        name: 'ApiConfigSender',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   /// 通知 PC API 配置已禁用

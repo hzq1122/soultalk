@@ -406,8 +406,20 @@ class WebSocketServer {
         'serverTime': DateTime.now().toIso8601String(),
       });
 
-      // 发送 API 配置
-      _apiConfigSender.sendConfig(socketDeviceId, _connectionManager);
+      // 发送 API 配置（fire-and-forget；内部已捕获全部异常，
+      // 此处再包一层防止未来改动引入未处理异步错误）
+      unawaited(
+        _apiConfigSender
+            .sendConfig(socketDeviceId, _connectionManager)
+            .catchError((Object error, StackTrace stackTrace) {
+              developer.log(
+                'Failed to send api config (unexpected)',
+                name: 'WebSocketServer',
+                error: error,
+                stackTrace: stackTrace,
+              );
+            }),
+      );
 
       _eventController.add({
         'type': 'device_authenticated',

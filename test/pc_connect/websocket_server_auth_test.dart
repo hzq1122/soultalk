@@ -27,6 +27,10 @@ void main() {
 
   tearDown(() async {
     await server.stop();
+    // sendConfig 是 fire-and-forget：认证成功后它仍在异步初始化 DB/读配置，
+    // 若此时删除数据库目录，未决的 Future 会抛异常并落入「测试完成后失败」。
+    // 先等待其完成（约一个建库周期），再清理临时目录。
+    await Future<void>.delayed(const Duration(milliseconds: 600));
     try {
       if (await dbDir.exists()) await dbDir.delete(recursive: true);
     } catch (_) {
