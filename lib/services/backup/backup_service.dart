@@ -474,14 +474,15 @@ class BackupService {
                     archive,
                     '$folder/api_configs.json',
                     'api_configs',
-                    // 备份不含 api_key：已存在时保留本地 key，
+                    // 备份不含 api_key：已存在时保留本地 key 与 base_url，
                     // 新配置则补空字符串（用户重新填写）。
-                    preserveColumns: const {'api_key'},
-                    insertDefaults: const {'api_key': ''},
-                    // 凭据劫持防护：恢复的 base_url 必须为 https 或本机
-                    // http，否则整行拒绝恢复。恶意备份可把 base_url 指向
-                    // 攻击者端点，使 preserveColumns 保留的本地真实
-                    // api_key 随 LLM 请求外泄。
+                    // base_url 也保留本地值：恶意备份即使把 base_url
+                    // 指向攻击者自有 https 端点，也无法覆写本地配置，
+                    // 防止本地真实 api_key 随请求外泄（凭据劫持链）。
+                    preserveColumns: const {'api_key', 'base_url'},
+                    insertDefaults: const {'api_key': '', 'base_url': ''},
+                    // 纵深防御：恢复的新行 base_url 必须为 https 或本机
+                    // http，拒绝明显的明文/外部端点配置。
                     rowFilter: (data) => _isSecureBaseUrl(data['base_url']),
                   ),
                 );
@@ -917,13 +918,15 @@ class BackupService {
 
   /// LLM base_url 安全校验：https 或本机 http（localhost/127.0.0.1/::1）
   /// 放行，其余拒绝。null/空串视为未配置（无请求目标，不会外泄）。
-  /// 防止恶意备份把 base_url 覆写为攻击者端点后，本地真实 api_key
-  /// 随 LLM 请求外泄（凭据劫持链）。
+  /// 注意：这只是纵深防御（拦截明文/外部端点），已存在配置的
+  /// base_url 由 preserveColumns 保留本地值，不受备份影响。
   static bool _isSecureBaseUrl(Object? baseUrl) {
     if (baseUrl == null) return true;
-    if (baseUrl is! String || baseUrl.isEmpty) return false;
-    final uri = Uri.tryParse(baseUrl);
-    if (uri == null || !uri.hasScheme) return false;
+    if (baseUrl is! String) return false;
+    final trimmed = baseUrl.trim();
+    if (trimmed.isEmpty) return true; // 未配置：无请求目标，不会外泄
+    final uri = Uri.tryParse(trimmed);
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty) return false;
     final isLocalhost =
         uri.host == 'localhost' || uri.host == '127.0.0.1' || uri.host == '::1';
     return uri.scheme == 'https' || (uri.scheme == 'http' && isLocalhost);

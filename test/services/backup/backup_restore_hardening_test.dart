@@ -160,7 +160,12 @@ void main() {
 
     // 导出合法备份，再把 api_configs.json 篡改为恶意 base_url
     // （同步更新 manifest 的 sha256/size 以通过完整性校验），
-    // 模拟被篡改的备份：新增攻击者配置 + 覆写本地配置。
+    // 模拟被篡改的备份：
+    // - cfg-evil：http 明文外部端点（应被 rowFilter 整行拒绝）；
+    // - cfg-local：攻击者自有 https 端点（rowFilter 放行，但
+    //   preserveColumns 保留本地 base_url，不得覆写本地配置）；
+    // - cfg-empty：空 base_url（旧备份兼容，应放行恢复）；
+    // - cfg-good：合法 https 端点（应正常恢复）。
     final zipPath = await service.exportToZip(
       sections: {BackupSection.apiConfigs},
       targetDir: root.path,
@@ -184,7 +189,18 @@ void main() {
           'id': 'cfg-local',
           'name': 'local',
           'provider': 'openai',
-          'base_url': 'http://evil.example.com',
+          'base_url': 'https://evil.example.com',
+          'api_key': '',
+          'model': 'gpt-4o-mini',
+          'max_tokens': 4096,
+          'temperature': 0.8,
+          'stream_enabled': 1,
+        },
+        {
+          'id': 'cfg-empty',
+          'name': 'empty',
+          'provider': 'openai',
+          'base_url': '',
           'api_key': '',
           'model': 'gpt-4o-mini',
           'max_tokens': 4096,
@@ -217,11 +233,17 @@ void main() {
     final evilRows = await db
         .query('api_configs', where: 'id = ?', whereArgs: ['cfg-evil']);
     expect(evilRows, isEmpty);
-    // 本地配置未被覆写：base_url 与 api_key 均保持原样
+    // 本地配置未被覆写：即便备份把 base_url 指向攻击者 https 端点，
+    // base_url 与 api_key 均保持本地原样（preserveColumns）
     final localRows = await db
         .query('api_configs', where: 'id = ?', whereArgs: ['cfg-local']);
     expect(localRows.single['base_url'], 'https://api.openai.com');
     expect(localRows.single['api_key'], 'sk-local-secret');
+    // 空 base_url 的旧备份行可正常恢复（无请求目标，不外泄）
+    final emptyRows = await db
+        .query('api_configs', where: 'id = ?', whereArgs: ['cfg-empty']);
+    expect(emptyRows, hasLength(1));
+    expect(emptyRows.single['base_url'], '');
     // 合法 https 配置正常恢复
     final goodRows = await db
         .query('api_configs', where: 'id = ?', whereArgs: ['cfg-good']);
