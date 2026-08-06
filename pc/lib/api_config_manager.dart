@@ -156,16 +156,29 @@ class ApiConfig {
   final String name;
   final String provider;
   final String model;
-  final String apiKey;
+
+  /// 手机下发的配置不含 api_key（凭据不同步），
+  /// 因此该字段可空；空值表示「需通过手机代理调用」。
+  final String? apiKey;
   final String? baseUrl;
+  final int? maxTokens;
+  final double? temperature;
+  final bool? streamEnabled;
+  final bool? thinkingEnabled;
+  final String? reasoningEffort;
 
   const ApiConfig({
     required this.id,
     required this.name,
     required this.provider,
     required this.model,
-    required this.apiKey,
+    this.apiKey,
     this.baseUrl,
+    this.maxTokens,
+    this.temperature,
+    this.streamEnabled,
+    this.thinkingEnabled,
+    this.reasoningEffort,
   });
 
   Map<String, dynamic> toJson() {
@@ -176,17 +189,60 @@ class ApiConfig {
       'model': model,
       'apiKey': apiKey,
       'baseUrl': baseUrl,
+      'maxTokens': maxTokens,
+      'temperature': temperature,
+      'streamEnabled': streamEnabled,
+      'thinkingEnabled': thinkingEnabled,
+      'reasoningEffort': reasoningEffort,
     };
   }
 
-  factory ApiConfig.fromJson(Map<String, dynamic> json) {
+  /// 容错解析：同时接受 camelCase（手机 DTO）与 snake_case（旧协议）
+  /// 字段名；apiKey 可空（手机端绝不发送凭据）。解析失败返回 null，
+  /// 调用方跳过该条而不是抛类型异常导致整个配置列表丢失。
+  static ApiConfig? tryFromJson(Map<String, dynamic> json) {
+    final id = json['id'];
+    final name = json['name'];
+    final provider = json['provider'];
+    final model = json['model'];
+    if (id is! String || name is! String || provider is! String) return null;
+    if (model is! String) return null;
+    // 所有字段用类型守卫转换：值存在但类型不符时返回 null（跳过该条），
+    // 而不是抛 TypeError 中断整个配置列表处理
+    final apiKey = json['apiKey'] ?? json['api_key'];
+    final baseUrl = json['baseUrl'] ?? json['base_url'];
+    final maxTokens = json['maxTokens'] ?? json['max_tokens'];
+    final effort = json['reasoningEffort'] ?? json['reasoning_effort'];
+    final rawTemperature = json['temperature'] ?? json['temperature'];
     return ApiConfig(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      provider: json['provider'] as String,
-      model: json['model'] as String,
-      apiKey: json['apiKey'] as String,
-      baseUrl: json['baseUrl'] as String?,
+      id: id,
+      name: name,
+      provider: provider,
+      model: model,
+      apiKey: apiKey is String ? apiKey : null,
+      baseUrl: baseUrl is String ? baseUrl : null,
+      maxTokens: maxTokens is int ? maxTokens : null,
+      temperature: rawTemperature is num ? rawTemperature.toDouble() : null,
+      // 旧协议（原始 DB 行）布尔列为 int（1/0），统一转 bool
+      streamEnabled: _asBool(json['streamEnabled'] ?? json['stream_enabled']),
+      thinkingEnabled: _asBool(
+        json['thinkingEnabled'] ?? json['thinking_enabled'],
+      ),
+      reasoningEffort: effort is String ? effort : null,
     );
+  }
+
+  static bool? _asBool(Object? value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    return null;
+  }
+
+  factory ApiConfig.fromJson(Map<String, dynamic> json) {
+    final parsed = tryFromJson(json);
+    if (parsed == null) {
+      throw FormatException('Invalid api config json: $json');
+    }
+    return parsed;
   }
 }

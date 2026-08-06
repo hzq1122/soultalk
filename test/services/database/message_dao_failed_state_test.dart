@@ -4,6 +4,7 @@ import 'package:soultalk/models/message.dart';
 import 'package:soultalk/services/database/database_service.dart';
 import 'package:soultalk/services/database/message_dao.dart';
 import 'package:soultalk/services/database/migrations/migration_v12.dart';
+import 'package:soultalk/services/database/migrations/migration_v14.dart';
 
 void main() {
   late Database db;
@@ -14,6 +15,8 @@ void main() {
     db = await databaseFactoryFfi.openDatabase(inMemoryDatabasePath);
     await _createV11MessagesTable(db);
     await migrateV12(db);
+    // v14 为 messages 增加 updated_at：MessageDao 现在写入该列
+    await migrateV14(db);
     dao = MessageDao(_TestDatabaseService(db));
   });
 

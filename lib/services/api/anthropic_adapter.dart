@@ -8,12 +8,19 @@ class AnthropicAdapterImpl implements LlmService {
   static const String _defaultBaseUrl = 'https://api.anthropic.com';
   static const String _anthropicVersion = '2023-06-01';
 
-  static final _dio = Dio(
-    BaseOptions(
-      connectTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(seconds: 120),
-    ),
-  );
+  /// 可注入的 Dio（测试时替换 HttpClientAdapter 捕获请求体）；
+  /// 流式请求使用独立实例以避免干扰非流式连接池。
+  final Dio _dio;
+
+  AnthropicAdapterImpl({Dio? dio})
+    : _dio =
+          dio ??
+          Dio(
+            BaseOptions(
+              connectTimeout: const Duration(seconds: 30),
+              receiveTimeout: const Duration(seconds: 120),
+            ),
+          );
 
   String _normalizeUrl(String url) {
     final base = url.isNotEmpty ? url : _defaultBaseUrl;
@@ -47,8 +54,25 @@ class AnthropicAdapterImpl implements LlmService {
     'Content-Type': 'application/json',
   };
 
+  /// Anthropic API 不允许 messages 中出现 system 角色：
+  /// 过滤 system 消息（由顶层 system 字段承载，见 [LlmService.extractSystemPrompt]）。
   List<Map<String, String>> _buildMessages(List<Message> messages) {
-    return LlmService.toApiMessages(messages);
+    return LlmService.toApiMessages(
+      messages,
+    ).where((m) => m['role'] != 'system').toList();
+  }
+
+  /// 拼接顶层 system：参数 systemPrompt 在前，messages 内嵌的 system
+  /// 消息（post_history_instructions 等）在后，保证顺序语义。
+  static String _mergeSystemPrompt(
+    String? systemPrompt,
+    List<Message> messages,
+  ) {
+    final parts = [
+      if (systemPrompt != null && systemPrompt.isNotEmpty) systemPrompt,
+      LlmService.extractSystemPrompt(messages),
+    ].where((s) => s.isNotEmpty);
+    return parts.join('\n\n');
   }
 
   @override
@@ -64,8 +88,9 @@ class AnthropicAdapterImpl implements LlmService {
       'max_tokens': config.maxTokens,
       'messages': _buildMessages(messages),
     };
-    if (systemPrompt != null && systemPrompt.isNotEmpty) {
-      body['system'] = systemPrompt;
+    final mergedSystem = _mergeSystemPrompt(systemPrompt, messages);
+    if (mergedSystem.isNotEmpty) {
+      body['system'] = mergedSystem;
     }
     if (config.thinkingEnabled) {
       // Anthropic 官方思考参数：thinking.type + budget_tokens
@@ -124,8 +149,9 @@ class AnthropicAdapterImpl implements LlmService {
       'messages': _buildMessages(messages),
       'stream': true,
     };
-    if (systemPrompt != null && systemPrompt.isNotEmpty) {
-      body['system'] = systemPrompt;
+    final mergedSystem = _mergeSystemPrompt(systemPrompt, messages);
+    if (mergedSystem.isNotEmpty) {
+      body['system'] = mergedSystem;
     }
     if (config.thinkingEnabled) {
       // Anthropic 官方思考参数：thinking.type + budget_tokens

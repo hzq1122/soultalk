@@ -151,6 +151,15 @@ class SyncManager {
 
     if (table == null || rows == null) return;
 
+    // 记录增量水位：本次拉取的最后一行时间戳（分页续拉也适用，
+    // 最终一页会覆盖为最新值）
+    if (rows.isNotEmpty) {
+      _pullSyncService.recordWatermark(
+        table,
+        rows.last.cast<String, dynamic>(),
+      );
+    }
+
     if (table == 'pc_deletions') {
       // 应用删除 tombstone，不进入 mirror
       await _pullSyncService.handlePullChunk(event);
@@ -165,19 +174,28 @@ class SyncManager {
       }
     }
 
-    // 分页续拉：hasMore 为 true 时用最后一条 id 作为游标继续请求，
-    // 直到服务端下发 pull.complete（避免超过一页的数据静默丢失）。
+    // 分页续拉：hasMore 为 true 时用最后一条的复合游标
+    // （updated_at 水位 + id）继续请求，直到服务端下发 pull.complete
+    // （避免超过一页的数据静默丢失；原地修改的行也能续拉）。
     if (payload?['hasMore'] == true && rows.isNotEmpty) {
-      final lastId = rows.last['id']?.toString();
+      final lastRow = rows.last as Map<String, dynamic>;
+      final lastId = lastRow['id']?.toString();
+      final lastUpdatedAt = (lastRow['updated_at'] ?? lastRow['created_at'])
+          ?.toString();
       if (lastId != null && lastId.isNotEmpty) {
-        _pullSyncService.requestTable(table, limit: 500, after: lastId);
+        _pullSyncService.requestTable(
+          table,
+          limit: 500,
+          after: lastId,
+          afterUpdatedAt: lastUpdatedAt,
+        );
       }
     }
   }
 
-  void _handleSyncCheckResult(Map<String, dynamic> event) {
+  Future<void> _handleSyncCheckResult(Map<String, dynamic> event) async {
     final serverMerkleRoot = event['merkleRoot'] as String?;
-    final localMerkleRoot = _calculateLocalMerkleRoot();
+    final localMerkleRoot = await _calculateLocalMerkleRoot();
 
     if (serverMerkleRoot != localMerkleRoot) {
       // 数据不一致，需要同步
@@ -204,15 +222,24 @@ class SyncManager {
     }
   }
 
-  String _calculateLocalMerkleRoot() {
-    if (_messages.isEmpty) {
+  /// 本地 Merkle Root：基于 mirror 行（camelCase）计算，与手机端
+  /// 规范化规则一致——每行按 key 排序后 JSON 编码，行哈希排序后
+  /// 构建 Merkle。两端用同一规则，校验结果才一致。
+  Future<String> _calculateLocalMerkleRoot() async {
+    final rows = await _mirrorDao.getRows('messages');
+    if (rows.isEmpty) {
       return sha256.convert(utf8.encode('empty')).toString();
     }
 
-    final hashes = _messages.map((m) {
-      final json = jsonEncode(m);
-      return sha256.convert(utf8.encode(json)).toString();
-    }).toList();
+    final hashes = rows.map((m) {
+      final sorted = <String, dynamic>{};
+      final entries = m.entries.toList()
+        ..sort((a, b) => a.key.compareTo(b.key));
+      for (final e in entries) {
+        sorted[e.key] = e.value;
+      }
+      return sha256.convert(utf8.encode(jsonEncode(sorted))).toString();
+    }).toList()..sort();
 
     return _calculateMerkle(hashes);
   }

@@ -5,8 +5,23 @@ class PullSyncService {
   final WebSocketClient client;
   final PcMirrorDao mirrorDao;
 
+  /// 会话内增量水位：每表最后拉取到的时间戳。
+  /// 首次为 null（全量），之后增量拉取修改的行。
+  final Map<String, String> _watermarks = {};
+
   PullSyncService({required this.client, PcMirrorDao? mirrorDao})
     : mirrorDao = mirrorDao ?? PcMirrorDao();
+
+  /// 当前会话水位（测试/诊断用）。
+  String? watermarkFor(String table) => _watermarks[table];
+
+  /// 记录某表最后一条拉取行的时间戳作为下次增量水位。
+  void recordWatermark(String table, Map<String, dynamic> lastRow) {
+    final ts = (lastRow['updated_at'] ?? lastRow['created_at'])?.toString();
+    if (ts != null && ts.isNotEmpty) {
+      _watermarks[table] = ts;
+    }
+  }
 
   void requestManifest() {
     client.sendRaw({'type': 'manifest.request', 'payload': {}});
@@ -17,6 +32,10 @@ class PullSyncService {
     List<String>? ids,
     int limit = 500,
     String? after,
+
+    /// 修改水位游标：COALESCE(updated_at, created_at) > afterUpdatedAt
+    /// （原地修改的行会被重新拉取）。与 [after] 组合构成精确续拉。
+    String? afterUpdatedAt,
   }) {
     final payload = <String, dynamic>{'table': table, 'limit': limit};
     if (ids != null) {
@@ -24,6 +43,11 @@ class PullSyncService {
     }
     if (after != null) {
       payload['after'] = after;
+    }
+    // 未显式指定水位时使用会话内增量水位（首次为全量）
+    final effectiveWatermark = afterUpdatedAt ?? _watermarks[table];
+    if (effectiveWatermark != null) {
+      payload['afterUpdatedAt'] = effectiveWatermark;
     }
     client.sendRaw({'type': 'pull.request', 'payload': payload});
   }

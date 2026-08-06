@@ -83,12 +83,26 @@ class ApiConfigSender {
   }
 
   /// 读取可下发的 API 配置（公开供测试与诊断使用）。
+  ///
   /// 安全：剥离 api_key 等凭据字段，只保留非敏感配置。
+  /// 协议：输出明确 DTO（camelCase 字段），与 PC 端 ApiConfig.fromJson
+  /// 的容错解析（同时接受 snake_case）对齐，避免 PC 端解析崩溃。
   Future<List<Map<String, dynamic>>> getConfigsForSync() async {
     final db = await (_dbService ?? DatabaseService()).database;
     final rows = await db.query('api_configs');
-    return rows
-        .map((row) => {...row}..removeWhere((key, _) => key == 'api_key'))
-        .toList();
+    return rows.map((row) {
+      return {
+        'id': row['id'],
+        'name': row['name'],
+        'provider': row['provider'],
+        'baseUrl': row['base_url'],
+        'model': row['model'],
+        'maxTokens': row['max_tokens'],
+        'temperature': row['temperature'],
+        'streamEnabled': row['stream_enabled'],
+        'thinkingEnabled': row['thinking_enabled'],
+        'reasoningEffort': row['reasoning_effort'],
+      }..removeWhere((_, v) => v == null);
+    }).toList();
   }
 }

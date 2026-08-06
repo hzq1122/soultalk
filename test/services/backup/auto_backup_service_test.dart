@@ -49,6 +49,32 @@ void main() {
     expect(after, isNot(before));
   });
 
+  test('fingerprint detects in-place edits (updated_at refresh)', () async {
+    final prefs = await SharedPreferences.getInstance();
+    await db.insert('messages', {
+      'id': 'm1',
+      'contact_id': 'c1',
+      'role': 'user',
+      'content': 'original',
+      'type': 'text',
+      'created_at': '2026-01-01T00:00:00.000',
+      'updated_at': '2026-01-01T00:00:00.000',
+    });
+    final before = await service.computeFingerprint(db, prefs);
+
+    // 原地编辑：created_at 不变，仅内容与 updated_at 变化
+    await db.update(
+      'messages',
+      {'content': 'edited', 'updated_at': '2026-01-02T00:00:00.000'},
+      where: 'id = ?',
+      whereArgs: ['m1'],
+    );
+
+    final after = await service.computeFingerprint(db, prefs);
+    // 旧指纹（count + max(created_at)）检测不到该修改，必须变化
+    expect(after, isNot(before));
+  });
+
   test('fingerprint changes when non-sensitive settings change', () async {
     final prefs = await SharedPreferences.getInstance();
     final before = await service.computeFingerprint(db, prefs);
@@ -127,7 +153,8 @@ Future<void> _createTables(Database db) async {
       type TEXT NOT NULL DEFAULT 'text',
       is_streaming INTEGER NOT NULL DEFAULT 0,
       is_failed INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT
+      created_at TEXT,
+      updated_at TEXT
     )
   ''');
   await db.execute('''

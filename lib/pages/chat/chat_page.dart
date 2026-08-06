@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -17,7 +18,9 @@ import '../../providers/api_config_provider.dart';
 import '../../theme/wechat_colors.dart';
 import '../../models/voice_config.dart';
 import '../../widgets/avatar_widget.dart';
+import '../../models/extension_event.dart';
 import '../../services/chat/typing_simulator.dart';
+import '../../services/extensions/extension_event_bus.dart';
 import '../../services/tts/tts_service.dart';
 import '../../services/stt/stt_service.dart';
 import '../../services/file_send/attachment_service.dart';
@@ -42,6 +45,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   AudioPlayer? _currentTtsPlayer;
   String? _currentTtsFilePath;
   String? _recordingPath;
+  StreamSubscription<ExtensionEvent>? _eventSubscription;
   bool _isSending = false;
   bool _isTyping = false;
   bool _isRecording = false;
@@ -50,7 +54,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   bool _ttsEnabled = false;
   String? _lastUserText;
   String? _lastUserMessageId;
-  String? _lastAiMsgId;
 
   /// 最近一次发送是否失败（用于跳过 TTS 等成功动作）。
   bool _lastSendFailed = false;
@@ -58,8 +61,17 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   /// 进行中请求的取消令牌：停止生成按钮 / dispose 时取消。
   CancelToken? _activeCancelToken;
 
+  /// 单调递增的请求序号：旧请求（已停止/已取消）的迟到回调
+  /// 携带的 generationId 与当前活跃请求不一致时直接丢弃，
+  /// 防止“停止 → 立即发送新消息”时旧回复串写进新消息。
+  int _generationCounter = 0;
+
   void _stopGeneration() {
+    // 递增请求序号：所有旧请求（含仍在 simulateDelay 窗口内的）
+    // 的回调与延迟路径立即失效，防止停止后旧请求重新夺权
+    _generationCounter++;
     _activeCancelToken?.cancel();
+    _activeCancelToken = null;
     setState(() {
       _isSending = false;
       _isTyping = false;
@@ -75,6 +87,18 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         _loadMore();
       }
     });
+    // 主动消息/后台生成写入后刷新本页：已打开的聊天页也能看到新消息。
+    // 本页正在流式生成时不刷新（refresh 清空列表会与 chunk 更新竞争）。
+    _eventSubscription = ExtensionEventBus.instance.events.listen((event) {
+      if (event.type != 'proactive_message_sent' &&
+          event.type != 'message_received') {
+        return;
+      }
+      if (event.contactId != widget.contactId) return;
+      if (_isSending) return;
+      final notifier = ref.read(messagesProvider(widget.contactId).notifier);
+      unawaited(notifier.refresh());
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToBottom();
       ref.read(contactsProvider.notifier).clearUnread(widget.contactId);
@@ -84,6 +108,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
   @override
   void dispose() {
+    _eventSubscription?.cancel();
     // 页面销毁时取消进行中的生成请求：回调已由 mounted 保护，
     // 取消后 ChatService 保留已生成内容并标记完成，不写已销毁的 State。
     _activeCancelToken?.cancel();
@@ -129,13 +154,26 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       messagesProvider(widget.contactId).notifier,
     );
 
+    // 请求身份在延迟前分配：停止按钮可在 simulateDelay 窗口内
+    // 递增 _generationCounter，使本请求在延迟结束后直接失效，
+    // 不会重新夺权 _activeCancelToken 造成双请求并发。
+    final token = CancelToken();
+    _activeCancelToken = token;
+    final generationId = ++_generationCounter;
+
     await TypingSimulator.simulateDelay(text);
-    if (!mounted) return;
+    if (!mounted ||
+        !identical(token, _activeCancelToken) ||
+        generationId != _generationCounter) {
+      return;
+    }
 
     // 保持 _isTyping = true，在 API 返回第一个 chunk 时再隐藏
 
-    final token = CancelToken();
-    _activeCancelToken = token;
+    // 本次请求的上下文：onMessagesCreated 中赋值，chunk/error 回调
+    // 捕获自己的 id，不再读取全局 _lastAiMsgId（旧请求回调不会串写）。
+    String? requestUserMsgId;
+    String? requestAiMsgId;
 
     try {
       await ref
@@ -146,19 +184,33 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             existingUserMessageId: existingUserMessageId,
             cancelToken: token,
             onMessagesCreated: (userMsg, aiMsg) {
+              // 旧请求（停止后仍可能到达）不得插入消息
+              if (!identical(token, _activeCancelToken) ||
+                  generationId != _generationCounter) {
+                return;
+              }
+              requestUserMsgId = userMsg.id;
+              requestAiMsgId = aiMsg.id;
+              // 重试入口仍读取全局字段（仅最新一次发送），
+              // 与回调数据隔离，避免竞态。
               _lastUserMessageId = userMsg.id;
-              _lastAiMsgId = aiMsg.id;
               messagesNotifier.addMessage(userMsg);
               messagesNotifier.addMessage(aiMsg);
               _scrollToBottom(animated: true);
             },
             onAiChunk: (content, isDone) {
+              // 旧请求（已停止/已取消）的迟到回调一律忽略：
+              // 既不更新新消息，也不重置发送状态。
+              if (!identical(token, _activeCancelToken) ||
+                  generationId != _generationCounter) {
+                return;
+              }
               if (!_hasReceivedFirstChunk && mounted) {
                 setState(() => _hasReceivedFirstChunk = true);
-                _delayedHideTyping();
+                _delayedHideTyping(token: token, generationId: generationId);
               }
 
-              final aiMsgId = _lastAiMsgId;
+              final aiMsgId = requestAiMsgId;
               if (aiMsgId != null) {
                 messagesNotifier.updateLastMessage(
                   aiMsgId,
@@ -176,10 +228,14 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               }
             },
             onError: (error) {
+              if (!identical(token, _activeCancelToken) ||
+                  generationId != _generationCounter) {
+                return;
+              }
               _lastSendFailed = true;
               if (mounted) {
                 // 失败消息保留并标记 failed（UI 显示失败样式与重试入口）
-                final aiMsgId = _lastAiMsgId;
+                final aiMsgId = requestAiMsgId;
                 if (aiMsgId != null) {
                   messagesNotifier.markFailed(aiMsgId);
                 }
@@ -201,14 +257,14 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         ScaffoldMessenger.of(context).hideCurrentSnackBar();
                         // 移除失败的 assistant 消息后重试：
                         // 复用原用户消息 ID，避免重复插入用户消息。
-                        if (_lastAiMsgId != null) {
-                          messagesNotifier.removeMessage(_lastAiMsgId!);
+                        if (aiMsgId != null) {
+                          messagesNotifier.removeMessage(aiMsgId);
                         }
                         if (_lastUserText != null) {
                           _sendMessage(
                             contact,
                             _lastUserText!,
-                            existingUserMessageId: _lastUserMessageId,
+                            existingUserMessageId: requestUserMsgId,
                           );
                         }
                       },
@@ -221,14 +277,28 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     } finally {
       if (identical(_activeCancelToken, token)) {
         _activeCancelToken = null;
+        // 仅当仍是本请求持有发送状态时才复位：
+        // 避免被停止的旧请求把新请求的 _isSending 提前置 false
+        if (mounted && generationId == _generationCounter) {
+          setState(() => _isSending = false);
+        }
       }
-      if (mounted) setState(() => _isSending = false);
     }
   }
 
-  void _delayedHideTyping() {
+  void _delayedHideTyping({CancelToken? token, int? generationId}) {
     Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) setState(() => _isTyping = false);
+      // 旧请求（已停止/已取消）启动的定时器不得隐藏新请求的输入状态。
+      // 仅在“存在新的活跃请求且身份不匹配”时拦截；
+      // 请求正常完成（_activeCancelToken 已置 null）时允许隐藏。
+      if (!mounted) return;
+      if (token != null &&
+          _activeCancelToken != null &&
+          (!identical(token, _activeCancelToken) ||
+              generationId != _generationCounter)) {
+        return;
+      }
+      setState(() => _isTyping = false);
     });
   }
 
@@ -747,6 +817,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     );
     final token = CancelToken();
     _activeCancelToken = token;
+    final generationId = ++_generationCounter;
 
     try {
       await ref
@@ -756,9 +827,14 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             aiMessageId: message.id,
             cancelToken: token,
             onAiChunk: (content, isDone) {
+              // 旧请求（已停止）的迟到回调不更新状态
+              if (!identical(token, _activeCancelToken) ||
+                  generationId != _generationCounter) {
+                return;
+              }
               if (!_hasReceivedFirstChunk && mounted) {
                 setState(() => _hasReceivedFirstChunk = true);
-                _delayedHideTyping();
+                _delayedHideTyping(token: token, generationId: generationId);
               }
               messagesNotifier.updateLastMessage(
                 message.id,
@@ -772,6 +848,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               }
             },
             onError: (error) {
+              // 旧请求（已停止）的迟到错误回调不标记消息、不复位状态
+              if (!identical(token, _activeCancelToken) ||
+                  generationId != _generationCounter) {
+                return;
+              }
               _lastSendFailed = true;
               if (mounted) {
                 messagesNotifier.markFailed(message.id);
@@ -794,8 +875,12 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     } finally {
       if (identical(_activeCancelToken, token)) {
         _activeCancelToken = null;
+        // 仅当仍是本请求持有发送状态时才复位：
+        // 避免被停止的旧请求把新请求的 _isSending 提前置 false
+        if (mounted && generationId == _generationCounter) {
+          setState(() => _isSending = false);
+        }
       }
-      if (mounted) setState(() => _isSending = false);
     }
   }
 

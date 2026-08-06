@@ -24,7 +24,10 @@ mixin _$ApiConfig {
   String get id => throw _privateConstructorUsedError;
   String get name => throw _privateConstructorUsedError;
   LlmProvider get provider => throw _privateConstructorUsedError;
-  String get baseUrl => throw _privateConstructorUsedError;
+  String get baseUrl =>
+      throw _privateConstructorUsedError; // API Key 不得出现在任何 JSON 序列化输出（日志/备份/调试）：
+  // 序列化统一走 ApiConfigDao（安全存储优先），toJson 永远不含 apiKey
+  @JsonKey(includeToJson: false)
   String get apiKey => throw _privateConstructorUsedError;
   String get model => throw _privateConstructorUsedError;
   int get maxTokens => throw _privateConstructorUsedError;
@@ -55,7 +58,7 @@ abstract class $ApiConfigCopyWith<$Res> {
     String name,
     LlmProvider provider,
     String baseUrl,
-    String apiKey,
+    @JsonKey(includeToJson: false) String apiKey,
     String model,
     int maxTokens,
     double temperature,
@@ -170,7 +173,7 @@ abstract class _$$ApiConfigImplCopyWith<$Res>
     String name,
     LlmProvider provider,
     String baseUrl,
-    String apiKey,
+    @JsonKey(includeToJson: false) String apiKey,
     String model,
     int maxTokens,
     double temperature,
@@ -277,7 +280,7 @@ class _$ApiConfigImpl implements _ApiConfig {
     required this.name,
     this.provider = LlmProvider.openai,
     required this.baseUrl,
-    required this.apiKey,
+    @JsonKey(includeToJson: false) required this.apiKey,
     this.model = 'gpt-4o-mini',
     this.maxTokens = 4096,
     this.temperature = 0.8,
@@ -300,7 +303,10 @@ class _$ApiConfigImpl implements _ApiConfig {
   final LlmProvider provider;
   @override
   final String baseUrl;
+  // API Key 不得出现在任何 JSON 序列化输出（日志/备份/调试）：
+  // 序列化统一走 ApiConfigDao（安全存储优先），toJson 永远不含 apiKey
   @override
+  @JsonKey(includeToJson: false)
   final String apiKey;
   @override
   @JsonKey()
@@ -397,7 +403,7 @@ abstract class _ApiConfig implements ApiConfig {
     required final String name,
     final LlmProvider provider,
     required final String baseUrl,
-    required final String apiKey,
+    @JsonKey(includeToJson: false) required final String apiKey,
     final String model,
     final int maxTokens,
     final double temperature,
@@ -418,8 +424,10 @@ abstract class _ApiConfig implements ApiConfig {
   @override
   LlmProvider get provider;
   @override
-  String get baseUrl;
+  String get baseUrl; // API Key 不得出现在任何 JSON 序列化输出（日志/备份/调试）：
+  // 序列化统一走 ApiConfigDao（安全存储优先），toJson 永远不含 apiKey
   @override
+  @JsonKey(includeToJson: false)
   String get apiKey;
   @override
   String get model;

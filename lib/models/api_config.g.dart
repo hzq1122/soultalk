@@ -35,7 +35,6 @@ Map<String, dynamic> _$$ApiConfigImplToJson(_$ApiConfigImpl instance) =>
       'name': instance.name,
       'provider': _$LlmProviderEnumMap[instance.provider]!,
       'baseUrl': instance.baseUrl,
-      'apiKey': instance.apiKey,
       'model': instance.model,
       'maxTokens': instance.maxTokens,
       'temperature': instance.temperature,

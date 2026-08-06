@@ -37,6 +37,24 @@ class S3Config extends CloudStorageConfig {
   });
 }
 
+/// 云存储 URL 安全校验：非 localhost 的 http:// 直接拒绝
+/// （https 或本机地址允许，便于本地 WebDAV/MinIO 调试）。
+void assertSecureScheme(String url, String service) {
+  final uri = Uri.tryParse(url);
+  if (uri == null || !uri.hasScheme) {
+    throw ArgumentError.value(url, 'url', '$service 地址无效');
+  }
+  final isLocalhost =
+      uri.host == 'localhost' || uri.host == '127.0.0.1' || uri.host == '::1';
+  if (uri.scheme != 'https' && !(uri.scheme == 'http' && isLocalhost)) {
+    throw ArgumentError.value(
+      url,
+      'url',
+      '$service 必须使用 HTTPS（本机调试可使用 http://localhost）',
+    );
+  }
+}
+
 // ─── 抽象接口 ────────────────────────────────────────────────────────────────────
 
 abstract class CloudStorage {
@@ -53,6 +71,8 @@ class WebDavStorage implements CloudStorage {
   late final Dio _dio;
 
   WebDavStorage(this.config) {
+    // 凭据（Basic Auth）明文传输防护：非 localhost 的 http 拒绝。
+    assertSecureScheme(config.url, 'WebDAV');
     final base = config.url.endsWith('/') ? config.url : '${config.url}/';
     _dio = Dio(
       BaseOptions(
@@ -141,7 +161,10 @@ class S3Storage implements CloudStorage {
           connectTimeout: const Duration(seconds: 15),
           receiveTimeout: const Duration(seconds: 120),
         ),
-      );
+      ) {
+    // 凭据（AccessKey/SecretKey 签名）明文传输防护：非 localhost 的 http 拒绝。
+    assertSecureScheme(config.endpoint, 'S3');
+  }
 
   String _host() => Uri.parse(config.endpoint).host;
 

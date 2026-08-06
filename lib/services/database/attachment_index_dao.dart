@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
@@ -133,39 +134,91 @@ class AttachmentIndexDao {
 
   /// 以文件系统为权威源重建附件索引（备份恢复后调用）。
   /// 文件名约定：`{uuid}-{originalName}`，uuid 固定 36 字符。
-  /// 重建会清空旧索引（message_id 关联无法从文件恢复，由消息 metadata 承载）。
+  /// 重建会清空旧索引，并从 messages 表 metadata 恢复 message_id /
+  /// mime_type / relative_path 关联（消息行不随附件索引删除）。
   Future<int> rebuildFromDirectory(Directory root) async {
     final db = await _database;
+    // 收集消息 metadata 中的附件信息：id → (messageId, mime, relativePath)
+    final attachmentRefs =
+        <String, ({String messageId, String? mime, String? relativePath})>{};
+    try {
+      final messageRows = await db.query(
+        'messages',
+        columns: ['id', 'metadata'],
+      );
+      for (final row in messageRows) {
+        final messageId = row['id'] as String?;
+        final metadataJson = row['metadata'] as String?;
+        if (messageId == null || metadataJson == null) continue;
+        final metadata = jsonDecode(metadataJson) as Map<String, dynamic>?;
+        final attachment = metadata?['attachment'];
+        if (attachment is! Map) continue;
+        final id = attachment['id'];
+        if (id is! String || id.isEmpty) continue;
+        attachmentRefs[id] = (
+          messageId: messageId,
+          mime: attachment['mime'] as String?,
+          relativePath: attachment['relative_path'] as String?,
+        );
+      }
+    } catch (_) {
+      // metadata 解析失败不影响重建（message_id/mime 恢复是尽力而为）
+    }
     var count = 0;
     await db.transaction((txn) async {
       await txn.delete('attachment_index');
       if (!await root.exists()) return;
-      await for (final entity in root.list()) {
-        if (entity is! Directory) continue;
-        final chatId = p.basename(entity.path);
-        await for (final file in entity.list()) {
-          if (file is! File) continue;
-          final name = p.basename(file.path);
-          if (name.length <= 37 || name[36] != '-') continue;
-          final id = name.substring(0, 36);
-          final originalName = name.substring(37);
-          final digest = await sha256.bind(file.openRead()).first;
-          final stat = await file.stat();
-          await txn.insert('attachment_index', {
-            'id': id,
-            'chat_id': chatId,
-            'message_id': null,
-            'original_name': originalName,
-            'mime_type': null,
-            'relative_path': 'soultalk/attachments/$chatId/$name',
-            'sha256': digest.toString(),
-            'size': stat.size,
-            'created_at': stat.modified.millisecondsSinceEpoch,
-          }, conflictAlgorithm: ConflictAlgorithm.replace);
-          count++;
-        }
+      // 递归扫描：目录结构 {root}/{chatId}/[.../{uuid}-{name}]，
+      // chatId 为相对 root 的第一层目录名
+      await for (final entity in root.list(recursive: true)) {
+        if (entity is! File) continue;
+        final rel = p
+            .relative(entity.path, from: root.path)
+            .split(p.separator)
+            .join('/');
+        final segments = rel.split('/');
+        if (segments.length < 2) continue;
+        final chatId = segments.first;
+        final name = segments.last;
+        if (name.length <= 37 || name[36] != '-') continue;
+        final id = name.substring(0, 36);
+        final originalName = name.substring(37);
+        final digest = await sha256.bind(entity.openRead()).first;
+        final stat = await entity.stat();
+        final ref = attachmentRefs[id];
+        final relativePath = 'soultalk/attachments/$rel';
+        await txn.insert('attachment_index', {
+          'id': id,
+          'chat_id': chatId,
+          'message_id': ref?.messageId,
+          'original_name': originalName,
+          // mime 优先取消息 metadata；其次按扩展名推断
+          'mime_type': ref?.mime ?? _inferMimeType(originalName),
+          'relative_path': relativePath,
+          'sha256': digest.toString(),
+          'size': stat.size,
+          'created_at': stat.modified.millisecondsSinceEpoch,
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
+        count++;
       }
     });
     return count;
+  }
+
+  static String? _inferMimeType(String name) {
+    return switch (p.extension(name).toLowerCase()) {
+      '.jpg' || '.jpeg' => 'image/jpeg',
+      '.png' => 'image/png',
+      '.gif' => 'image/gif',
+      '.webp' => 'image/webp',
+      '.pdf' => 'application/pdf',
+      '.txt' || '.md' || '.log' => 'text/plain',
+      '.json' => 'application/json',
+      '.zip' => 'application/zip',
+      '.mp3' => 'audio/mpeg',
+      '.wav' => 'audio/wav',
+      '.mp4' => 'video/mp4',
+      _ => null,
+    };
   }
 }

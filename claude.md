@@ -28,12 +28,14 @@ SoulTalk 是 AI 微信风格社交应用，已有聊天、通讯录、发现/朋
 
 ### SQLite 迁移与 DAO
 
-当前数据库版本：11。
+当前数据库版本：15（v14：messages/moments 增加 updated_at 修改追踪；v15：messages.created_at 强制 NOT NULL，重建表回填）。
 
 迁移文件：
 - lib/services/database/migrations/migration_v7.dart：file_index、st_character_index、st_chat_index、st_world_index、st_preset_index
 - lib/services/database/migrations/migration_v8.dart：attachment_index
 - lib/services/database/migrations/migration_v9.dart：scheduler_jobs、scheduler_run_log
+- lib/services/database/migrations/migration_v14.dart：messages/moments updated_at
+- lib/services/database/migrations/migration_v15.dart：messages.created_at NOT NULL 表重建
 
 新增 DAO：
 - lib/services/database/file_index_dao.dart
@@ -132,17 +134,30 @@ SoulTalk 是 AI 微信风格社交应用，已有聊天、通讯录、发现/朋
 
 ## 5. 下一步计划
 
-P0：补齐文件权威源闭环。搜索 file_picker、metadata、MessageType.file、open_filex、send file、attachment，找到现有文件发送入口，接入 AttachmentService.importFile，并将附件 metadata 写入 message metadata 或 ST JSONL extra.soultalk_attachments，保持旧 UI 不变。
+P0：补齐文件权威源闭环。搜索 file_picker、metadata、MessageType.file、open_filex、send file、attachment，找到现有文件发送入口，接入 AttachmentService.importFile，并将附件 metadata 写入 message metadata 或 ST JSONL extra.soultalk_attachments，保持旧 UI 不变。（注：chat_page._sendAttachmentMessage 已接入，剩余为 UI/流程收尾。）
 
-P1：备份恢复补强。备份 manifest 增加 st_compat 和 attachments 文件 hash、size、mtime；恢复时校验 hash；恢复完成后调用 CompatStorageBootstrapService.initializeAndRebuildIndex；恢复前创建本地恢复点。
+P1：备份恢复补强。备份 manifest 增加 st_compat 和 attachments 文件 hash、size、mtime；恢复时校验 hash；恢复完成后调用 CompatStorageBootstrapService.initializeAndRebuildIndex；恢复前创建本地恢复点。（注：2026-08 已加固：解压前 central directory 预算检查、manifest 双向白名单、symlink 祖先防护、旧备份 created_at 回填。剩余：manifest mtime 校验受 zip 精度限制未做。）
 
-P2：统一 Scheduler 服务层。实现 UnifiedScheduler、SchedulerTaskHandler、SchedulerPolicy、SchedulerRunLogDao，并先把 AutoBackup 接入 scheduler_jobs。
+P2：统一 Scheduler 服务层。实现 UnifiedScheduler、SchedulerTaskHandler、SchedulerPolicy、SchedulerRunLogDao，并先把 AutoBackup 接入 scheduler_jobs。（已完成；Proactive/FriendCircle 规则已落库，P4 mDNS 等未做。）
 
 P3：Proactive/FriendCircle 迁移到 Scheduler（已完成）。新增 proactive_rules、proactive_events、friend_circle_rules 表（migration_v10），api_configs 思考字段/memory_entries 唯一索引/pc_deletions（migration_v11，数据库版本 11）；ProactiveService._check 以规则表为准（无规则时以旧字段创建），发送成功/失败记录事件；MomentsService 发布后记录 last_posted_at；ProactiveCheckTaskHandler/MomentsCycleTaskHandler 已注册到 UnifiedScheduler；保留旧 contacts 字段兼容。
 
-P4：LanSync v1。已完成：手动 IP + WebSocket -> device id/key -> 配对授权（扫码自动登记 + deviceKey 校验 + 撤销 UI + 认证门禁）-> manifest exchange -> 单向 pull -> 双向 push 闭环（PushApplier 校验后写库 + 冲突解决测试）。未实现：mDNS/UDP 自动发现。
+P4：LanSync v1。已完成：手动 IP + WebSocket -> device id/key -> 配对授权（扫码自动登记 + deviceKey 校验 + 撤销 UI + 认证门禁）-> manifest exchange -> 单向 pull -> 双向 push 闭环（PushApplier 校验后写库 + 冲突解决测试）。2026-08 增强：updated_at 水位增量导出（messages/moments 原地修改可同步）、Merkle 两端 camelCase 规范化、API 配置 camelCase DTO 容错解析（PC 端不崩）、PC 配对/手动连接只接受内网 ws:// 地址。未实现：mDNS/UDP 自动发现、deviceKey 挑战响应（当前 deviceKey 首次配对时明文传输）、WSS（无证书基础设施）。
 
 P5：ExtensionBridge L2/L3。顺序：manifest parser -> event bus -> context provider -> flutter_js adapter -> SillyTavern.getContext -> WebView 沙箱。
+
+## 5.1 2026-08 大修清单（AGENTS.md 与 claude.md 同步）
+
+1. ST post_history_instructions 真实发送：LlmService.toApiMessages 保留 system 角色；Anthropic adapter 提取 system 并入顶层 system；两 adapter 支持注入 Dio；新增 payload 测试 6 个。
+2. 聊天发送状态机：generationId + token 双重身份检查（含 simulateDelay 窗口、onMessagesCreated、finally 复位），删除全局 _lastAiMsgId；事件总线订阅让主动消息实时刷新已打开聊天页（_isSending 时跳过）。
+3. 自动备份指纹：messages/moments updated_at 修改追踪（v14），原地编辑（消息编辑/失败状态/metadata/点赞/评论）触发备份。
+4. LanSync：updated_at 水位 + 复合游标增量导出；Merkle 两端 camelCase + key 排序规范化；PC 会话内增量水位；PC 端仅接受内网 ws:// 配对/连接。
+5. API 配置协议：手机发 camelCase DTO（不含 apiKey）；PC tryFromJson 容错（snake_case 兼容、int 布尔、畸形跳过）；PC copyWith nullable 哨兵清空。
+6. 备份恢复加固：_precheckZipTotalSize（decode 前预算）、manifest 双向白名单（未声明文件拒绝）、symlink/junction 祖先防护、旧备份 created_at 回填。
+7. 编辑消息清理附件：deleteMessagesAfter 快照收集后清理 attachment_index + 磁盘文件；ChatService 可注入。
+8. CI 签名：正式 tag 无 Secrets 直接失败；storeFile 按 android/ 根解析；build-android 限定 v* tag。
+9. 中优先级：v15 created_at NOT NULL（重建表）；rebuildFromDirectory 从消息 metadata 恢复 message_id/mime_type（递归扫描）；ApiConfig toJson 不含 apiKey；WebDAV/S3 强制 HTTPS（localhost 例外）；push_applier 对旧版 PC 缺 created_at 补默认。
+10. 已知残余：Merkle checkSync 无调用者（死代码，启用前需统一 limit/since 语义）；deviceKey 首次配对明文传输；PC 水位会话内有效（重启全量）；备份加密路径在预检前全量读内存。
 
 ## 6. 重要注意事项
 

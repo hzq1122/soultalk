@@ -407,12 +407,18 @@ class BackupService {
         }
       }
 
-      final archive = ZipDecoder().decodeBytes(bytes);
-      // 解压大小上限：防止恶意 zip bomb 耗尽磁盘（解压后、写盘前检查）
-      final totalSize = archive.files.fold<int>(0, (sum, f) => sum + f.size);
+      // 解压前预检：直接解析 ZIP central directory 统计解压总大小，
+      // 超限立即拒绝。archive 4.x 的 decodeBytes 会把全部内容读入内存，
+      // 若在解压后才检查，恶意 zip bomb 会先耗尽内存。
+      final totalSize = _precheckZipTotalSize(bytes);
+      if (totalSize == null) {
+        return const BackupRestoreReport(success: false, error: '不是有效的 ZIP 文件');
+      }
       if (totalSize > _maxRestoreBytes) {
         return const BackupRestoreReport(success: false, error: '备份文件过大，拒绝恢复');
       }
+
+      final archive = ZipDecoder().decodeBytes(bytes);
       final manifest = _readManifest(archive);
       if (manifest == null || manifest['app'] != 'soultalk') {
         return const BackupRestoreReport(
@@ -420,7 +426,9 @@ class BackupService {
           error: '不是有效的 SoulTalk 备份',
         );
       }
-      _validateManifestFiles(archive, manifest);
+      // manifest 白名单：返回所有已声明文件路径；st_compat/attachments
+      // 恢复只处理白名单内的文件，ZIP 中多余文件拒绝恢复（防注入）。
+      final manifestFiles = _validateManifestFiles(archive, manifest);
       details.add('Manifest ${manifest['version'] ?? 'unknown'} 校验通过');
       await _createRestorePoint();
       details.add('已创建本地恢复点');
@@ -682,11 +690,17 @@ class BackupService {
       }
 
       // ── 文件恢复（st_compat / attachments）──
+      // 仅恢复 manifest 白名单内声明的文件；ZIP 中多出的文件拒绝恢复。
       if (sections.contains(BackupSection.compatFiles)) {
         final paths = await _createAppPaths();
         addFiles(
           BackupSection.compatFiles,
-          await _restoreArchiveDirectory(archive, 'st_compat', paths.stCompat),
+          await _restoreArchiveDirectory(
+            archive,
+            'st_compat',
+            paths.stCompat,
+            manifestFiles,
+          ),
         );
       }
       if (sections.contains(BackupSection.attachments)) {
@@ -697,6 +711,7 @@ class BackupService {
             archive,
             'soultalk/attachments',
             paths.attachments,
+            manifestFiles,
           ),
         );
       }
@@ -794,10 +809,14 @@ class BackupService {
   /// 2. 落位：逐个把目标旧文件移入 backup 目录、staging 文件 rename 到目标；
   /// 3. 全部成功 → 删除 backup/staging；任一步失败 → 把 backup 中旧文件
   ///    rename 回目标，删除残留 staging/backup，抛异常（目标保持原样）。
+  ///
+  /// [manifestFiles] 为 manifest 白名单：ZIP 中该目录下未声明的文件
+  /// 拒绝恢复（防注入）。
   Future<int> _restoreArchiveDirectory(
     Archive archive,
     String archiveRoot,
     Directory targetRoot,
+    Set<String> manifestFiles,
   ) async {
     final staging = Directory('${targetRoot.path}.staging');
     final backup = Directory('${targetRoot.path}.backup');
@@ -815,6 +834,12 @@ class BackupService {
         if (!file.isFile || !file.name.startsWith('$archiveRoot/')) continue;
         final relative = file.name.substring(archiveRoot.length + 1);
         _validateRelativeArchivePath(relative);
+        // 白名单：ZIP 中 domain 目录下的文件必须在 manifest 中声明，
+        // 否则可能是注入的额外文件（manifest 校验只保证声明文件存在，
+        // 不保证 ZIP 中没有多余文件）。
+        if (!manifestFiles.contains(file.name)) {
+          throw FormatException('Undeclared archive file: ${file.name}');
+        }
         final stagingFile = File(
           p.joinAll([staging.path, ...relative.split('/')]),
         );
@@ -908,6 +933,11 @@ class BackupService {
       // 实现 SQL 注入。仅保留合法列名（小写字母/数字/下划线，
       // 不以 sqlite_ 开头），其余丢弃。
       data.removeWhere((key, _) => !_isSafeColumnName(key));
+      // 兼容：v15 起 messages.created_at NOT NULL，旧备份可能为 NULL；
+      // 统一回填纪元时间戳，避免恢复整包失败。
+      if (data['created_at'] == null && data.containsKey('created_at')) {
+        data['created_at'] = '1970-01-01T00:00:00.000';
+      }
       if (preserveColumns != null && preserveColumns.isNotEmpty) {
         final id = data['id'];
         final existing = id == null
@@ -949,9 +979,16 @@ class BackupService {
     return jsonDecode(_contentString(manifestFile)) as Map<String, dynamic>;
   }
 
-  void _validateManifestFiles(Archive archive, Map<String, dynamic> manifest) {
+  /// 校验 manifest 声明的文件（存在、size、sha256），并返回所有已声明
+  /// 路径集合。调用方用它做恢复白名单：ZIP 中 domain 目录下的文件若
+  /// 未在 manifest 中声明，一律拒绝恢复（防注入）。
+  Set<String> _validateManifestFiles(
+    Archive archive,
+    Map<String, dynamic> manifest,
+  ) {
     final files = manifest['files'];
     if (files is! List) throw const FormatException('Invalid manifest files');
+    final declared = <String>{};
     for (final entry in files) {
       if (entry is! Map) throw const FormatException('Invalid manifest entry');
       final archivePath = entry['archive_path'];
@@ -974,7 +1011,9 @@ class BackupService {
       if (sha256.convert(bytes).toString() != expectedSha) {
         throw FormatException('Hash mismatch: $archivePath');
       }
+      declared.add(archivePath);
     }
+    return declared;
   }
 
   Future<void> _createRestorePoint() async {
@@ -1058,12 +1097,77 @@ class BackupService {
     if (targetPath != rootPath && !p.isWithin(rootPath, targetPath)) {
       throw FormatException('Invalid restore target: $relative');
     }
+    // 纵深防御：目标路径的任一祖先目录不得是 symlink/junction
+    // （字符串路径检查无法发现目录链接，恶意备份可借此把文件写到
+    // 应用目录之外）。rename 替换的是链接本身而非链接目标，因此
+    // 只检查祖先，不检查目标文件本身。
+    var current = p.dirname(targetPath);
+    while (current != rootPath && p.isWithin(rootPath, current)) {
+      final type = FileSystemEntity.typeSync(current, followLinks: false);
+      if (type == FileSystemEntityType.link) {
+        throw FormatException('Symlink in restore path: $current');
+      }
+      final parent = p.dirname(current);
+      if (parent == current) break;
+      current = parent;
+    }
     return target;
   }
 
   List<int> _contentBytes(ArchiveFile file) => file.content as List<int>;
 
   String _contentString(ArchiveFile file) => utf8.decode(_contentBytes(file));
+
+  /// 解压前预检：直接解析 ZIP central directory 统计未压缩总大小。
+  ///
+  /// archive 4.x 的 decodeBytes 会把 zip 全部内容读入内存后才可检查
+  /// 总大小，恶意 zip bomb 会在检查前耗尽内存；这里在 decode 之前
+  /// 用最小开销遍历 EOCD + central directory，超限立即拒绝。
+  /// 返回 null 表示不是有效 ZIP（或 zip64 大文件，超出预算直接拒绝）。
+  int? _precheckZipTotalSize(List<int> bytes) {
+    final length = bytes.length;
+    if (length < 22) return null;
+    final searchStart = (length - 22 - 65535) < 0 ? 0 : (length - 22 - 65535);
+    for (var i = length - 22; i >= searchStart; i--) {
+      if (bytes[i] != 0x50 ||
+          bytes[i + 1] != 0x4B ||
+          bytes[i + 2] != 0x05 ||
+          bytes[i + 3] != 0x06) {
+        continue;
+      }
+      final cdSize = _readU32(bytes, i + 12);
+      final cdOffset = _readU32(bytes, i + 16);
+      if (cdSize == 0xFFFFFFFF || cdOffset == 0xFFFFFFFF) return null;
+      final end = cdOffset + cdSize;
+      if (end > length) return null;
+      var pos = cdOffset;
+      var total = 0;
+      while (pos + 46 <= end) {
+        // 中央目录条目签名 PK\x01\x02
+        if (bytes[pos] != 0x50 ||
+            bytes[pos + 1] != 0x4B ||
+            bytes[pos + 2] != 0x01 ||
+            bytes[pos + 3] != 0x02) {
+          return null;
+        }
+        final uncompressed = _readU32(bytes, pos + 24);
+        if (uncompressed == 0xFFFFFFFF) return null; // zip64
+        total += uncompressed;
+        if (total > _maxRestoreBytes) return total;
+        final nameLen = _readU16(bytes, pos + 28);
+        final extraLen = _readU16(bytes, pos + 30);
+        final commentLen = _readU16(bytes, pos + 32);
+        pos += 46 + nameLen + extraLen + commentLen;
+      }
+      return total;
+    }
+    return null;
+  }
+
+  static int _readU32(List<int> b, int o) =>
+      b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24);
+
+  static int _readU16(List<int> b, int o) => b[o] | (b[o + 1] << 8);
 
   /// 读取 SharedPreferences 中某个 key 的旧值（按类型尝试）。
   Object? _readPrefValue(SharedPreferences prefs, String key) {

@@ -34,26 +34,38 @@ class PCConnectionState {
     this.isPairingServerRunning = false,
   });
 
+  /// 需要显式清空的 nullable 字段哨兵（copyWith 无法用 null 区分
+  /// “未提供”与“清空”，见 [PCConnectionState.copyWith]）。
+  static const Object _unset = Object();
+
   PCConnectionState copyWith({
     WsConnectionState? connectionState,
-    String? deviceId,
-    String? serverUrl,
+    Object? deviceId = _unset,
+    Object? serverUrl = _unset,
     List<Map<String, dynamic>>? messages,
     ApiConfigMode? apiMode,
-    ApiConfig? activeApiConfig,
-    String? error,
-    String? pairingQrData,
+    Object? activeApiConfig = _unset,
+    Object? error = _unset,
+    Object? pairingQrData = _unset,
     bool? isPairingServerRunning,
   }) {
     return PCConnectionState(
       connectionState: connectionState ?? this.connectionState,
-      deviceId: deviceId ?? this.deviceId,
-      serverUrl: serverUrl ?? this.serverUrl,
+      deviceId: identical(deviceId, _unset)
+          ? this.deviceId
+          : deviceId as String?,
+      serverUrl: identical(serverUrl, _unset)
+          ? this.serverUrl
+          : serverUrl as String?,
       messages: messages ?? this.messages,
       apiMode: apiMode ?? this.apiMode,
-      activeApiConfig: activeApiConfig ?? this.activeApiConfig,
-      error: error,
-      pairingQrData: pairingQrData ?? this.pairingQrData,
+      activeApiConfig: identical(activeApiConfig, _unset)
+          ? this.activeApiConfig
+          : activeApiConfig as ApiConfig?,
+      error: identical(error, _unset) ? this.error : error as String?,
+      pairingQrData: identical(pairingQrData, _unset)
+          ? this.pairingQrData
+          : pairingQrData as String?,
       isPairingServerRunning:
           isPairingServerRunning ?? this.isPairingServerRunning,
     );
@@ -167,9 +179,9 @@ class PCConnectionNotifier extends StateNotifier<PCConnectionState> {
       final json = jsonDecode(body) as Map<String, dynamic>;
       final wsUri = json['ws_uri'] as String?;
 
-      if (wsUri == null || !wsUri.startsWith('ws://')) {
+      if (wsUri == null || !_isTrustedLanUri(wsUri)) {
         request.response.statusCode = 400;
-        request.response.write('Invalid ws_uri');
+        request.response.write('Invalid or untrusted ws_uri');
         await request.response.close();
         return;
       }
@@ -203,6 +215,14 @@ class PCConnectionNotifier extends StateNotifier<PCConnectionState> {
 
   /// 连接到手机
   Future<void> connect(String url) async {
+    // 统一入口白名单：扫码与手动输入都只允许内网设备地址
+    if (!_isTrustedLanUri(url)) {
+      state = state.copyWith(
+        error: '仅允许连接内网设备地址（ws:// + 局域网 IP）',
+        serverUrl: null,
+      );
+      return;
+    }
     state = state.copyWith(serverUrl: url, error: null);
     await _client.connect(url);
 
@@ -281,9 +301,14 @@ class PCConnectionNotifier extends StateNotifier<PCConnectionState> {
       case 'api_config':
         final configs = event['configs'] as List<dynamic>?;
         if (configs != null) {
-          final apiConfigs = configs
-              .map((c) => ApiConfig.fromJson(c as Map<String, dynamic>))
-              .toList();
+          // 容错解析：跳过无法解析的条目（旧协议 snake_case / 缺字段），
+          // 不再因单条异常丢失整个配置列表。
+          final apiConfigs = <ApiConfig>[];
+          for (final c in configs) {
+            if (c is! Map) continue;
+            final parsed = ApiConfig.tryFromJson(c.cast<String, dynamic>());
+            if (parsed != null) apiConfigs.add(parsed);
+          }
           _configManager.receiveRemoteConfigs(apiConfigs);
           if (state.apiMode == ApiConfigMode.followPhone) {
             state = state.copyWith(
@@ -307,6 +332,37 @@ class PCConnectionNotifier extends StateNotifier<PCConnectionState> {
         state = state.copyWith(error: event['message'] as String?);
         break;
     }
+  }
+
+  /// 配对 URI 白名单：只接受 ws:// 指向内网/本机地址的连接。
+  /// 防诱导：恶意网页/应用可让 PC 扫码后连接公网 ws:// 服务器窃取流量，
+  /// 因此非内网主机一律拒绝（https/wss 走独立通道，另行支持）。
+  bool _isTrustedLanUri(String uri) {
+    if (!uri.startsWith('ws://')) return false;
+    final parsed = Uri.tryParse(uri);
+    if (parsed == null || parsed.host.isEmpty) return false;
+    final host = parsed.host.toLowerCase();
+    if (host == 'localhost' || host == '127.0.0.1' || host == '::1') {
+      return true;
+    }
+    if (host.contains(':')) {
+      // IPv6：仅 link-local（fe80::/10）与 unique local（fc00::/7）
+      return host.startsWith('fe80:') ||
+          host.startsWith('fc') ||
+          host.startsWith('fd');
+    }
+    final parts = host.split('.');
+    if (parts.length != 4) return false;
+    final nums = parts.map(int.tryParse).toList();
+    if (nums.any((n) => n == null || n < 0 || n > 255)) return false;
+    final a = nums[0]!;
+    final b = nums[1]!;
+    // 10.0.0.0/8、172.16.0.0/12、192.168.0.0/16、169.254.0.0/16 (link-local)
+    if (a == 10) return true;
+    if (a == 172 && b >= 16 && b <= 31) return true;
+    if (a == 192 && b == 168) return true;
+    if (a == 169 && b == 254) return true;
+    return false;
   }
 
   static String _generatePairingCode() {

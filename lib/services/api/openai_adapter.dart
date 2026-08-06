@@ -5,12 +5,19 @@ import '../../models/message.dart';
 import 'llm_service.dart';
 
 class OpenAiAdapterImpl implements LlmService {
-  static final _dio = Dio(
-    BaseOptions(
-      connectTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(seconds: 120),
-    ),
-  );
+  /// 可注入的 Dio（测试时替换 HttpClientAdapter 捕获请求体）；
+  /// 流式请求使用独立实例以避免干扰非流式连接池。
+  final Dio _dio;
+
+  OpenAiAdapterImpl({Dio? dio})
+    : _dio =
+          dio ??
+          Dio(
+            BaseOptions(
+              connectTimeout: const Duration(seconds: 30),
+              receiveTimeout: const Duration(seconds: 120),
+            ),
+          );
 
   List<Map<String, String>> _buildMessages(
     List<Message> messages,

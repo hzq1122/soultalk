@@ -563,6 +563,11 @@ ${msg.content}
           createdAt: createdAt,
         ),
       );
+      ExtensionEventBus.instance.publishType(
+        'proactive_message_sent',
+        contactId: contact.id,
+        payload: {'content': reply.trim()},
+      );
 
       await _contactDao.updateLastMessage(contact.id, reply.trim(), createdAt);
       await _contactDao.incrementUnread(contact.id);

@@ -43,12 +43,20 @@ class PushApplier {
     }
 
     final table = proposal['table'] as String;
-    final row = proposal['row'] as Map<String, dynamic>;
+    var row = proposal['row'] as Map<String, dynamic>;
     final rowId = row['id'];
 
     // id 必须为非空字符串：数字/null id 会绕过 TEXT 主键查重
     if (rowId is! String || rowId.isEmpty) {
       return {'accepted': true, 'applied': false, 'reason': 'invalid_id'};
+    }
+
+    // 兼容：v15 起 messages.created_at NOT NULL，旧版 PC 推送可能不带
+    // created_at，补默认值避免整条写入失败
+    if (table == 'messages' &&
+        (row['created_at'] == null ||
+            (row['created_at'] as String?)!.isEmpty)) {
+      row = {...row, 'created_at': DateTime.now().toIso8601String()};
     }
 
     try {

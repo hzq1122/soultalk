@@ -25,6 +25,12 @@ class MessageDao {
     'created_at': msg.createdAt?.toIso8601String(),
   };
 
+  /// 所有原地更新（内容/类型/失败状态/metadata）必须携带新的
+  /// updated_at：自动备份指纹与 LanSync 增量水位依赖它检测修改。
+  static Map<String, dynamic> _touch() => {
+    'updated_at': DateTime.now().toIso8601String(),
+  };
+
   Message _fromMap(Map<String, dynamic> map) => Message(
     id: map['id'] as String,
     contactId: map['contact_id'] as String,
@@ -140,7 +146,10 @@ class MessageDao {
       id: message.id.isEmpty ? _uuid.v4() : message.id,
       createdAt: message.createdAt ?? DateTime.now(),
     );
-    await db.insert('messages', _toMap(newMsg));
+    await db.insert('messages', {
+      ..._toMap(newMsg),
+      'updated_at': newMsg.createdAt!.toIso8601String(),
+    });
     return newMsg;
   }
 
@@ -158,6 +167,7 @@ class MessageDao {
         'content': content,
         'is_streaming': isStreaming ? 1 : 0,
         'token_count': tokenCount,
+        ..._touch(),
       },
       where: 'id = ?',
       whereArgs: [id],
@@ -168,7 +178,7 @@ class MessageDao {
     final db = await _database;
     await db.update(
       'messages',
-      {'type': type},
+      {'type': type, ..._touch()},
       where: 'id = ?',
       whereArgs: [id],
     );
@@ -179,7 +189,7 @@ class MessageDao {
     final db = await _database;
     await db.update(
       'messages',
-      {'is_failed': failed ? 1 : 0, 'is_streaming': 0},
+      {'is_failed': failed ? 1 : 0, 'is_streaming': 0, ..._touch()},
       where: 'id = ?',
       whereArgs: [id],
     );
@@ -193,7 +203,7 @@ class MessageDao {
     final db = await _database;
     await db.update(
       'messages',
-      {'type': type, 'content': content},
+      {'type': type, 'content': content, ..._touch()},
       where: 'id = ?',
       whereArgs: [id],
     );
@@ -203,7 +213,7 @@ class MessageDao {
     final db = await _database;
     await db.update(
       'messages',
-      {'metadata': metadataJson},
+      {'metadata': metadataJson, ..._touch()},
       where: 'id = ?',
       whereArgs: [id],
     );

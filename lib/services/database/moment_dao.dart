@@ -22,6 +22,12 @@ class MomentDao {
     'created_at': moment.createdAt?.toIso8601String(),
   };
 
+  /// 原地修改（内容/点赞/评论）必须刷新 updated_at，
+  /// 供自动备份指纹与 LanSync 增量水位检测。
+  static Map<String, dynamic> _touch() => {
+    'updated_at': DateTime.now().toIso8601String(),
+  };
+
   Moment _fromMap(Map<String, dynamic> map) => Moment(
     id: map['id'] as String,
     contactId: map['contact_id'] as String,
@@ -84,7 +90,10 @@ class MomentDao {
       comments: moment.comments,
       createdAt: moment.createdAt ?? DateTime.now(),
     );
-    await db.insert('moments', _toMap(newMoment));
+    await db.insert('moments', {
+      ..._toMap(newMoment),
+      'updated_at': newMoment.createdAt!.toIso8601String(),
+    });
     return newMoment;
   }
 
@@ -92,7 +101,7 @@ class MomentDao {
     final db = await _database;
     await db.update(
       'moments',
-      _toMap(moment),
+      {..._toMap(moment), ..._touch()},
       where: 'id = ?',
       whereArgs: [moment.id],
     );
@@ -112,7 +121,7 @@ class MomentDao {
       final newLikes = [...moment.likes, userId];
       await txn.update(
         'moments',
-        {'likes': jsonEncode(newLikes)},
+        {'likes': jsonEncode(newLikes), ..._touch()},
         where: 'id = ?',
         whereArgs: [momentId],
       );
@@ -132,7 +141,7 @@ class MomentDao {
       final newLikes = moment.likes.where((l) => l != userId).toList();
       await txn.update(
         'moments',
-        {'likes': jsonEncode(newLikes)},
+        {'likes': jsonEncode(newLikes), ..._touch()},
         where: 'id = ?',
         whereArgs: [momentId],
       );
@@ -152,7 +161,10 @@ class MomentDao {
       final newComments = [...moment.comments, comment];
       await txn.update(
         'moments',
-        {'comments': jsonEncode(newComments.map((c) => c.toJson()).toList())},
+        {
+          'comments': jsonEncode(newComments.map((c) => c.toJson()).toList()),
+          ..._touch(),
+        },
         where: 'id = ?',
         whereArgs: [momentId],
       );

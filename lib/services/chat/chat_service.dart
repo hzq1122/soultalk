@@ -31,6 +31,8 @@ import '../../models/api_config.dart';
 import '../../models/regex_script.dart';
 
 class ChatService {
+  final DatabaseService _dbService;
+  final Future<AppPaths> Function() _createAppPaths;
   late final ContactDao _contactDao;
   late final MessageDao _messageDao;
   late final ApiConfigDao _apiConfigDao;
@@ -47,8 +49,13 @@ class ChatService {
   final _regexService = const RegexService();
   final _promptAssemblyService = PromptAssemblyService();
 
-  ChatService() {
-    final db = DatabaseService();
+  /// [dbService]/[createAppPaths] 供测试注入；默认使用全局单例。
+  ChatService({
+    DatabaseService? dbService,
+    Future<AppPaths> Function()? createAppPaths,
+  }) : _dbService = dbService ?? DatabaseService(),
+       _createAppPaths = createAppPaths ?? AppPaths.create {
+    final db = _dbService;
     _contactDao = ContactDao(db);
     _messageDao = MessageDao(db);
     _apiConfigDao = ApiConfigDao(db);
@@ -71,7 +78,7 @@ class ChatService {
   Future<void> deleteContact(String id) async {
     // 先清理附件（索引 + 文件），再删消息与联系人
     await _cleanupAttachmentsByChat(id);
-    final db = await DatabaseService().database;
+    final db = await _dbService.database;
     await db.transaction((txn) async {
       // 删除同步 tombstone：记录被删除的消息，供 LanSync 同步到 PC
       await _recordDeletionTombstones(
@@ -122,7 +129,7 @@ class ChatService {
 
   Future<void> deleteMessage(String messageId) async {
     await _cleanupAttachmentsByMessage(messageId);
-    final db = await DatabaseService().database;
+    final db = await _dbService.database;
     String? contactId;
     await db.transaction((txn) async {
       final rows = await txn.query(
@@ -150,7 +157,7 @@ class ChatService {
 
   Future<void> deleteMessages(String contactId) async {
     await _cleanupAttachmentsByChat(contactId);
-    final db = await DatabaseService().database;
+    final db = await _dbService.database;
     await db.transaction((txn) async {
       await _recordDeletionTombstones(
         txn,
@@ -218,7 +225,7 @@ class ChatService {
         ids.add(attachment['id'] as String);
       }
       if (ids.isEmpty && message.content.startsWith('soultalk/attachments/')) {
-        final dao = AttachmentIndexDao(DatabaseService());
+        final dao = AttachmentIndexDao(_dbService);
         final record = await dao.getByRelativePath(message.content);
         if (record != null) ids.add(record.id);
       }
@@ -237,7 +244,7 @@ class ChatService {
 
   Future<void> _cleanupAttachmentsByChat(String chatId) async {
     try {
-      final dao = AttachmentIndexDao(DatabaseService());
+      final dao = AttachmentIndexDao(_dbService);
       final records = await dao.getByChatId(chatId);
       await _deleteAttachmentRecords(records);
     } catch (error, stackTrace) {
@@ -251,7 +258,7 @@ class ChatService {
   }
 
   Future<void> _cleanupAttachmentsByIds(Set<String> ids) async {
-    final dao = AttachmentIndexDao(DatabaseService());
+    final dao = AttachmentIndexDao(_dbService);
     final records = <AttachmentIndexRecord>[];
     for (final id in ids) {
       final record = await dao.getById(id);
@@ -264,8 +271,8 @@ class ChatService {
     List<AttachmentIndexRecord> records,
   ) async {
     if (records.isEmpty) return;
-    final dao = AttachmentIndexDao(DatabaseService());
-    final paths = await AppPaths.create();
+    final dao = AttachmentIndexDao(_dbService);
+    final paths = await _createAppPaths();
     final rootPath = p.normalize(p.absolute(paths.root.path));
     for (final record in records) {
       try {
@@ -298,11 +305,32 @@ class ChatService {
       _messageDao.updateContent(messageId, content, isStreaming: false);
 
   /// 删除某条消息之后（created_at 更晚）的全部消息，用于「编辑后重发」。
+  /// 同步清理这些消息关联的附件（attachment_index + 磁盘文件），
+  /// 避免长期形成孤儿文件并让备份膨胀。
   Future<void> deleteMessagesAfter(String contactId, String messageId) async {
     final msg = await _messageDao.getById(messageId);
     if (msg == null || msg.createdAt == null) return;
-    final db = await DatabaseService().database;
+    final db = await _dbService.database;
+    // 事务内先收集将删除消息的快照（消息删除后无法再按 id 读取，
+    // 附件清理需要其 metadata/content），附件清理在事务外执行，
+    // 失败不影响主删除流程（与 deleteMessage 语义一致）。
+    final doomed = <({String id, String content, String? metadataJson})>[];
     await db.transaction((txn) async {
+      final rows = await txn.query(
+        'messages',
+        columns: ['id', 'content', 'metadata'],
+        where: 'contact_id = ? AND created_at > ?',
+        whereArgs: [contactId, msg.createdAt!.toIso8601String()],
+      );
+      for (final row in rows) {
+        final id = row['id'];
+        if (id is! String) continue;
+        doomed.add((
+          id: id,
+          content: row['content'] as String? ?? '',
+          metadataJson: row['metadata'] as String?,
+        ));
+      }
       await _recordDeletionTombstones(
         txn,
         'messages',
@@ -315,7 +343,47 @@ class ChatService {
         whereArgs: [contactId, msg.createdAt!.toIso8601String()],
       );
     });
+    for (final entry in doomed) {
+      await _cleanupAttachmentRefs(
+        messageId: entry.id,
+        content: entry.content,
+        metadataJson: entry.metadataJson,
+      );
+    }
     await _contactDao.recomputeLastMessage(contactId);
+  }
+
+  /// 按消息快照清理附件（消息行可能已删除，因此接收快照数据）。
+  Future<void> _cleanupAttachmentRefs({
+    required String messageId,
+    required String content,
+    required String? metadataJson,
+  }) async {
+    try {
+      final ids = <String>{};
+      if (metadataJson != null) {
+        final metadata = jsonDecode(metadataJson) as Map<String, dynamic>?;
+        final attachment = metadata?['attachment'];
+        if (attachment is Map && attachment['id'] is String) {
+          ids.add(attachment['id'] as String);
+        }
+      }
+      if (ids.isEmpty && content.startsWith('soultalk/attachments/')) {
+        final dao = AttachmentIndexDao(_dbService);
+        final record = await dao.getByRelativePath(content);
+        if (record != null) ids.add(record.id);
+      }
+      if (ids.isNotEmpty) {
+        await _cleanupAttachmentsByIds(ids);
+      }
+    } catch (error, stackTrace) {
+      developer.log(
+        'Failed to cleanup attachment for message $messageId',
+        name: 'ChatService',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   /// 最终 Prompt 预览：返回与真实发送一致的 system prompt 与请求消息列表

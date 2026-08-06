@@ -40,7 +40,10 @@ android {
     signingConfigs {
         create("release") {
             if (keyPropertiesFile.exists()) {
-                storeFile = file(keyProperties["storeFile"] as String)
+                // key.properties 位于 android/ 根目录（CI 写入位置），
+                // storeFile 相对 android/ 解析；不要用 file(...)（按 android/app 模块目录解析，
+                // 会找不到 CI 写入的 android/upload-keystore.jks）
+                storeFile = rootProject.file(keyProperties["storeFile"] as String)
                 storePassword = keyProperties["storePassword"] as String
                 keyAlias = keyProperties["keyAlias"] as String
                 keyPassword = keyProperties["keyPassword"] as String

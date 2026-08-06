@@ -49,15 +49,26 @@ void main() {
     await db.close();
   });
 
-  test('configs sent to PC never contain api_key', () async {
-    final configs = await sender.getConfigsForSync();
+  test(
+    'configs sent to PC never contain api_key and use camelCase DTO',
+    () async {
+      final configs = await sender.getConfigsForSync();
 
-    expect(configs, hasLength(1));
-    expect(configs.single.containsKey('api_key'), isFalse);
-    expect(configs.single['model'], 'gpt-4o-mini');
-    expect(configs.single['thinking_enabled'], 1);
-    expect(jsonEncodeSafe(configs), isNot(contains('sk-secret-456')));
-  });
+      expect(configs, hasLength(1));
+      // 协议：明确 DTO，绝不包含凭据字段（camelCase 或 snake_case 都没有）
+      expect(configs.single.containsKey('api_key'), isFalse);
+      expect(configs.single.containsKey('apiKey'), isFalse);
+      expect(jsonEncodeSafe(configs), isNot(contains('sk-secret-456')));
+      // camelCase 字段对齐 PC 端 ApiConfig.tryFromJson
+      expect(configs.single['id'], 'cfg-1');
+      expect(configs.single['baseUrl'], 'https://api.openai.com/v1');
+      expect(configs.single['model'], 'gpt-4o-mini');
+      expect(configs.single['maxTokens'], 4096);
+      expect(configs.single['streamEnabled'], 1);
+      expect(configs.single['thinkingEnabled'], 1);
+      expect(configs.single['reasoningEffort'], 'high');
+    },
+  );
 
   test('empty table yields empty config list', () async {
     await db.delete('api_configs');

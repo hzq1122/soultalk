@@ -601,12 +601,14 @@ class WebSocketServer {
     final rawLimit = payload['limit'] as int? ?? 500;
     final limit = rawLimit.clamp(1, 500);
     final after = payload['after'] as String?;
+    final afterUpdatedAt = payload['afterUpdatedAt'] as String?;
     try {
       final data = await _syncExporter.exportRows(
         table: table,
         ids: ids?.take(500).toList(),
         limit: limit,
         after: after,
+        afterUpdatedAt: afterUpdatedAt,
       );
       _connectionManager.sendMessage(deviceId, {
         'type': 'pull.chunk',
