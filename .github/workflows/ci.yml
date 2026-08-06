@@ -65,7 +65,22 @@ jobs:
         run: cd pc && flutter pub get
 
       - name: Run tests (root)
-        run: flutter test --coverage
+        run: |
+          flutter test --coverage 2>&1 | tee test-output.log
+          exit ${PIPESTATUS[0]}
+
+      - name: Report failing tests as annotations
+        if: failure()
+        run: |
+          sed -n '/Failing tests:/,$p' test-output.log | grep -E '\.dart:' | sed 's/^/::error file=test-output.log,line=1::/' || true
+
+      - name: Upload test output
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: test-output
+          path: test-output.log
+          if-no-files-found: ignore
 
       - name: Run tests (pc)
         run: cd pc && flutter test
