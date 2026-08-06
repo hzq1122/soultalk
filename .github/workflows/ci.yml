@@ -72,7 +72,20 @@ jobs:
       - name: Report failing tests as annotations
         if: failure()
         run: |
-          sed -n '/Failing tests:/,$p' test-output.log | grep -E '\.dart:' | sed 's/^/::error file=test-output.log,line=1::/' || true
+          # 通道 0：诊断文件本身
+          echo "::error file=test-output.log,line=1::log_size=$(wc -c < test-output.log) bytes"
+          grep -c 'Failing tests' test-output.log | sed 's/^/::error file=test-output.log,line=1::failing_section_count=/' || true
+          # 通道 1：失败测试名逐条输出为 ::error:: annotation（API 可读）
+          awk '/Failing tests:/{f=1;next} f && /\.dart:/{print "::error file=test-output.log,line=1::" $0}' test-output.log || true
+          # 通道 2：失败详情尾部（含 Expected/Actual）转义后输出为 annotation
+          tail -n 80 test-output.log | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g' | while IFS= read -r line; do echo "::error file=test-output.log,line=1::$line"; done
+          # 通道 3：写入 job summary（Actions 页面可见）
+          {
+            echo "## Flutter Test 失败详情"
+            echo '```'
+            tail -n 80 test-output.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY" || true
 
       - name: Upload test output
         if: failure()
