@@ -114,24 +114,26 @@ void main() {
     // Windows 无开发者模式/管理员权限时无法创建 symlink，跳过
     final outside = Directory(p.join(root.path, 'outside'));
     await outside.create();
-    final link = Link(p.join(paths.attachments.path, 'linked'));
-    try {
-      await link.create(outside.path);
-    } on FileSystemException {
-      markTestSkipped('no symlink permission on this host');
-      return;
-    }
+    final linkedDir = Directory(p.join(paths.attachments.path, 'linked'));
 
-    // 构造指向 linked/ 下文件的备份
-    final subDir = p.join(paths.attachments.path, 'linked', 'sub');
+    // 先以真实目录形态导出备份（文件进入 zip/manifest），
+    // 恢复前再把 linked 替换为指向 outside 的 symlink：
+    // 恢复时目标路径祖先为链接 → 必须拒绝写入。
+    final subDir = p.join(linkedDir.path, 'sub');
     await Directory(subDir).create(recursive: true);
     await File(p.join(subDir, 'a.txt')).writeAsString('data');
     final zipPath = await service.exportToZip(
       sections: {BackupSection.attachments},
       targetDir: root.path,
     );
-    // 删除链接，恢复时目标路径祖先成为 link
-    await link.delete();
+    await linkedDir.delete(recursive: true);
+    final link = Link(linkedDir.path);
+    try {
+      await link.create(outside.path);
+    } on FileSystemException {
+      markTestSkipped('no symlink permission on this host');
+      return;
+    }
 
     final report = await service.importFromZipWithReport(
       zipPath: zipPath,
@@ -230,23 +232,35 @@ void main() {
 
     expect(report.success, isTrue);
     // 恶意新配置（http 非本机）未插入
-    final evilRows = await db
-        .query('api_configs', where: 'id = ?', whereArgs: ['cfg-evil']);
+    final evilRows = await db.query(
+      'api_configs',
+      where: 'id = ?',
+      whereArgs: ['cfg-evil'],
+    );
     expect(evilRows, isEmpty);
     // 本地配置未被覆写：即便备份把 base_url 指向攻击者 https 端点，
     // base_url 与 api_key 均保持本地原样（preserveColumns）
-    final localRows = await db
-        .query('api_configs', where: 'id = ?', whereArgs: ['cfg-local']);
+    final localRows = await db.query(
+      'api_configs',
+      where: 'id = ?',
+      whereArgs: ['cfg-local'],
+    );
     expect(localRows.single['base_url'], 'https://api.openai.com');
     expect(localRows.single['api_key'], 'sk-local-secret');
     // 空 base_url 的旧备份行可正常恢复（无请求目标，不外泄）
-    final emptyRows = await db
-        .query('api_configs', where: 'id = ?', whereArgs: ['cfg-empty']);
+    final emptyRows = await db.query(
+      'api_configs',
+      where: 'id = ?',
+      whereArgs: ['cfg-empty'],
+    );
     expect(emptyRows, hasLength(1));
     expect(emptyRows.single['base_url'], '');
     // 合法 https 配置正常恢复
-    final goodRows = await db
-        .query('api_configs', where: 'id = ?', whereArgs: ['cfg-good']);
+    final goodRows = await db.query(
+      'api_configs',
+      where: 'id = ?',
+      whereArgs: ['cfg-good'],
+    );
     expect(goodRows, hasLength(1));
     expect(goodRows.single['base_url'], 'https://api.openai.com');
   });
